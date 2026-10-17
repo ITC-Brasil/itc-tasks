@@ -211,9 +211,17 @@ it("checklist e vínculos (bloqueia ↔ bloqueada por)", async () => {
   ]);
 });
 
-it("tarefa criada pelo sistema registra o ator system", async () => {
-  const t = await createTask(system, { title: "Pelo sistema", projectId });
+it("tarefa criada pelo sistema: ator system, criador = responsável padrão", async () => {
+  const userId = (actor as { userId: string }).userId;
+  const p = await createProject(system, {
+    code: letters(),
+    name: "Com responsável",
+    kind: "client",
+    defaultAssigneeId: userId,
+  });
+  const t = await createTask(system, { title: "Pelo sistema", projectId: p.id });
   expect(t.createdVia).toBe("system");
+  expect(t.creatorId).toBe(userId);
   const [e] = await events(t.id);
   expect(e.kind).toBe("system");
 });
