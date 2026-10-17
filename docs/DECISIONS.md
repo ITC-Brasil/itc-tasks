@@ -1078,3 +1078,36 @@ regras. Decisão do Matheus na M-022.
 **Consequences**
 A criação rápida continua preenchendo o responsável para mostrar o valor antes de criar; o service
 garante a regra para os outros caminhos.
+
+---
+
+## ADR-044 — Cadastros reais: sigla até 12 caracteres, tipo "Projeto" e UM sempre com Projeto/Cliente
+
+**Status:** Accepted
+**Date:** 2026-10-17
+**Module:** 04 — pós-revisão (M-024)
+
+**Context**
+Os cadastros reais da ITC têm siglas como `BSBIA`, `CODHAB` e `MOBILITY` (mais de 4 letras) e três
+naturezas: projeto, cliente e interno. O ADR-040 limitava a sigla a 2–4 letras e o enum
+`project_kind` tinha só `client` e `internal`. Decisões do Matheus na M-024.
+
+**Decision**
+- Sigla: letras maiúsculas e dígitos, 2 a 12 caracteres (`/^[A-Z0-9]{2,12}$/`), única. O limite é
+  só técnico, para caber no Chip. Substitui a regra de sigla do ADR-040.
+- `project_kind` ganha `project` (migração `ALTER TYPE … ADD VALUE`, aditiva). Rótulos: `project`
+  "Projeto", `client` "Cliente", `internal` "Interno". Tipo padrão na tela: Projeto.
+- Toda UM nova ou editada exige Projeto/Cliente (Zod e service). A coluna `mobile_units.project_id`
+  continua anulável no banco (migrações só aditivas); UM antiga sem cliente segue a regra do
+  ADR-043 até ser editada.
+- Seed (`src/db/seed.mjs`): os 9 Projetos/Clientes e 12 UMs da M-024, inseridos com
+  `ON CONFLICT (code) DO NOTHING` — nunca sobrescreve o que o admin mudou. `ACL` continua.
+
+**Alternatives considered**
+- Sigla sem limite — quebra o Chip e a tabela.
+- Novo enum ou coluna para o tipo — exigiria reescrita de dado; `ADD VALUE` é aditivo.
+- `project_id NOT NULL` em `mobile_units` — falharia com UMs já criadas sem cliente.
+
+**Consequences**
+O PRD C1/C2 e o SCHEMA passam a citar a nova sigla e os três tipos. `ADD VALUE` não pode ser usado
+na mesma transação em que é criado: a migração só adiciona o valor.
