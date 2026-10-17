@@ -118,6 +118,19 @@ const assertUnit = (tx: Tx, id: string) =>
     "Unidade Móvel",
   );
 
+/** ADR-043: UM com cliente só vale para tarefas desse Projeto/Cliente. */
+async function assertUnitFits(tx: Tx, unitId: string, projectId: string) {
+  const [unit] = await tx
+    .select({ code: mobileUnits.code, projectId: mobileUnits.projectId })
+    .from(mobileUnits)
+    .where(eq(mobileUnits.id, unitId));
+  if (unit?.projectId && unit.projectId !== projectId)
+    throw new TaskError(
+      "VALIDATION",
+      `A Unidade Móvel ${unit.code} pertence a outro Projeto/Cliente`,
+    );
+}
+
 const assertStatus = (tx: Tx, id: string) =>
   activeRow(tx.select().from(workflowStatuses).where(eq(workflowStatuses.id, id)), "Status");
 
@@ -187,7 +200,10 @@ export async function createTask(actor: Actor, input: CreateTaskInput) {
   const data = createTaskSchema.parse(input);
   return db.transaction(async (tx) => {
     const project = await assertProject(tx, data.projectId);
-    if (data.mobileUnitId) await assertUnit(tx, data.mobileUnitId);
+    if (data.mobileUnitId) {
+      await assertUnit(tx, data.mobileUnitId);
+      await assertUnitFits(tx, data.mobileUnitId, data.projectId);
+    }
     // ADR-043: omitido → responsável padrão do projeto (se ativo); null explícito → ninguém
     let assigneeId = data.assigneeId;
     if (assigneeId === undefined)
@@ -249,6 +265,11 @@ async function applyUpdate(
   }
   if (data.mobileUnitId && data.mobileUnitId !== current.mobileUnitId)
     await assertUnit(tx, data.mobileUnitId);
+  // confere a combinação resultante: trocar só o projeto também pode quebrar a regra
+  const unitId = "mobileUnitId" in data ? data.mobileUnitId : current.mobileUnitId;
+  const projectId = data.projectId ?? current.projectId;
+  if (unitId && (unitId !== current.mobileUnitId || projectId !== current.projectId))
+    await assertUnitFits(tx, unitId, projectId);
   if (data.assigneeId && data.assigneeId !== current.assigneeId)
     await assertAssignee(tx, data.assigneeId);
 

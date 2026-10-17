@@ -257,3 +257,22 @@ it("responsável padrão: omitido recebe o do projeto; null explícito fica sem 
   const none = await createTask(actor, { title: "Ninguém", projectId: p.id, assigneeId: null });
   expect(none.assigneeId).toBeNull();
 });
+
+it("UM de outro cliente é recusada na criação e ao trocar o projeto (ADR-043)", async () => {
+  const other = await createProject(system, { code: letters(), name: "Outro", kind: "client" });
+  const own = await createMobileUnit(system, { code: `UM-O-${run}`, projectId: other.id });
+  const free = await createMobileUnit(system, { code: `UM-L-${run}` });
+  await expect(createTask(actor, { title: "x", projectId, mobileUnitId: own.id })).rejects.toThrow(
+    `A Unidade Móvel UM-O-${run} pertence a outro Projeto/Cliente`,
+  );
+  const t = await createTask(actor, { title: "UM livre", projectId, mobileUnitId: free.id });
+  expect(t.mobileUnitId).toBe(free.id);
+  const t2 = await createTask(actor, {
+    title: "UM do outro",
+    projectId: other.id,
+    mobileUnitId: own.id,
+  });
+  await expect(updateTask(actor, t2.id, { projectId })).rejects.toThrow("pertence a outro");
+  const moved = await updateTask(actor, t2.id, { projectId, mobileUnitId: null });
+  expect(moved.projectId).toBe(projectId);
+});
