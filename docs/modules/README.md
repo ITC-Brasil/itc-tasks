@@ -8,3 +8,6 @@ Um arquivo por módulo concluído (`NN-nome.md`), no formato da skill project-do
 | 01 | Autenticação e membros | [01-autenticacao.md](01-autenticacao.md) |
 | 02 | Layout, navegação e tema | [02-layout.md](02-layout.md) |
 | 03 | Cadastros | [03-cadastros.md](03-cadastros.md) |
+| 04 | Tarefas: núcleo | [04-tarefas.md](04-tarefas.md) |
+| 05 | Visões e filtros | [05-visoes.md](05-visoes.md) |
+| 06 | Comentários, histórico, anexos e busca | [06-comentarios-busca.md](06-comentarios-busca.md) |

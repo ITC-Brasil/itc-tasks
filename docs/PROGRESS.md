@@ -4,9 +4,9 @@
 
 > Sobrescrito a cada passagem de sessão. Não é registro permanente.
 
-- **Fase:** Módulo 05 — Visões e filtros pronto para revisão em 17/10/2026, na `develop`. Módulos 00 a 04 (com o complemento M-024/M-026) na `main` (PRs #1 a #5).
-- **Próximo passo:** revisão do Cowork; depois, Módulo 06 — Comentários, histórico, anexos e busca.
-- **Prontos:** Next 16.4.2 standalone, tokens do Design System, 10 componentes base em Base UI, Drizzle com a migração base, env tipado, Vitest/Playwright/ESLint/Prettier, CI (Quality Check + Gitleaks) verde no GitHub, Dockerfile e `docker-compose.yml` de produção, `/api/health`; Better Auth com Argon2id, tela Entrar, `requireActor()`, seed do admin (`npm run db:seed`), Configurações › Membros; shell com sidebar/trilho/barra inferior, tema claro/escuro salvo no usuário, atalhos `[` e `?`, estados vazio/carregando/erro; cadastros (Projetos/Clientes, UMs, Workflow, Etiquetas) com arquivamento; tarefas (schema, `tasksService` com `task_events`, criação rápida `C`, detalhe `/tarefas/<n>`); visões Kanban, Lista, Calendário e Minhas tarefas com filtros na URL e filtros salvos.
+- **Fase:** Módulo 06 — Comentários, histórico, anexos e busca pronto para revisão em 17/10/2026, na `develop`. Módulos 00 a 05 na `main` (PRs #1 a #6).
+- **Próximo passo:** revisão do Cowork; depois, Módulo 07 — Servidor MCP.
+- **Prontos:** Next 16.4.2 standalone, tokens do Design System, 10 componentes base em Base UI, Drizzle com a migração base, env tipado, Vitest/Playwright/ESLint/Prettier, CI (Quality Check + Gitleaks) verde no GitHub, Dockerfile e `docker-compose.yml` de produção, `/api/health`; Better Auth com Argon2id, tela Entrar, `requireActor()`, seed do admin (`npm run db:seed`), Configurações › Membros; shell com sidebar/trilho/barra inferior, tema claro/escuro salvo no usuário, atalhos `[` e `?`, estados vazio/carregando/erro; cadastros (Projetos/Clientes, UMs, Workflow, Etiquetas) com arquivamento; tarefas (schema, `tasksService` com `task_events`, criação rápida `C`, detalhe `/tarefas/<n>`); visões Kanban, Lista, Calendário e Minhas tarefas com filtros na URL e filtros salvos; comentários com @menção, histórico, anexos, busca ⌘K e SSE.
 - **Proteção da `main`:** por disciplina e hook local (ADR-034); depois de clonar, `git config core.hooksPath .githooks`.
 - **Backup:** não definido por decisão de 17/10/2026 (`docs/INFRA.md` §9); migrações só aditivas até lá.
 - **Pendências externas:** criar a caixa `tasks@itcbr.xyz` no Titan e
@@ -16,6 +16,7 @@
 
 | Data | Módulo | Resumo |
 |---|---|---|
+| 2026-10-17 | 06 — Comentários, histórico, anexos e busca | ADR-048. Comentários Tiptap com `@tiptap/extension-mention` 3.32.0 e aba Menções; histórico formatado em `listActivity`; anexos em `UPLOADS_DIR/<uuid>` por `/api/attachments` (25 MB, tipo pela extensão); busca ⌘K com `cmdk` 1.1.1 sobre o tsvector; SSE `/api/events` com `pg_notify` no `record()`, um LISTEN por processo, refresh adiado durante interação. Sem migração. Vitest 61; E2E 20 com `--workers=1` (arrasto do `views.spec` intermitente em paralelo, também sem SSE). Detalhes: `docs/modules/06-comentarios-busca.md`. |
 | 2026-10-17 | 05 — Revisão | Ajustes de M-034: ADR-047 (limite de 1 000 só nas concluídas, abertas nunca cortadas; Kanban com concluídas dos últimos 14 dias), aviso de limite nas visões, índice `saved_filters_user_idx` (`0009`). Vitest 48, E2E 19. |
 | 2026-10-17 | 05 — Visões e filtros | ADR-046 (filtros na URL, `listTasks` único, `saved_filters` em `0008_saved_filters`). Kanban com `@dnd-kit/react` + `@dnd-kit/helpers` 0.5.1 e alça por card; Lista com TanStack Table 9.3.1 e ações em massa; Calendário mensal; Minhas tarefas por prazo. Axe intermitente da M-029: `label-content-name-mismatch` no lockup + limite de 30 s. Vitest 46, E2E 19. Detalhes: `docs/modules/05-visoes.md`. |
 | 2026-10-17 | 04 — M-029 | `applyUpdate` só recalcula o projeto/UM principal quando `projectIds`/`mobileUnitIds` vêm no patch (antes, `linkedIds()` sem ordem podia trocar o principal em silêncio). Vitest 39. |

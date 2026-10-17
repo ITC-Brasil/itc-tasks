@@ -145,7 +145,7 @@ Handler: `src/app/api/auth/[...all]/route.ts`.
 ### GET /api/events
 Auth: sessão ativa.
 Response 200: `text/event-stream`. Eventos:
-- `task.changed` — `{ id, number, fields: string[] }`
+- `task.changed` — `{ id, number, fields: string[], by: string | null }` (`fields` = tipos de `task_events` da escrita; `by` = pessoa que escreveu). Implementado no Módulo 06 (`src/app/api/events/route.ts`); `notification.created` entra no Módulo 08.
 - `notification.created` — `{ id, event, unreadCount }`
 - `ping` — a cada 25 s (heartbeat por causa do túnel, ADR-020)
 
@@ -175,6 +175,8 @@ Response 201: `{ id, fileName, sizeBytes }` · 413: acima de 25 MB · 415: tipo 
 ### GET /api/attachments/[id]
 Auth: sessão ativa. Response 200: o arquivo com `Content-Disposition: attachment` · 404.
 
+Implementado no Módulo 06 (`src/app/api/attachments/`): 401 sem sessão; 400 tarefa inválida ou arquivo ausente; tipo pela extensão (lista em `src/server/services/attachments.ts`); download com `X-Content-Type-Options: nosniff`.
+
 ---
 
 ## 6. Saúde
@@ -193,7 +195,8 @@ Não são rotas públicas; listadas para mapear UI → service.
 |---|---|
 | `createTaskAction`, `updateTaskAction`, `moveTaskAction`, `completeTaskAction`, `bulkUpdateTasksAction` | `tasksService` |
 | `getTaskFormOptionsAction`, `addChecklistItemAction`, `updateChecklistItemAction`, `removeChecklistItemAction`, `setLinkAction` | `tasksService` (Módulo 04; `moveTaskAction`, `completeTaskAction` e `bulkUpdateTasksAction` entram com as telas do Módulo 05) |
-| `addCommentAction` | `commentsService` |
+| `addCommentAction`, `editCommentAction` (`src/server/actions/tasks.ts`) | `src/server/services/comments.ts` |
+| `searchTasksAction` | `searchTasks` em `src/server/services/tasks.ts` |
 | `createProjectAction`, `archiveProjectAction`, `createMobileUnitAction`, `archiveMobileUnitAction` | `catalogService` |
 | `startCycleAction`, `closeCycleAction`, `createMilestoneAction` | `planningService` |
 | `saveAutomationRuleAction`, `toggleAutomationRuleAction` | `automationService` |

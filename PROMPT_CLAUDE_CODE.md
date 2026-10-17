@@ -178,11 +178,11 @@ Sequencial, um módulo por vez. Cada módulo começa numa sessão nova do Claude
 - [x] E2E: mover card, filtrar, seleção em massa — `test(e2e): cover board and list`
 
 ### Módulo 06 — Comentários, histórico, anexos e busca
-- [ ] Comentários com Tiptap e @menção — `feat(tasks): add comments with mentions`
-- [ ] Histórico na tarefa (pessoa, agente, automação) — `feat(tasks): add activity history`
-- [ ] Anexos até 25 MB em volume local — `feat(tasks): add attachments`
-- [ ] Busca ⌘K (título, `TI-`, `#GLPI`, `UM-`) com tsvector — `feat(search): add command palette search`
-- [ ] SSE `/api/events` com heartbeat de 25 s — `feat(realtime): add server-sent events`
+- [x] Comentários com Tiptap e @menção — `feat(tasks): add comments with mentions`
+- [x] Histórico na tarefa (pessoa, agente, automação) — `feat(tasks): add activity history`
+- [x] Anexos até 25 MB em volume local — `feat(tasks): add attachments`
+- [x] Busca ⌘K (título, `TI-`, `#GLPI`, `UM-`) com tsvector — `feat(search): add command palette search`
+- [x] SSE `/api/events` com heartbeat de 25 s — `feat(realtime): add server-sent events`
 
 ### Módulo 07 — Servidor MCP
 - [ ] `/mcp` com SDK 1.32.1, autenticação por API key, rate limit 60/min — `feat(mcp): add mcp server`

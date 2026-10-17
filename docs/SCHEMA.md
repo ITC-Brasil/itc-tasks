@@ -211,7 +211,7 @@ export const taskEvents = pgTable('task_events', {                   // só-inse
   actorUserId: text('actor_user_id').references(() => user.id),
   apiKeyId: text('api_key_id').references(() => apikey.id),
   automationRuleId: uuid('automation_rule_id'),
-  type: text('type').notNull(),               // 'created' | 'status_changed' | 'assigned' | 'field_changed' | 'commented' | ...
+  type: text('type').notNull(),               // tipos no ADR-042, + 'projects_changed' | 'mobile_units_changed' (ADR-045) e 'commented' | 'comment_edited' | 'attachment_added' (ADR-048)
   payload: jsonb('payload').notNull().default(sql`'{}'::jsonb`),   // { field, from, to }
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index('task_events_task_created_idx').on(t.taskId, t.createdAt)]);

@@ -1267,6 +1267,7 @@ TanStack Query (ADR-046), então "invalidar queries" precisa de outro mecanismo.
 - TanStack Query só para invalidar — duplicaria a leitura que os Server Components já fazem.
 
 **Consequences**
-`router.refresh()` recarrega a tela inteira a cada mudança de qualquer tarefa; com 4 pessoas é
+`router.refresh()` recarrega a tela inteira a cada mudança feita por outra pessoa ou agente (a
+própria escrita é ignorada, e o refresh espera a pessoa terminar de arrastar/digitar); com 4 pessoas é
 barato. Se pesar, filtrar pelo `id` da tarefa aberta. O backup precisa do volume `uploads`
 (ADR-025).
