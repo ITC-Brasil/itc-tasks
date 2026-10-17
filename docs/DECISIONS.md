@@ -805,3 +805,32 @@ do axe volta a valer no E2E.
 **Consequences**
 Botão primário um tom mais escuro que o ciano da marca no claro. O Design System no Claude Design é
 atualizado pelo Cowork. Componentes novos com `on-accent` usam `bg-accent-solid`, nunca `bg-accent`.
+
+---
+
+## ADR-036 — `cacheComponents` e `partialPrefetching` ligados no Next 16
+
+**Status:** Accepted
+**Date:** 2026-10-17
+**Module:** 00 — Fundação
+
+**Context**
+O `create-next-app@16.4.2` gera o `next.config.ts` com `cacheComponents: true` e
+`partialPrefetching: true`. Nenhum documento previa as duas opções, e elas mudam como páginas e rotas
+buscam dados: com `cacheComponents`, o que não está marcado com `"use cache"` é dinâmico e precisa
+estar sob `<Suspense>` ou sinalizar a requisição (`await connection()`, `cookies()`, `headers()`).
+
+**Decision**
+Manter as duas ligadas, como o scaffold do Next 16.4 entrega. Dados por usuário (tarefas, sessão,
+notificações) ficam dinâmicos; cache explícito com `"use cache"` só onde houver dado compartilhado
+(cadastros, workflow). Rotas sem leitura de requisição chamam `await connection()` antes de tocar o
+banco, como em `src/app/api/health/route.ts`.
+
+**Alternatives considered**
+- Desligar as duas — volta ao modelo do Next 15, mas contra o padrão do framework na versão adotada
+  e sem o prefetch parcial das telas.
+
+**Consequences**
+Validado no Módulo 00: `next build` passa, `/` sai estático e `/api/health` dinâmico (200/503 com o
+banco no ar e fora). Cada módulo novo precisa lembrar que leitura de banco fora de `<Suspense>` sem
+sinal de requisição quebra o build ou é pré-renderizada.
