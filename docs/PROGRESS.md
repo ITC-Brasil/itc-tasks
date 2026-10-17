@@ -4,8 +4,9 @@
 
 > Sobrescrito a cada passagem de sessão. Não é registro permanente.
 
-- **Fase:** Módulo 06 — Comentários, histórico, anexos e busca pronto para revisão em 17/10/2026, na `develop`. Módulos 00 a 05 na `main` (PRs #1 a #6).
-- **Próximo passo:** revisão do Cowork; depois, Módulo 07 — Servidor MCP.
+- **Fase:** Módulo 06 — Comentários, histórico, anexos e busca aprovado em 17/10/2026 (M-041); PR `develop → main` aberto. Módulos 00 a 05 na `main` (PRs #1 a #6).
+- **Próximo passo:** merge do PR do Módulo 06 pelo Matheus; Módulo 07 — Servidor MCP só com o "pode iniciar" dele.
+- **Pendência do Módulo 11 (M-041):** investigar o detalhe em branco intermitente de `tasks.spec.ts`/`activity.spec.ts` com os workers em paralelo (hipótese: rebuild do `next dev` no meio da navegação), quando o E2E rodar contra o build de produção. Detalhes: `docs/modules/06-comentarios-busca.md`, Pontos de atenção.
 - **Prontos:** Next 16.4.2 standalone, tokens do Design System, 10 componentes base em Base UI, Drizzle com a migração base, env tipado, Vitest/Playwright/ESLint/Prettier, CI (Quality Check + Gitleaks) verde no GitHub, Dockerfile e `docker-compose.yml` de produção, `/api/health`; Better Auth com Argon2id, tela Entrar, `requireActor()`, seed do admin (`npm run db:seed`), Configurações › Membros; shell com sidebar/trilho/barra inferior, tema claro/escuro salvo no usuário, atalhos `[` e `?`, estados vazio/carregando/erro; cadastros (Projetos/Clientes, UMs, Workflow, Etiquetas) com arquivamento; tarefas (schema, `tasksService` com `task_events`, criação rápida `C`, detalhe `/tarefas/<n>`); visões Kanban, Lista, Calendário e Minhas tarefas com filtros na URL e filtros salvos; comentários com @menção, histórico, anexos, busca ⌘K e SSE.
 - **Proteção da `main`:** por disciplina e hook local (ADR-034); depois de clonar, `git config core.hooksPath .githooks`.
 - **Backup:** não definido por decisão de 17/10/2026 (`docs/INFRA.md` §9); migrações só aditivas até lá.
