@@ -55,6 +55,25 @@ try {
     `INSERT INTO projects (code, name, kind) VALUES ('ACL', 'A classificar', 'internal')
      ON CONFLICT (code) DO NOTHING`,
   );
+  // cadastros reais da ITC (ADR-044); só insere o que falta, nunca sobrescreve o admin
+  await client.query(
+    `INSERT INTO projects (code, name, kind)
+     VALUES ('BSBIA', 'BSBIA', 'project'), ('SEDET', 'SEDET', 'project'),
+       ('CODHAB', 'CODHAB', 'project'), ('QDFM', 'QDFM', 'project'), ('QMPR', 'QMPR', 'project'),
+       ('MOBILITY', 'Mobility', 'client'), ('INESQ', 'INESQ', 'client'),
+       ('IGEPEX', 'IGEPEX', 'client'), ('ITC', 'ITC Brasil', 'internal')
+     ON CONFLICT (code) DO NOTHING`,
+  );
+  await client.query(
+    `INSERT INTO mobile_units (code, project_id)
+     SELECT v.code, p.id
+     FROM (VALUES ('BSBIA01', 'BSBIA'), ('BSBIA02', 'BSBIA'), ('BSBIA03', 'BSBIA'),
+       ('BSBIA04', 'BSBIA'), ('SPV01', 'SEDET'), ('SPV02', 'SEDET'), ('CODHAB01', 'CODHAB'),
+       ('QDFM01', 'QDFM'), ('QDFM02', 'QDFM'), ('QDFM03', 'QDFM'), ('QDFM04', 'QDFM'),
+       ('QMPR01', 'QMPR')) v(code, project)
+     JOIN projects p ON p.code = v.project
+     ON CONFLICT (code) DO NOTHING`,
+  );
   await client.query("COMMIT");
   console.log(
     rowCount ? `Admin ${SEED_ADMIN_EMAIL} criado.` : `Admin ${SEED_ADMIN_EMAIL} já existe.`,
