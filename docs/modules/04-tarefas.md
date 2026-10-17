@@ -1,6 +1,6 @@
 # Módulo 04 — Tarefas: núcleo
 
-**Concluído em:** 2026-10-17 · **Branch:** `develop` · **Status:** pronto para revisão do Cowork
+**Concluído em:** 2026-10-17 · **Branch:** `develop` · **Status:** ajustes da M-022 aplicados; aguardando o "Módulo 04 aprovado"
 
 ADR-042 escrito antes do código (`ad75ccf`), como pediu a M-018.
 
@@ -68,6 +68,40 @@ e `ZodError` viram mensagem.
   tipo, painel de propriedades. Mudanças otimistas com `useOptimistic`; erro desfaz e mostra toast.
   Cadastro arquivado ou pessoa desativada continuam aparecendo no valor atual (`withCurrent`).
 - Atalhos `C` e `⌘ ↵` acrescentados ao diálogo `?` (`shortcuts.tsx`).
+
+## Ajustes da revisão (M-022)
+
+ADR-043 escrito antes do código. Decisões do Matheus: responsável padrão e UM × cliente viram regra
+do service; qualquer membro/agente edita qualquer tarefa (mantém o ADR-042).
+
+- `createTask`: `assigneeId` omitido recebe `projects.default_assignee_id` (se a pessoa estiver
+  ativa); `null` explícito cria sem responsável.
+- `assertUnitFits`: UM com cliente só em tarefa desse Projeto/Cliente (`VALIDATION`, "A Unidade
+  Móvel UM-07 pertence a outro Projeto/Cliente"); no `update` confere a combinação resultante.
+- `setLinkAction`: `taskIdSchema.parse` dentro do `run()`; id inválido vira `{ ok: false }`.
+- `creatorFor`: ignora responsável padrão e admins desativados.
+- `applyUpdate`: descrição só grava se o documento mudou (`stable()` ordena as chaves, porque o
+  `jsonb` não preserva a ordem enviada).
+- `moveTask`: reposicionar atualiza `updatedAt`.
+
+| Cenário | Como | Resultado |
+|---|---|---|
+| Responsável omitido → padrão do projeto; `null` → sem | `tests/integration/tasks.test.ts` | ✅ |
+| UM de outro cliente recusada na criação e ao trocar o projeto; UM sem cliente aceita | idem | ✅ |
+| Descrição igual (chaves em outra ordem) não grava nem gera evento | idem | ✅ |
+| Reordenar no mesmo status muda `updatedAt` | idem | ✅ |
+| Vitest completo | `npx vitest run` | ✅ 37 passaram |
+| E2E completo | `npx playwright test` | ✅ 18 passaram, 10 pulados |
+
+```
+bcc5066 docs: add adr-043 default assignee and unit client rule
+c10dfde feat(tasks): apply project default assignee on create
+4facef0 feat(tasks): reject mobile unit from another client
+aa439bd fix(tasks): handle invalid task id in link action
+a53d34e fix(tasks): skip banned users when choosing system creator
+9e5cf2a fix(tasks): skip unchanged description on update
+2afd8e4 fix(tasks): touch updatedAt when reordering
+```
 
 ## Verificação
 

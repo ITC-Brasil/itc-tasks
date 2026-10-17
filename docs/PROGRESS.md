@@ -4,7 +4,7 @@
 
 > Sobrescrito a cada passagem de sessão. Não é registro permanente.
 
-- **Fase:** Módulo 04 — Tarefas: núcleo, pronto para revisão em 17/10/2026, na `develop`. Módulos 00 a 02 na `main` (PRs #1 e #2); Módulo 03 no PR #3.
+- **Fase:** Módulo 04 — Tarefas: núcleo, ajustes da M-022 aplicados em 17/10/2026, na `develop`. Módulos 00 a 02 na `main` (PRs #1 e #2); Módulo 03 no PR #3.
 - **Próximo passo:** revisão do Cowork; depois, Módulo 05 — Visões e filtros.
 - **Prontos:** Next 16.4.2 standalone, tokens do Design System, 10 componentes base em Base UI, Drizzle com a migração base, env tipado, Vitest/Playwright/ESLint/Prettier, CI (Quality Check + Gitleaks) verde no GitHub, Dockerfile e `docker-compose.yml` de produção, `/api/health`; Better Auth com Argon2id, tela Entrar, `requireActor()`, seed do admin (`npm run db:seed`), Configurações › Membros; shell com sidebar/trilho/barra inferior, tema claro/escuro salvo no usuário, atalhos `[` e `?`, estados vazio/carregando/erro; cadastros (Projetos/Clientes, UMs, Workflow, Etiquetas) com arquivamento; tarefas (schema, `tasksService` com `task_events`, criação rápida `C`, detalhe `/tarefas/<n>`).
 - **Proteção da `main`:** por disciplina e hook local (ADR-034); depois de clonar, `git config core.hooksPath .githooks`.
@@ -16,6 +16,7 @@
 
 | Data | Módulo | Resumo |
 |---|---|---|
+| 2026-10-17 | 04 — Revisão | Ajustes de M-022: ADR-043 (responsável padrão e UM × cliente no `tasksService`); `setLinkAction` sem exceção para id inválido; criador de sistema ignora desativados; descrição igual não grava; `moveTask` atualiza `updatedAt`. Decisão do Matheus: qualquer membro/agente edita qualquer tarefa. |
 | 2026-10-17 | 04 — Tarefas: núcleo | ADR-042 antes do código (planejamento antecipado, `fractional-indexing` 4.0.0, formato de `task_events`). `0005_tasks` com `position` em `COLLATE "C"`; `tasksService` (create, update, move, complete, bulk, checklist, vínculos); criação rápida e detalhe com Tiptap. Integração 33 e E2E 18 passaram. Detalhes: `docs/modules/04-tarefas.md`. |
 | 2026-10-17 | 03 — Revisão | Ajustes de M-018: paleta própria das etiquetas (ADR-041, 7 tokens `--label-*`, migração `0004_label_palette` que só renomeia o token); seed de etiquetas só com a tabela vazia; `seed.mjs` regravado com LF. Decisões do Matheus: categoria do status imutável; cadastros só para admin. Processo: ADR antes do código a partir do Módulo 04. |
 | 2026-10-17 | 03 — Cadastros | `catalog.ts` + `0003_catalog`; seed de status, etiquetas e "A classificar"; `catalogService`; telas em `/config/*` com abas. ADR-040 (normalização, categoria fixa, um status ativo por categoria), escrito no fechamento, depois do código. Detalhes: `docs/modules/03-cadastros.md`. |
