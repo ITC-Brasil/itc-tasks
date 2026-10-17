@@ -1327,3 +1327,69 @@ Cada chamada faz `verifyApiKey` (uma escrita no `apikey` para o contador); com 6
 time crescer muito, `list_tasks` deve ir para uma consulta paginada no banco. Trocar o
 `createToolError` depende de um detalhe interno do SDK: ao atualizar o SDK, o teste de `VALIDATION`
 diz se ainda vale.
+
+## ADR-050 — Notificações: worker, fila na transação, regras de destino e canais (Módulo 08)
+
+**Status:** Accepted
+**Date:** 2026-10-17
+**Module:** 08 — Notificações
+
+**Context**
+O ADR-010 fixou o pg-boss num processo `worker` e o ADR-017 os três canais. Faltava decidir como o
+evento chega à fila sem se perder, quem recebe o quê, como os canais se combinam e como o worker
+TypeScript roda em produção.
+
+**Decision**
+- **Worker:** `worker/index.ts`. Em dev, `npm run worker:dev` (`tsx watch`); na imagem, o esbuild
+  empacota tudo num `dist/worker.mjs` (`node dist/worker.mjs`), porque o `standalone` do Next só leva
+  o que o app importa. O worker é quem cria/migra o schema `pgboss` no `start()`.
+- **Fila na mesma transação:** `record()` (todo `task_event`) chama `enqueue(tx, "notification.fanout",
+  { eventIds })`, que faz o `send` do pg-boss pela própria transação do Drizzle (opção `db`). Escrita
+  desfeita não notifica; worker parado não perde nada. O processo web tem um `PgBoss` só para enviar
+  (`supervise`, `schedule` e `migrate` desligados).
+- **Destinatários** (por escrita, no máximo uma notificação por pessoa e tipo):
+  | Evento | Quem recebe | Tipo |
+  |---|---|---|
+  | `created` com responsável, `assigned` | novo responsável | `assigned` |
+  | `commented` | mencionados no comentário | `mentioned` |
+  | `commented` | responsável e criador (se não mencionados) | `commented` |
+  | `created`/`field_changed` da descrição | mencionados **novos** na descrição | `mentioned` |
+  | `status_changed` | criador | `status_changed` |
+  | qualquer escrita de agente | responsável e criador sem outro aviso nesta escrita | `agent_action` |
+  | 08:00, prazo hoje / venceu ontem (abertas) | responsável | `due_today` / `overdue` |
+- **N4 — o próprio autor não recebe**, e o agente conta como o dono do token (o agente do Matheus não
+  avisa o Matheus). Pessoa desativada não recebe.
+- **Preferências:** linha ausente em `notification_preferences` = padrão da tela (no app em todos;
+  push em atribuída, menção, prazo hoje e vencida; e-mail em prazo hoje e vencida). Não há seed das 7
+  linhas: a tela grava só o que muda, e quem entrar depois já nasce com o padrão.
+- **Uma linha em `notifications`** quando algum canal está ligado, com `in_app` e `email` copiados da
+  preferência no momento (colunas novas, migração aditiva `0010`) e `emailed_at`. A central e o sino
+  só mostram `in_app`.
+- **Push:** job `notification.push` por notificação (falha de push não repete o fanout). Só dentro do
+  expediente da pessoa (`quietHoursStart` ≤ agora < `quietHoursEnd`, fuso `APP_TIMEZONE`); fora dele,
+  não envia (fica só no app). Resposta 404/410 → apaga a assinatura. Até o Serwist (Módulo 11),
+  `public/sw.js` mínimo trata `push` e `notificationclick`.
+- **E-mail:** só o resumo diário. Job `daily.morning` às 08:00 (`APP_TIMEZONE`): primeiro os lembretes
+  de prazo (sem duplicar no mesmo dia), depois um e-mail por pessoa com `emailDigest` ligado e
+  notificações `email` sem `emailed_at`, que então são marcadas. Repetir o job não reenvia.
+- **Tempo real:** `pg_notify('notification_created', { id, userId, event, unreadCount })` na transação
+  do fanout; `/api/events` repassa `notification.created` só à aba da própria pessoa, sem o `userId`.
+- **Configuração:** `VAPID_*` e `SMTP_*`/`MAIL_FROM` continuam opcionais no `env.ts` (build e CI rodam
+  sem eles); o worker em produção recusa iniciar sem eles. Em dev, sem VAPID o push só é ignorado.
+- **Telas:** Notificações em `/notificacoes` (Não lidas, Todas, Menções; marcar uma ou todas como
+  lidas) e Configurações › Minhas preferências em `/config/preferencias` (tema, matriz evento × canal,
+  push neste dispositivo, expediente e resumo). O silêncio fora do expediente é sempre ligado (sem o
+  interruptor da tela de referência): basta ajustar o horário.
+
+**Alternatives considered**
+- Worker lendo `task_events` por cursor (outbox) — `task_events.id` é UUID e o `created_at` não
+  garante ordem de commit; transações concorrentes perderiam eventos.
+- Escutar o `NOTIFY task_changed` no worker — perde tudo o que acontecer com o worker parado.
+- E-mail imediato por evento — o PRD pede resumo diário; e-mail a cada comentário vira ruído.
+- Adiar o push fora do expediente para o início do dia seguinte — o resumo e a central já cobrem.
+- Rodar o worker com `tsx` na imagem — leva o código-fonte e um transpilador para produção.
+
+**Consequences**
+Toda escrita de tarefa insere um job do pg-boss na mesma transação (uma linha a mais). O schema
+`pgboss` só existe depois do primeiro `start()` do worker; o `/api/health` mostra `queue: down` até
+lá. Ligar mais tipos de evento é acrescentar uma linha na tabela de destinatários.
