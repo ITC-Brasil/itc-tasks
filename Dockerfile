@@ -19,6 +19,8 @@ COPY --from=builder --chown=app:app /app/public ./public
 COPY --from=builder --chown=app:app /app/node_modules/drizzle-orm ./node_modules/drizzle-orm
 COPY --from=builder --chown=app:app /app/drizzle ./drizzle
 COPY --from=builder --chown=app:app /app/scripts/migrate.mjs ./dist/migrate.mjs
+# seed do primeiro admin: docker compose exec itc-tasks node dist/seed.mjs
+COPY --from=builder --chown=app:app /app/src/db/seed.mjs ./dist/seed.mjs
 COPY --from=builder --chown=app:app --chmod=755 /app/scripts/docker-entrypoint.sh ./docker-entrypoint.sh
 USER app
 EXPOSE 3000
