@@ -8,13 +8,14 @@ import { listTasks } from "@/server/services/tasks";
 /** Dados comuns de Kanban, Lista e Calendário (ADR-046). */
 export async function loadView(
   searchParams: Promise<Record<string, string | string[] | undefined>>,
+  { recentDone = false } = {}, // ADR-047: Kanban
 ) {
   const actor = await requireActor();
   const filters = parseTaskFilters(await searchParams);
-  const [tasks, options, saved] = await Promise.all([
-    listTasks(actor, filters),
+  const [{ tasks, truncated }, options, saved] = await Promise.all([
+    listTasks(actor, filters, { recentDone }),
     getTaskFormOptionsAction(),
     listSavedFilters(actor),
   ]);
-  return { filters, tasks, options, saved, today: todayISO() };
+  return { filters, tasks, truncated, options, saved, today: todayISO() };
 }

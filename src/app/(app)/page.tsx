@@ -25,7 +25,7 @@ async function Mine({ searchParams }: PageProps<"/">) {
   const { actor } = await requireUser();
   const created = (await searchParams).aba === "criadas";
   const today = todayISO();
-  const tasks = await listTasks(
+  const { tasks } = await listTasks(
     actor,
     {},
     created

@@ -1,4 +1,7 @@
+import { eq } from "drizzle-orm";
 import { beforeAll, expect, it } from "vitest";
+import { db } from "@/db";
+import { tasks } from "@/db/schema";
 import { parseTaskFilters } from "@/lib/validation/tasks";
 import type { Actor } from "@/server/actor";
 import { createMobileUnit, createProject } from "@/server/services/catalog";
@@ -39,7 +42,7 @@ beforeAll(async () => {
 });
 
 const titles = async (...args: Parameters<typeof listTasks>) =>
-  (await listTasks(...args)).map((t) => t.title).sort();
+  (await listTasks(...args)).tasks.map((t) => t.title).sort();
 
 it("filtra por qualquer Projeto/Cliente e UM vinculados, não só o principal (ADR-045)", async () => {
   await createTask(me, { title: `só A ${run}`, projectIds: [a] });
@@ -55,7 +58,9 @@ it("filtra por qualquer Projeto/Cliente e UM vinculados, não só o principal (A
   expect(await titles(me, { mobileUnitIds: [unitB] })).toEqual([`A e B ${run}`]);
   expect(await titles(me, { projectIds: [a], priorities: ["urgent"] })).toEqual([`A e B ${run}`]);
   expect(await titles(me, { projectIds: [a], assigneeIds: [other.userId] })).toEqual([]);
-  const [row] = await listTasks(me, { projectIds: [b] });
+  const {
+    tasks: [row],
+  } = await listTasks(me, { projectIds: [b] });
   expect(row.projects).toHaveLength(2);
 });
 
@@ -100,4 +105,34 @@ it("filtro salvo é só do dono", async () => {
   );
   await deleteSavedFilter(me, s.id);
   expect(await listSavedFilters(me)).toEqual([]);
+});
+
+it("Kanban só traz concluídas dos últimos 14 dias; a Lista traz todas (ADR-047)", async () => {
+  const p = (await createProject(system, { code: code(), name: "Visões C", kind: "client" })).id;
+  const old = await createTask(me, { title: `velha ${run}`, projectIds: [p] });
+  const recent = await createTask(me, { title: `recente ${run}`, projectIds: [p] });
+  await completeTask(me, old.id);
+  await completeTask(me, recent.id);
+  await db
+    .update(tasks)
+    .set({ completedAt: new Date(Date.now() - 15 * 86_400_000) })
+    .where(eq(tasks.id, old.id));
+  expect(await titles(me, { projectIds: [p] }, { recentDone: true })).toEqual([`recente ${run}`]);
+  expect(await titles(me, { projectIds: [p] })).toEqual([`recente ${run}`, `velha ${run}`]);
+});
+
+it("o limite corta só concluídas, nunca abertas (ADR-047)", async () => {
+  const p = (await createProject(system, { code: code(), name: "Visões D", kind: "client" })).id;
+  for (const t of ["aberta 1", "aberta 2", "feita 1", "feita 2"]) {
+    const task = await createTask(me, { title: `${t} ${run}`, projectIds: [p] });
+    if (t.startsWith("feita")) await completeTask(me, task.id);
+  }
+  const r = await listTasks(me, { projectIds: [p] }, { doneLimit: 1 });
+  expect(r.truncated).toBe(true);
+  expect(r.tasks.map((t) => t.title).sort()).toEqual([
+    `aberta 1 ${run}`,
+    `aberta 2 ${run}`,
+    `feita 2 ${run}`, // a concluída mais recente
+  ]);
+  expect((await listTasks(me, { projectIds: [p] })).truncated).toBe(false);
 });
