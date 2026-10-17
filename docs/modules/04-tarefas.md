@@ -101,6 +101,9 @@ e8cce78 feat(tasks): add tasks service
 7143a33 feat(tasks): add quick create
 14c9f5f feat(tasks): add task detail
 c09ec62 test(tasks): cover quick create and task detail e2e
+ad9c994 docs: document module 04 tasks core
+285948b style(db): format planning schema
+6b29b37 test(tasks): use project default assignee as system creator
 ```
 
 `7143a33` leva também `listTaskTemplates` e os nomes de referência de `getTaskByNumber`
@@ -118,6 +121,8 @@ c09ec62 test(tasks): cover quick create and task detail e2e
 - Layout mobile do detalhe e da criação (Módulo 11); o E2E das tarefas roda só no desktop.
 
 ## Pontos de atenção
+
+- O banco do CI não tem admin: o teste do ator `system` usa um projeto com responsável padrão.
 
 - `position` precisa de `COLLATE "C"`: em `pt_BR`/`en_US` o Postgres ignora maiúsculas e a ordem
   das chaves do `fractional-indexing` quebra.
