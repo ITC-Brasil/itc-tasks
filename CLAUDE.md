@@ -39,7 +39,7 @@ Chamado GLPI (opcionais), e agentes operam o app por um servidor MCP embutido em
 ## Identidade visual
 
 - Tokens em `src/styles/globals.css` (`@theme`); claro em `:root, [data-theme="light"]`, escuro em `[data-theme="dark"]`. **Nunca hex em componente.**
-- Principais: `--bg-base #F5F0E8`, `--bg-surface #FDFBF7`, `--accent #008F95` (escuro `#30A5AB`), `--accent-text #006C72`, `--text-base #1A2020`. Funcionais (`ok`, `warn`, `err`, `info`, `sev-medium`) **só em estado**.
+- Principais: `--bg-base #F5F0E8`, `--bg-surface #FDFBF7`, `--accent #008F95` (escuro `#30A5AB`), `--accent-text #006C72`, `--accent-solid #007A80` (fundo com `on-accent`, ADR-035), `--text-base #1A2020`. Funcionais (`ok`, `warn`, `err`, `info`, `sev-medium`) **só em estado**.
 - Texto/ícone em ciano → `accent-text`. `warn` e `sev-medium` nunca como texto no claro.
 - Inter em toda a UI (`tabular-nums` em IDs, datas, números); Archivo só no lockup.
 - Tema **só claro e escuro**, sem "sistema", salvo em `user.theme` (ADR-013).

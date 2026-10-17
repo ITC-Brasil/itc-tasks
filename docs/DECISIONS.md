@@ -776,3 +776,32 @@ escrita no `CLAUDE.md`.
 O hook não impede push pela interface web, nem de uma máquina onde o `core.hooksPath` não foi
 configurado, nem com `--no-verify`. O CI continua rodando no PR, mas não bloqueia o merge.
 Altera o ADR-029 no ponto "main protegida".
+
+---
+
+## ADR-035 — Ajuste de contraste dos tokens
+
+**Status:** Accepted
+**Date:** 2026-10-17
+**Module:** 00 — Fundação
+
+**Context**
+O axe do E2E do Módulo 00 apontou dois contrastes abaixo de 4,5:1 no tema claro, que o Design System
+listava como exceção aceita: branco sobre o botão primário `#008F95` (3,92:1) e `text-muted`
+`#697272` sobre `bg-base` (4,36:1).
+
+**Decision**
+No tema claro: `--text-muted` passa a `#636C6C` (4,76:1 sobre `bg-base`); novo token
+`--accent-solid` `#007A80` (branco em cima: 5,13:1) com hover `--accent-solid-hover` `#006C72`,
+usado em toda superfície com `on-accent` (botão primário, checkbox marcado, switch ligado; mapeado
+também em `--color-primary`). `--accent` `#008F95` continua para anel de foco, item ativo, bordas e
+marca. Tema escuro sem mudança (`on-accent` sobre `#30A5AB` já dá 5,74:1). A regra `color-contrast`
+do axe volta a valer no E2E.
+
+**Alternatives considered**
+- Manter os valores da marca como exceção — falha WCAG 2.2 AA em rótulos de botão e metadados.
+- Escurecer o `--accent` inteiro — muda a cor da marca em foco, item ativo e logo.
+
+**Consequences**
+Botão primário um tom mais escuro que o ciano da marca no claro. O Design System no Claude Design é
+atualizado pelo Cowork. Componentes novos com `on-accent` usam `bg-accent-solid`, nunca `bg-accent`.

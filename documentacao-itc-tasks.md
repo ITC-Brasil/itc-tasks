@@ -291,9 +291,10 @@ Cada módulo concluído ganha aqui um parágrafo denso terminado em
 | `--bg-surface` | `#FDFBF7` | `#1E2422` |
 | `--bg-muted` | `#EBE4D8` | `#2A302E` |
 | `--border` | `#D8DEDE` | `#333B39` |
-| `--text-base` / `--text-muted` | `#1A2020` / `#697272` | `#F4F6F6` / `#8E9A98` |
+| `--text-base` / `--text-muted` | `#1A2020` / `#636C6C` (ADR-035) | `#F4F6F6` / `#8E9A98` |
 | `--accent` | `#008F95` | `#30A5AB` |
 | `--accent-text` | `#006C72` | `#30A5AB` |
+| `--accent-solid` / `-hover` (fundo com `on-accent`, ADR-035) | `#007A80` / `#006C72` | `#30A5AB` / `#46B5BA` |
 | `--on-accent` | `#FFFFFF` | `#08201F` |
 | `--ok` `--warn` `--err` `--info` | `#1A7F3C` `#CC7A00` `#C0392B` `#1565C0` | `#3DA35D` `#D98E2B` `#D75A4A` `#4B93DB` |
 | `--sev-medium` | `#C9A227` | `#C9A227` |
