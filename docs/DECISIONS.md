@@ -1154,3 +1154,69 @@ pelo projeto. Decisões do Matheus na M-026; substitui a parte 1 do ADR-043.
 **Consequences**
 Filtros e contagens do Módulo 05 e as ferramentas do MCP (Módulo 07) consultam `task_projects` e
 `task_mobile_units`; `create_task`/`update_task` aceitam `projectIds[]`/`mobileUnitIds[]`.
+
+## ADR-046 — Visões: filtros na URL, uma consulta para todas as visões e filtros salvos
+
+**Status:** Accepted
+**Date:** 2026-10-17
+**Module:** 05 — Visões e filtros
+
+**Context**
+Kanban, Lista, Calendário e Minhas tarefas mostram o mesmo conjunto de tarefas com os mesmos
+filtros (PRD V1–V5). Os filtros precisam sobreviver a recarregar a página, ser compartilháveis por
+link e poder ser salvos por pessoa.
+
+**Decision**
+- **Filtros na URL** (`?responsavel=…&projeto=…&um=…&prioridade=…&etiqueta=…&status=…`), valores
+  repetidos para "qualquer um de". Um só schema Zod (`taskFiltersSchema`) lê a URL no servidor; as
+  páginas são Server Components que chamam `listTasks(actor, filtros)`.
+- **Uma consulta** (`listTasks`) serve as três visões e Minhas tarefas; Projeto/Cliente e UM
+  filtram por `task_projects`/`task_mobile_units` (ADR-045), ou seja, por qualquer vínculo.
+  Tarefas arquivadas ficam de fora. Limite de 1 000 linhas (o time tem 4 pessoas).
+- Visões em `/tarefas` (Kanban), `/tarefas/lista` e `/tarefas/calendario`; o seletor de visão
+  mantém a query string.
+- **Kanban** com `@dnd-kit/react` e `moveTask` (posição fracionária, ADR-014). A UI move o card na
+  hora (otimista) e desfaz com toast se a action falhar.
+- **Lista** com TanStack Table (seleção e ordenação no cliente) e ações em massa via
+  `bulkUpdateTasks`: status, responsável e prioridade. "Mudar ciclo" fica para o Módulo 10 (ciclos)
+  e "arquivar" para quando houver o fluxo de arquivar tarefa.
+- **Calendário** mensal feito à mão (grade CSS de 7 colunas), sem biblioteca; mostra prazos.
+  Marcos entram no Módulo 10.
+- **Filtros salvos** em `saved_filters (user_id, name, view, filters jsonb)` — migração aditiva
+  `0008_saved_filters`, como já desenhado no SCHEMA. `filters` guarda a query string validada pelo
+  mesmo schema; só o dono lê e apaga os seus.
+- "Ciclo" entra nos filtros no Módulo 10, junto com os ciclos.
+
+**Alternatives considered**
+- Estado de filtro só no cliente (TanStack Query + store) — perde o link compartilhável e duplica a
+  leitura que o Server Component já faz.
+- Biblioteca de calendário — uma grade mensal só com prazos não justifica a dependência.
+
+**Consequences**
+Mudar filtro é navegação (`router.replace`), não fetch próprio. Filtros salvos de visões futuras
+reaproveitam o mesmo formato.
+
+## ADR-047 — Concluídas recentes no Kanban e limite só nas concluídas (complementa o ADR-046)
+
+**Status:** Accepted
+**Date:** 2026-10-17
+**Module:** 05 — revisão (M-034)
+
+**Context**
+O limite de 1 000 linhas do ADR-046 podia cortar tarefas abertas sem aviso, e a coluna de
+concluídas do Kanban cresce sem fim. Decisão do Matheus na M-034.
+
+**Decision**
+- `listTasks` faz duas consultas: **abertas** (categoria ≠ `done`) **sem limite**, e **concluídas**
+  ordenadas por `completed_at desc` com limite de 1 000. O resultado junta as duas e ordena por
+  `position`; devolve `{ tasks, truncated }`, com `truncated` quando as concluídas batem no limite.
+- No **Kanban** (opção `recentDone`), só entram concluídas com `completed_at` nos últimos
+  **14 dias**. Lista, Calendário e o filtro de status mostram todas.
+- Com `truncated`, a tela mostra "Mostrando as primeiras N tarefas concluídas; refine os filtros".
+
+**Alternatives considered**
+- Paginação na Lista — mais código para um time de 4 pessoas; o limite só atinge histórico.
+- Limite único sobre todas — corta abertas, o que a M-034 proíbe.
+
+**Consequences**
+Abertas sempre aparecem inteiras. Índice em `saved_filters.user_id` entra na migração `0009`.

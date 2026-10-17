@@ -18,6 +18,8 @@ test.beforeEach(({ isMobile }) => {
 });
 
 test("as quatro telas de cadastro abrem sem violações do axe", async ({ page }) => {
+  // M-029: o "axe intermitente" era o limite de 30 s (4 telas + axe com workers em paralelo)
+  test.slow();
   await login(page);
   for (const [path, title] of [
     ["/config/projetos", "Projetos/Clientes"],

@@ -19,6 +19,7 @@ test.beforeEach(({ isMobile }) => {
 });
 
 test("criação rápida exige Projeto/Cliente e abre o detalhe da tarefa", async ({ page }) => {
+  test.slow(); // passa de 30 s com os workers em paralelo
   const title = `E2E tarefa ${Date.now()}`;
   await login(page);
 

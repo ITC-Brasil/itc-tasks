@@ -25,12 +25,13 @@ import { Pick, PickMany, optionItems } from "./fields";
 
 const EVENT = "itc:quick-create";
 
-/** Abre a criação rápida de qualquer lugar (botões, atalho `C`). */
-export const openQuickCreate = () => window.dispatchEvent(new Event(EVENT));
+/** Abre a criação rápida de qualquer lugar (botões, atalho `C`); o Kanban passa o status da coluna. */
+export const openQuickCreate = (preset?: { statusId?: string }) =>
+  window.dispatchEvent(new CustomEvent(EVENT, { detail: preset }));
 
 export function CreateTaskButton() {
   return (
-    <Button onClick={openQuickCreate}>
+    <Button onClick={() => openQuickCreate()}>
       <Plus aria-hidden="true" /> Criar tarefa
     </Button>
   );
@@ -62,7 +63,10 @@ export function QuickCreate() {
   const titleRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
-  const show = useCallback(() => {
+  const show = useCallback((e?: Event) => {
+    const statusId = (e as CustomEvent<{ statusId?: string } | undefined> | undefined)?.detail
+      ?.statusId;
+    if (statusId) setForm((f) => ({ ...f, statusId }));
     setOpen(true);
     // recarrega a cada abertura: cadastros podem ter mudado
     getTaskFormOptionsAction().then(setOptions, () =>
@@ -73,7 +77,10 @@ export function QuickCreate() {
     window.addEventListener(EVENT, show);
     return () => window.removeEventListener(EVENT, show);
   }, [show]);
-  useShortcut("c", show);
+  useShortcut(
+    "c",
+    useCallback(() => show(), [show]),
+  );
 
   const set = <K extends keyof typeof EMPTY>(key: K, value: (typeof EMPTY)[K]) =>
     setForm((f) => ({ ...f, [key]: value }));

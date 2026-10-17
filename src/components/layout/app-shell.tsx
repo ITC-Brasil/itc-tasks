@@ -93,21 +93,21 @@ export function AppShell({
           !expanded && "items-center",
         )}
       >
-        <Link
-          href="/"
-          aria-label="ITC Tasks, início"
-          className="flex items-center gap-[3px] px-1.5 pt-1 pb-3.5"
-        >
+        {/* nome = texto visível + "início" (axe label-content-name-mismatch) */}
+        <Link href="/" className="flex items-center gap-[3px] px-1.5 pt-1 pb-3.5">
           <Logo />
-          {expanded && (
-            <span aria-hidden="true" className="flex flex-col gap-[3px] font-brand">
+          {expanded ? (
+            <span className="flex flex-col gap-[3px] font-brand">
               <span className="text-[7.5px] leading-none font-semibold tracking-[0.4em] text-accent-text">
                 ITC
-              </span>
+              </span>{" "}
               <span className="text-[15px] leading-[0.9] font-extrabold tracking-[-0.02em]">
                 Tasks
               </span>
+              <span className="sr-only">, início</span>
             </span>
+          ) : (
+            <span className="sr-only">ITC Tasks, início</span>
           )}
         </Link>
         {groups.map((g, gi) => (
@@ -225,7 +225,7 @@ export function AppShell({
         </Link>
         <button
           type="button"
-          onClick={openQuickCreate}
+          onClick={() => openQuickCreate()}
           className="flex min-h-11 min-w-14 flex-col items-center justify-center gap-0.5 text-[11px] font-medium text-muted"
         >
           <Plus className="size-[22px]" aria-hidden="true" />

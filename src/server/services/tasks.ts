@@ -1,4 +1,18 @@
-import { and, asc, desc, eq, gt, inArray, isNull, max, min, ne, or, sql } from "drizzle-orm";
+import {
+  type SQL,
+  and,
+  asc,
+  desc,
+  eq,
+  gt,
+  inArray,
+  isNull,
+  max,
+  min,
+  ne,
+  or,
+  sql,
+} from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { generateKeyBetween } from "fractional-indexing";
 import { db } from "@/db";
@@ -19,6 +33,7 @@ import {
 } from "@/db/schema";
 import {
   type CreateTaskInput,
+  type TaskFilters,
   type UpdateTaskInput,
   bulkUpdateSchema,
   checklistItemSchema,
@@ -27,6 +42,7 @@ import {
   linkSchema,
   moveTaskSchema,
   taskTemplatePayloadSchema,
+  taskFiltersSchema,
   updateTaskSchema,
 } from "@/lib/validation/tasks";
 import type { Actor } from "@/server/actor";
@@ -698,3 +714,150 @@ export async function listTaskTemplates() {
     return payload.success ? [{ id: t.id, name: t.name, payload: payload.data }] : [];
   });
 }
+
+// ── Visões (ADR-046) ────────────────────────────────────────────────
+
+export const LIST_LIMIT = 1000;
+const RECENT_DONE_DAYS = 14;
+
+/**
+ * Kanban, Lista, Calendário e Minhas tarefas: tarefas não arquivadas que passam nos filtros.
+ * ADR-047: abertas sem limite; concluídas por `completed_at desc` com limite (`truncated`);
+ * `recentDone` (Kanban) só traz concluídas dos últimos 14 dias.
+ */
+export async function listTasks(
+  _actor: Actor,
+  input: Partial<TaskFilters>,
+  scope: {
+    assigneeId?: string;
+    creatorId?: string;
+    openOnly?: boolean;
+    recentDone?: boolean;
+    doneLimit?: number;
+  } = {},
+) {
+  const f = taskFiltersSchema.parse(input);
+  const doneLimit = scope.doneLimit ?? LIST_LIMIT;
+  const any = <T>(ids: T[], cond: (ids: T[]) => ReturnType<typeof inArray>) =>
+    ids.length ? cond(ids) : undefined;
+  const query = (extra: SQL | undefined) =>
+    db
+      .select({
+        id: tasks.id,
+        number: tasks.number,
+        title: tasks.title,
+        priority: tasks.priority,
+        statusId: tasks.statusId,
+        category: workflowStatuses.category,
+        position: tasks.position,
+        dueDate: tasks.dueDate,
+        glpiTicket: tasks.glpiTicket,
+        assigneeId: tasks.assigneeId,
+        assigneeName: assignee.name,
+        assigneeInitials: assignee.initials,
+        updatedAt: tasks.updatedAt,
+      })
+      .from(tasks)
+      .innerJoin(workflowStatuses, eq(workflowStatuses.id, tasks.statusId))
+      .leftJoin(assignee, eq(assignee.id, tasks.assigneeId))
+      .where(
+        and(
+          isNull(tasks.archivedAt),
+          any(f.statusIds, (ids) => inArray(tasks.statusId, ids)),
+          any(f.assigneeIds, (ids) => inArray(tasks.assigneeId, ids)),
+          any(f.priorities, (ids) => inArray(tasks.priority, ids)),
+          // ADR-045: qualquer vínculo, não só o principal
+          any(f.projectIds, (ids) =>
+            inArray(
+              tasks.id,
+              db
+                .select({ id: taskProjects.taskId })
+                .from(taskProjects)
+                .where(inArray(taskProjects.projectId, ids)),
+            ),
+          ),
+          any(f.mobileUnitIds, (ids) =>
+            inArray(
+              tasks.id,
+              db
+                .select({ id: taskMobileUnits.taskId })
+                .from(taskMobileUnits)
+                .where(inArray(taskMobileUnits.mobileUnitId, ids)),
+            ),
+          ),
+          any(f.labelIds, (ids) =>
+            inArray(
+              tasks.id,
+              db
+                .select({ id: taskLabels.taskId })
+                .from(taskLabels)
+                .where(inArray(taskLabels.labelId, ids)),
+            ),
+          ),
+          scope.assigneeId ? eq(tasks.assigneeId, scope.assigneeId) : undefined,
+          scope.creatorId ? eq(tasks.creatorId, scope.creatorId) : undefined,
+          extra,
+        ),
+      );
+  const done = eq(workflowStatuses.category, "done");
+  const [open, closed] = await Promise.all([
+    query(ne(workflowStatuses.category, "done")),
+    scope.openOnly
+      ? []
+      : query(
+          scope.recentDone
+            ? and(
+                done,
+                gt(tasks.completedAt, sql`now() - make_interval(days => ${RECENT_DONE_DAYS})`),
+              )
+            : done,
+        )
+          .orderBy(desc(tasks.completedAt))
+          .limit(doneLimit),
+  ]);
+  // position é COLLATE "C": a comparação de string do JS dá a mesma ordem
+  const rows = [...open, ...closed].sort((a, b) =>
+    a.position < b.position ? -1 : a.position > b.position ? 1 : 0,
+  );
+  const truncated = closed.length === doneLimit;
+  if (rows.length === 0) return { tasks: [], truncated };
+
+  const ids = rows.map((r) => r.id);
+  const [projectRows, unitRows, labelRows] = await Promise.all([
+    db
+      .select({
+        taskId: taskProjects.taskId,
+        id: projects.id,
+        code: projects.code,
+        name: projects.name,
+      })
+      .from(taskProjects)
+      .innerJoin(projects, eq(projects.id, taskProjects.projectId))
+      .where(inArray(taskProjects.taskId, ids))
+      .orderBy(asc(projects.code)),
+    db
+      .select({ taskId: taskMobileUnits.taskId, code: mobileUnits.code })
+      .from(taskMobileUnits)
+      .innerJoin(mobileUnits, eq(mobileUnits.id, taskMobileUnits.mobileUnitId))
+      .where(inArray(taskMobileUnits.taskId, ids))
+      .orderBy(asc(mobileUnits.code)),
+    db
+      .select({ taskId: taskLabels.taskId, name: labels.name, colorToken: labels.colorToken })
+      .from(taskLabels)
+      .innerJoin(labels, eq(labels.id, taskLabels.labelId))
+      .where(inArray(taskLabels.taskId, ids))
+      .orderBy(asc(labels.name)),
+  ]);
+  const by = <T extends { taskId: string }>(list: T[], id: string) =>
+    list.filter((r) => r.taskId === id);
+  return {
+    tasks: rows.map((r) => ({
+      ...r,
+      projects: by(projectRows, r.id),
+      units: by(unitRows, r.id).map((u) => u.code),
+      labels: by(labelRows, r.id),
+    })),
+    truncated,
+  };
+}
+export type TaskRow = Awaited<ReturnType<typeof listTasks>>["tasks"][number];

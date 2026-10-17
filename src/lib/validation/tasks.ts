@@ -110,3 +110,56 @@ export const taskTemplatePayloadSchema = z.object({
   checklist: z.array(z.string()).optional(),
   descriptionJson: descriptionJson.optional(),
 });
+
+// ── Filtros das visões (ADR-046) ────────────────────────────────────
+// nome do parâmetro na URL → campo; valor repetido = "qualquer um de"
+export const FILTER_PARAMS = {
+  status: "statusIds",
+  responsavel: "assigneeIds",
+  projeto: "projectIds",
+  um: "mobileUnitIds",
+  prioridade: "priorities",
+  etiqueta: "labelIds",
+} as const;
+const many = <T extends z.ZodType>(item: T) =>
+  z
+    .preprocess((v) => (v == null ? [] : Array.isArray(v) ? v : [v]), z.array(item).max(50))
+    .default([]);
+export const taskFiltersSchema = z.object({
+  statusIds: many(uuid),
+  assigneeIds: many(z.string().min(1).max(64)),
+  projectIds: many(uuid),
+  mobileUnitIds: many(uuid),
+  priorities: many(z.enum(PRIORITIES)),
+  labelIds: many(uuid),
+});
+export type TaskFilters = z.output<typeof taskFiltersSchema>;
+
+/** searchParams do Next (ou URLSearchParams) → filtros; parâmetro inválido é ignorado. */
+export function parseTaskFilters(
+  params: Record<string, string | string[] | undefined> | URLSearchParams,
+): TaskFilters {
+  const get = (k: string) =>
+    params instanceof URLSearchParams ? params.getAll(k) : Reflect.get(params, k);
+  const out = taskFiltersSchema.parse({});
+  for (const [param, field] of Object.entries(FILTER_PARAMS)) {
+    const parsed = (Reflect.get(taskFiltersSchema.shape, field) as z.ZodType).safeParse(get(param));
+    if (parsed.success) Object.assign(out, { [field]: parsed.data });
+  }
+  return out;
+}
+
+/** Filtros → query string, na ordem fixa de FILTER_PARAMS (compara filtros salvos). */
+export function filtersQuery(filters: Partial<TaskFilters>) {
+  const q = new URLSearchParams();
+  for (const [param, field] of Object.entries(FILTER_PARAMS))
+    for (const v of Reflect.get(filters, field) ?? []) q.append(param, v);
+  return q.toString();
+}
+
+export const VIEWS = ["kanban", "list", "calendar"] as const;
+export const savedFilterSchema = z.object({
+  name: z.string().trim().min(1, "Informe o nome").max(60, "Até 60 caracteres"),
+  view: z.enum(VIEWS),
+  filters: taskFiltersSchema,
+});

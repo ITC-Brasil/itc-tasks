@@ -57,6 +57,20 @@
       "when": 1792260572907,
       "tag": "0007_task_projects_units",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792262527556,
+      "tag": "0008_saved_filters",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792268159461,
+      "tag": "0009_saved_filters_user_idx",
+      "breakpoints": true
     }
   ]
 }

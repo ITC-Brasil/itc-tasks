@@ -1,4 +1,4 @@
-import { House, Settings, type LucideIcon } from "lucide-react";
+import { Columns3, House, Settings, type LucideIcon } from "lucide-react";
 
 export type NavItem = {
   href: string;
@@ -12,7 +12,12 @@ export type NavGroup = { label?: string; items: NavItem[] };
 
 // Telas do Design System; cada módulo acrescenta a sua quando ela existir (sem links quebrados)
 export const NAV: NavGroup[] = [
-  { items: [{ href: "/", label: "Minhas tarefas", icon: House }] },
+  {
+    items: [
+      { href: "/", label: "Minhas tarefas", icon: House },
+      { href: "/tarefas", label: "Tarefas", icon: Columns3 },
+    ],
+  },
   {
     label: "Configurar",
     items: [
