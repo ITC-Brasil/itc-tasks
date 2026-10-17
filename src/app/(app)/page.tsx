@@ -19,26 +19,27 @@ const BUCKETS: [DueBucket, string][] = [
 const TABS = [
   { aba: "", label: "Atribuídas" },
   { aba: "criadas", label: "Criadas" },
-]; // ponytail: aba "Menções" chega com os comentários (Módulo 06)
+  { aba: "mencoes", label: "Menções" },
+];
 
 async function Mine({ searchParams }: PageProps<"/">) {
   const { actor } = await requireUser();
-  const created = (await searchParams).aba === "criadas";
+  const aba = (await searchParams).aba;
+  const scope =
+    aba === "criadas"
+      ? { creatorId: actor.userId }
+      : aba === "mencoes"
+        ? { mentionedUserId: actor.userId }
+        : { assigneeId: actor.userId };
   const today = todayISO();
-  const { tasks } = await listTasks(
-    actor,
-    {},
-    created
-      ? { creatorId: actor.userId, openOnly: true }
-      : { assigneeId: actor.userId, openOnly: true },
-  );
+  const { tasks } = await listTasks(actor, {}, { ...scope, openOnly: true });
   tasks.sort((a, b) => (a.dueDate ?? "9999").localeCompare(b.dueDate ?? "9999"));
   const groups = Map.groupBy(tasks, (t) => dueBucket(t.dueDate, today));
   return (
     <main className="p-4 md:p-6">
       <nav aria-label="Abas" className="mb-4 flex gap-1 border-b">
         {TABS.map((t) => {
-          const active = (t.aba === "criadas") === created;
+          const active = t.aba === String(aba ?? "");
           return (
             <Link
               key={t.label}

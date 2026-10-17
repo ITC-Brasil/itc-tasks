@@ -40,3 +40,14 @@ export const shiftMonth = (month: string, delta: number) => {
   const d = new Date(Date.UTC(y, m - 1 + delta, 1));
   return d.toISOString().slice(0, 7);
 };
+
+const rtf = new Intl.RelativeTimeFormat("pt-BR", { numeric: "auto" });
+/** Histórico relativo (UI.md §8): "agora", "há 5 min", "há 2 h", "ontem"; depois de 7 dias, a data. */
+export function relativeTime(date: Date, now = new Date()) {
+  const s = Math.round((date.getTime() - now.getTime()) / 1000);
+  if (s > -60) return "agora";
+  if (s > -3600) return rtf.format(Math.round(s / 60), "minute");
+  if (s > -86400) return rtf.format(Math.round(s / 3600), "hour");
+  if (s > -7 * 86400) return rtf.format(Math.round(s / 86400), "day");
+  return date.toLocaleDateString("pt-BR");
+}

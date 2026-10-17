@@ -11,12 +11,15 @@ import { cn } from "@/lib/utils";
 import { setSidebarCollapsedAction } from "@/server/actions/preferences";
 import { NAV, isActive } from "./nav";
 import { savePreference } from "./save-preference";
+import { CommandPalette } from "./command-palette";
+import { LiveRefresh } from "./live-refresh";
 import { ShortcutsDialog, useShortcut } from "./shortcuts";
 import { UserMenu } from "./user-menu";
 
 export type ShellProfile = {
   name: string;
   initials: string;
+  id: string;
   role: "admin" | "member";
   theme: "light" | "dark";
   sidebarCollapsed: boolean;
@@ -248,6 +251,8 @@ export function AppShell({
 
       <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
       <QuickCreate />
+      <CommandPalette isAdmin={profile.role === "admin"} />
+      <LiveRefresh userId={profile.id} />
     </div>
   );
 }

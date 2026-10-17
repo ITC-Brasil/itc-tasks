@@ -1,28 +1,40 @@
 "use client";
 
-import { ListChecks, Trash2, X } from "lucide-react";
+import { ListChecks, MessageSquare, Paperclip, Trash2, Upload, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useOptimistic, useState, useTransition } from "react";
+import { useOptimistic, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Avatar } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { relativeTime } from "@/lib/dates";
 import type { Priority, UpdateTaskInput } from "@/lib/validation/tasks";
 import {
   type TaskFormOptions,
   type TaskResult,
   addChecklistItemAction,
+  addCommentAction,
+  editCommentAction,
   removeChecklistItemAction,
   setLinkAction,
   updateChecklistItemAction,
   updateTaskAction,
 } from "@/server/actions/tasks";
+import type { listActivity } from "@/server/services/activity";
+import type { listAttachments } from "@/server/services/attachments";
+import type { listComments } from "@/server/services/comments";
 import type { getTaskByNumber } from "@/server/services/tasks";
 import { GlpiChip, LabelChip, ProjectChip, StatusIcon, UnitChip, glpiUrl } from "./badges";
+import { CommentBody, CommentEditor } from "./comment-editor";
 import { DescriptionEditor } from "./description-editor";
 import { type PickItem, Pick, PickMany, optionItems } from "./fields";
 
 type Task = NonNullable<Awaited<ReturnType<typeof getTaskByNumber>>>;
+type Comment = Awaited<ReturnType<typeof listComments>>[number];
+type Event = Awaited<ReturnType<typeof listActivity>>[number];
+type Attachment = Awaited<ReturnType<typeof listAttachments>>[number];
 type Patch = Partial<
   Pick<Task, "title" | "statusId" | "priority" | "assigneeId" | "glpiTicket" | "dueDate">
 > & {
@@ -44,10 +56,16 @@ const withCurrent = (items: PickItem[], value: string | null, label: string | nu
 
 export function TaskDetail({
   task,
+  comments,
+  activity,
+  attachments,
   options,
   glpiBaseUrl,
 }: {
   task: Task;
+  comments: Comment[];
+  activity: Event[];
+  attachments: Attachment[];
   options: TaskFormOptions;
   glpiBaseUrl: string;
 }) {
@@ -158,6 +176,10 @@ export function TaskDetail({
         </section>
 
         <Links task={task} />
+
+        <Attachments task={task} attachments={attachments} />
+
+        <Activity task={task} comments={comments} activity={activity} options={options} />
       </article>
 
       <aside
@@ -416,6 +438,185 @@ function Links({ task }: { task: Task }) {
           className="w-44 flex-none"
         />
       </AddForm>
+    </section>
+  );
+}
+
+function When({ at }: { at: Date }) {
+  return (
+    <time
+      dateTime={at.toISOString()}
+      title={at.toLocaleString("pt-BR")}
+      className="text-xs text-muted tabular-nums"
+      suppressHydrationWarning
+    >
+      {relativeTime(at)}
+    </time>
+  );
+}
+
+const via = (kind: string, token: string | null) =>
+  kind === "agent" && <span className="text-xs text-muted">via MCP · {token}</span>;
+
+/** Comentários e histórico numa linha do tempo, mais recente embaixo (ADR-048). */
+function Activity({
+  task,
+  comments,
+  activity,
+  options,
+}: {
+  task: Task;
+  comments: Comment[];
+  activity: Event[];
+  options: TaskFormOptions;
+}) {
+  const entries = [
+    ...comments.map((c) => ({ at: c.createdAt, comment: c, event: undefined })),
+    ...activity.map((e) => ({ at: e.createdAt, event: e, comment: undefined })),
+  ].sort((a, b) => a.at.getTime() - b.at.getTime());
+  const [editing, setEditing] = useState<string | null>(null);
+  const done = (r: TaskResult) => {
+    if (!r.ok) toast.error(r.error);
+    return r.ok;
+  };
+  return (
+    <section aria-labelledby="activity" className="flex flex-col gap-3">
+      <h2 id="activity" className="flex items-center gap-2 text-h4 font-semibold">
+        <MessageSquare className="size-4 text-muted" aria-hidden="true" />
+        Atividade
+      </h2>
+      <ol className="flex flex-col gap-3">
+        {entries.map(({ event: e, comment: c }) =>
+          e ? (
+            <li key={e.id} className="flex items-baseline gap-x-2 pl-1 text-sm text-muted">
+              <span>
+                <span className="font-medium text-foreground">{e.actor}</span> {e.text}
+              </span>
+              {via(e.actorKind, e.tokenName)}
+              <When at={e.createdAt} />
+            </li>
+          ) : (
+            <li key={c.id} className="flex gap-3">
+              <Avatar initials={c.authorInitials ?? ""} size="lg" />
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
+                <p className="flex flex-wrap items-baseline gap-x-2 text-sm">
+                  <span className="font-medium">{c.authorName}</span>
+                  {via(c.actorKind, c.tokenName)}
+                  <When at={c.createdAt} />
+                  {c.editedAt && <span className="text-xs text-muted">(editado)</span>}
+                  {c.authorId === options.actorId && editing !== c.id && (
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="h-auto p-0 text-xs"
+                      onClick={() => setEditing(c.id)}
+                    >
+                      Editar
+                    </Button>
+                  )}
+                </p>
+                {editing === c.id ? (
+                  <CommentEditor
+                    people={options.people}
+                    content={c.bodyJson as object}
+                    submitLabel="Salvar"
+                    onCancel={() => setEditing(null)}
+                    onSubmit={async (doc) => {
+                      const ok = done(await editCommentAction(c.id, task.number, doc));
+                      if (ok) setEditing(null);
+                      return ok;
+                    }}
+                  />
+                ) : (
+                  <CommentBody key={String(c.editedAt)} content={c.bodyJson as object} />
+                )}
+              </div>
+            </li>
+          ),
+        )}
+      </ol>
+      <CommentEditor
+        people={options.people}
+        submitLabel="Comentar"
+        onSubmit={async (doc) => done(await addCommentAction(task.id, task.number, doc))}
+      />
+    </section>
+  );
+}
+
+const size = (bytes: number) =>
+  bytes < 1024 * 1024
+    ? `${Math.max(1, Math.round(bytes / 1024))} KB`
+    : `${(bytes / 1024 / 1024).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} MB`;
+
+function Attachments({ task, attachments }: { task: Task; attachments: Attachment[] }) {
+  const router = useRouter();
+  const [pending, setPending] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+
+  async function upload(files: FileList | null) {
+    if (!files?.length) return;
+    setPending(true);
+    for (const file of files) {
+      if (file.size > 25 * 1024 * 1024) {
+        toast.error(`${file.name} passa de 25 MB`);
+        continue;
+      }
+      const body = new FormData();
+      body.set("taskId", task.id);
+      body.set("file", file);
+      const res = await fetch("/api/attachments", { method: "POST", body });
+      if (!res.ok) {
+        const { error } = (await res.json().catch(() => ({}))) as { error?: string };
+        toast.error(`${file.name}: ${error ?? "falha no envio"}`);
+      }
+    }
+    setPending(false);
+    if (input.current) input.current.value = "";
+    router.refresh();
+  }
+
+  return (
+    <section aria-labelledby="files" className="flex flex-col gap-2">
+      <h2 id="files" className="flex items-center gap-2 text-h4 font-semibold">
+        <Paperclip className="size-4 text-muted" aria-hidden="true" />
+        Anexos
+      </h2>
+      {attachments.length > 0 && (
+        <ul className="flex flex-col gap-1">
+          {attachments.map((a) => (
+            <li key={a.id} className="flex min-h-8 items-center gap-2 text-sm">
+              <a
+                href={`/api/attachments/${a.id}`}
+                className="truncate text-accent-text hover:underline"
+              >
+                {a.fileName}
+              </a>
+              <span className="text-xs text-muted tabular-nums">{size(a.sizeBytes)}</span>
+              <span className="ml-auto text-xs text-muted">
+                {a.uploaderName} · <When at={a.createdAt} />
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div>
+        <input
+          ref={input}
+          type="file"
+          multiple
+          hidden
+          aria-label="Escolher arquivos"
+          onChange={(e) => upload(e.currentTarget.files)}
+        />
+        <Button variant="secondary" disabled={pending} onClick={() => input.current?.click()}>
+          <Upload aria-hidden="true" />
+          {pending ? "Enviando…" : "Anexar arquivo"}
+        </Button>
+        <p className="mt-1 text-xs text-muted">
+          Até 25 MB: imagens, PDF, texto, planilhas, documentos e ZIP.
+        </p>
+      </div>
     </section>
   );
 }

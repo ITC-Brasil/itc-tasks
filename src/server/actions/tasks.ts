@@ -21,9 +21,11 @@ import {
   moveTask,
   removeChecklistItem,
   removeLink,
+  searchTasks,
   updateChecklistItem,
   updateTask,
 } from "@/server/services/tasks";
+import { addComment, editComment } from "@/server/services/comments";
 import { createSavedFilter, deleteSavedFilter } from "@/server/services/saved-filters";
 
 export type TaskResult<T = undefined> = { ok: true; data: T } | { ok: false; error: string };
@@ -146,4 +148,19 @@ export async function createSavedFilterAction(input: unknown) {
 export async function deleteSavedFilterAction(id: string) {
   const actor = await requireActor();
   return run(() => deleteSavedFilter(actor, taskIdSchema.parse(id)));
+}
+
+export async function addCommentAction(taskId: string, number: number, body: unknown) {
+  const actor = await requireActor();
+  return run(() => addComment(actor, taskId, body).then(() => undefined), detail(number));
+}
+
+export async function editCommentAction(commentId: string, number: number, body: unknown) {
+  const actor = await requireActor();
+  return run(() => editComment(actor, commentId, body).then(() => undefined), detail(number));
+}
+
+export async function searchTasksAction(q: string) {
+  const actor = await requireActor();
+  return searchTasks(actor, String(q));
 }

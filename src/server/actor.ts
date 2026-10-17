@@ -50,3 +50,11 @@ export function isAdmin(actor: Actor) {
 export function assertAdmin(actor: Actor) {
   if (!isAdmin(actor)) throw new ForbiddenError();
 }
+
+/** Rotas de API: sessão válida → Actor; senão null (a rota responde 401). */
+export async function sessionActor(): Promise<Extract<Actor, { kind: "user" }> | null> {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session || session.user.banned) return null;
+  const u = session.user;
+  return { kind: "user", userId: u.id, role: u.role === "admin" ? "admin" : "member" };
+}

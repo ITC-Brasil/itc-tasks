@@ -1220,3 +1220,54 @@ concluídas do Kanban cresce sem fim. Decisão do Matheus na M-034.
 
 **Consequences**
 Abertas sempre aparecem inteiras. Índice em `saved_filters.user_id` entra na migração `0009`.
+
+## ADR-048 — Comentários, histórico, anexos, busca e tempo real (Módulo 06)
+
+**Status:** Accepted
+**Date:** 2026-10-17
+**Module:** 06 — Comentários, histórico, anexos e busca
+
+**Context**
+O Módulo 06 liga as tabelas `comments` e `attachments` (criadas na migração 0005), mostra o
+`task_events` na tela, entrega a busca ⌘K e o SSE do ADR-020. As telas são Server Components sem
+TanStack Query (ADR-046), então "invalidar queries" precisa de outro mecanismo.
+
+**Decision**
+- **Comentários:** `commentsService` com `Actor`. Editor Tiptap com `@tiptap/extension-mention`
+  3.32.0 (mesma versão do Tiptap) e lista de pessoas ativas; `mentions` guarda os IDs de pessoas
+  ativas citadas (o service confere no banco). O autor edita o próprio comentário (`edited_at`);
+  não há exclusão. Cada comentário grava `task_events` `commented` com `{ commentId }`; edição
+  grava `comment_edited`. Agente (Módulo 07) passa pelo mesmo service.
+- **Aba "Menções"** em Minhas tarefas: tarefas abertas com comentário que menciona a pessoa.
+- **Histórico:** comentários e `task_events` numa única linha do tempo, mais recente embaixo; o
+  ator aparece como pessoa, "via MCP · <token>" (agente) ou "Automação". O payload cru do ADR-042 é
+  formatado no servidor (nomes atuais de status, pessoas, projetos, UMs e etiquetas).
+- **Anexos:** rotas `POST /api/attachments` e `GET /api/attachments/[id]` (API.md §5) chamam o
+  `attachmentsService`. Limite de 25 MB conferido pelo `Content-Length` e pelo tamanho do arquivo
+  antes de gravar; tipos permitidos: imagens, PDF, texto/CSV/log, JSON/XML, ZIP/7z e documentos
+  Office/ODF (415 nos demais). Arquivo gravado em `UPLOADS_DIR/<uuid>` (sem o nome original no
+  disco); download com `Content-Disposition: attachment` e `X-Content-Type-Options: nosniff`.
+  Evento `attachment_added`. Sem exclusão de anexo no MVP.
+- **Busca ⌘K:** `cmdk` 1.1.1 (versão do CLAUDE.md). `searchTasks` numa consulta: `TI-142` ou só
+  número → `number`; `#48213` → `glpi_ticket`; código de UM (com ou sem `UM-`) → `task_mobile_units`;
+  texto → `tasks.search @@ to_tsquery('portuguese', …)` com prefixo (`termo:*`) por palavra, ordenado
+  por `ts_rank`. Até 20 resultados, abertas antes de concluídas. A paleta também lista as telas da
+  navegação e "Criar tarefa".
+- **Tempo real:** `record()` (que toda escrita de tarefa já chama) faz `pg_notify('task_changed',
+  { id, number, fields })` dentro da transação — o Postgres só entrega no commit. `/api/events` usa
+  **um** `LISTEN` por processo (um cliente `pg` dedicado) e repassa a todas as abas conectadas;
+  `ping` a cada 25 s. O cliente (`EventSource` no AppShell) chama `router.refresh()` com
+  debounce de 500 ms; o `EventSource` reconecta sozinho. `notification.created` entra no Módulo 08.
+
+**Alternatives considered**
+- Menção por texto (`@nome`) com parse no servidor — ambíguo com nomes repetidos e sem lista na tela.
+- Anexo em Server Action — limite de corpo de 1 MB por padrão e sem resposta 413/415 da API.md.
+- `pg_trgm`/`ILIKE` para a busca — o `tsvector` já existe com índice GIN (migração 0005).
+- Uma conexão `LISTEN` por aba — gasta conexões do pool à toa.
+- TanStack Query só para invalidar — duplicaria a leitura que os Server Components já fazem.
+
+**Consequences**
+`router.refresh()` recarrega a tela inteira a cada mudança feita por outra pessoa ou agente (a
+própria escrita é ignorada, e o refresh espera a pessoa terminar de arrastar/digitar); com 4 pessoas é
+barato. Se pesar, filtrar pelo `id` da tarefa aberta. O backup precisa do volume `uploads`
+(ADR-025).
