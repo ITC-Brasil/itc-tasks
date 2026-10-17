@@ -387,7 +387,11 @@ export async function moveTask(
         ),
       );
     const position = generateKeyBetween(prev.p, next?.p ?? null);
-    [task] = await tx.update(tasks).set({ position }).where(eq(tasks.id, taskId)).returning();
+    [task] = await tx
+      .update(tasks)
+      .set({ position, updatedAt: new Date() })
+      .where(eq(tasks.id, taskId))
+      .returning();
     return task;
   });
 }

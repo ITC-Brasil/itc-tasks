@@ -293,3 +293,10 @@ it("descrição igual não grava nem mexe no updatedAt", async () => {
   expect(same.updatedAt).toEqual(t.updatedAt);
   expect((await events(t.id)).map((e) => e.type)).toEqual(["created"]);
 });
+
+it("reordenar no mesmo status atualiza o updatedAt", async () => {
+  await createTask(actor, { title: "Ord A", projectId, statusId: status.backlog });
+  const b = await createTask(actor, { title: "Ord B", projectId, statusId: status.backlog });
+  const moved = await moveTask(actor, b.id, { statusId: status.backlog, afterTaskId: null });
+  expect(moved.updatedAt.getTime()).toBeGreaterThan(b.updatedAt.getTime());
+});
