@@ -1,8 +1,9 @@
 "use client";
 
-import { ListChecks, MessageSquare, Trash2, X } from "lucide-react";
+import { ListChecks, MessageSquare, Paperclip, Trash2, Upload, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useOptimistic, useState, useTransition } from "react";
+import { useOptimistic, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
@@ -22,6 +23,7 @@ import {
   updateTaskAction,
 } from "@/server/actions/tasks";
 import type { listActivity } from "@/server/services/activity";
+import type { listAttachments } from "@/server/services/attachments";
 import type { listComments } from "@/server/services/comments";
 import type { getTaskByNumber } from "@/server/services/tasks";
 import { GlpiChip, LabelChip, ProjectChip, StatusIcon, UnitChip, glpiUrl } from "./badges";
@@ -32,6 +34,7 @@ import { type PickItem, Pick, PickMany, optionItems } from "./fields";
 type Task = NonNullable<Awaited<ReturnType<typeof getTaskByNumber>>>;
 type Comment = Awaited<ReturnType<typeof listComments>>[number];
 type Event = Awaited<ReturnType<typeof listActivity>>[number];
+type Attachment = Awaited<ReturnType<typeof listAttachments>>[number];
 type Patch = Partial<
   Pick<Task, "title" | "statusId" | "priority" | "assigneeId" | "glpiTicket" | "dueDate">
 > & {
@@ -55,12 +58,14 @@ export function TaskDetail({
   task,
   comments,
   activity,
+  attachments,
   options,
   glpiBaseUrl,
 }: {
   task: Task;
   comments: Comment[];
   activity: Event[];
+  attachments: Attachment[];
   options: TaskFormOptions;
   glpiBaseUrl: string;
 }) {
@@ -171,6 +176,8 @@ export function TaskDetail({
         </section>
 
         <Links task={task} />
+
+        <Attachments task={task} attachments={attachments} />
 
         <Activity task={task} comments={comments} activity={activity} options={options} />
       </article>
@@ -533,6 +540,83 @@ function Activity({
         submitLabel="Comentar"
         onSubmit={async (doc) => done(await addCommentAction(task.id, task.number, doc))}
       />
+    </section>
+  );
+}
+
+const size = (bytes: number) =>
+  bytes < 1024 * 1024
+    ? `${Math.max(1, Math.round(bytes / 1024))} KB`
+    : `${(bytes / 1024 / 1024).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} MB`;
+
+function Attachments({ task, attachments }: { task: Task; attachments: Attachment[] }) {
+  const router = useRouter();
+  const [pending, setPending] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+
+  async function upload(files: FileList | null) {
+    if (!files?.length) return;
+    setPending(true);
+    for (const file of files) {
+      if (file.size > 25 * 1024 * 1024) {
+        toast.error(`${file.name} passa de 25 MB`);
+        continue;
+      }
+      const body = new FormData();
+      body.set("taskId", task.id);
+      body.set("file", file);
+      const res = await fetch("/api/attachments", { method: "POST", body });
+      if (!res.ok) {
+        const { error } = (await res.json().catch(() => ({}))) as { error?: string };
+        toast.error(`${file.name}: ${error ?? "falha no envio"}`);
+      }
+    }
+    setPending(false);
+    if (input.current) input.current.value = "";
+    router.refresh();
+  }
+
+  return (
+    <section aria-labelledby="files" className="flex flex-col gap-2">
+      <h2 id="files" className="flex items-center gap-2 text-h4 font-semibold">
+        <Paperclip className="size-4 text-muted" aria-hidden="true" />
+        Anexos
+      </h2>
+      {attachments.length > 0 && (
+        <ul className="flex flex-col gap-1">
+          {attachments.map((a) => (
+            <li key={a.id} className="flex min-h-8 items-center gap-2 text-sm">
+              <a
+                href={`/api/attachments/${a.id}`}
+                className="truncate text-accent-text hover:underline"
+              >
+                {a.fileName}
+              </a>
+              <span className="text-xs text-muted tabular-nums">{size(a.sizeBytes)}</span>
+              <span className="ml-auto text-xs text-muted">
+                {a.uploaderName} · <When at={a.createdAt} />
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div>
+        <input
+          ref={input}
+          type="file"
+          multiple
+          hidden
+          aria-label="Escolher arquivos"
+          onChange={(e) => upload(e.currentTarget.files)}
+        />
+        <Button variant="secondary" disabled={pending} onClick={() => input.current?.click()}>
+          <Upload aria-hidden="true" />
+          {pending ? "Enviando…" : "Anexar arquivo"}
+        </Button>
+        <p className="mt-1 text-xs text-muted">
+          Até 25 MB: imagens, PDF, texto, planilhas, documentos e ZIP.
+        </p>
+      </div>
     </section>
   );
 }

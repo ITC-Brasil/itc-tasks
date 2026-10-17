@@ -49,7 +49,12 @@ import {
 import type { Actor } from "@/server/actor";
 
 // Toda escrita de tarefa passa aqui com um Actor e grava task_events (ADR-003, ADR-042)
-export type TaskErrorCode = "VALIDATION" | "NOT_FOUND" | "ARCHIVED_REFERENCE";
+export type TaskErrorCode =
+  | "VALIDATION"
+  | "NOT_FOUND"
+  | "ARCHIVED_REFERENCE"
+  | "TOO_LARGE"
+  | "UNSUPPORTED_TYPE";
 export class TaskError extends Error {
   constructor(
     public code: TaskErrorCode,

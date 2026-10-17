@@ -8,6 +8,7 @@ import { taskNumberSchema } from "@/lib/validation/tasks";
 import { requireActor } from "@/server/actor";
 import { getTaskFormOptionsAction } from "@/server/actions/tasks";
 import { listActivity } from "@/server/services/activity";
+import { listAttachments } from "@/server/services/attachments";
 import { listComments } from "@/server/services/comments";
 import { getTaskByNumber } from "@/server/services/tasks";
 
@@ -26,7 +27,11 @@ async function Detail({ params }: { params: PageProps<"/tarefas/[number]">["para
     getTaskFormOptionsAction(),
   ]);
   if (!task) notFound();
-  const [comments, activity] = await Promise.all([listComments(task.id), listActivity(task.id)]);
+  const [comments, activity, attachments] = await Promise.all([
+    listComments(task.id),
+    listActivity(task.id),
+    listAttachments(task.id),
+  ]);
   return (
     <>
       <Topbar title={`TI-${task.number}`} />
@@ -34,6 +39,7 @@ async function Detail({ params }: { params: PageProps<"/tarefas/[number]">["para
         task={task}
         comments={comments}
         activity={activity}
+        attachments={attachments}
         options={options}
         glpiBaseUrl={env.GLPI_BASE_URL}
       />
