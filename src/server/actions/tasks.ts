@@ -117,9 +117,8 @@ export async function setLinkAction(
   linked: boolean,
 ) {
   const actor = await requireActor();
-  const id = taskIdSchema.parse(taskId);
-  return run(
-    () => (linked ? addLink(actor, id, input) : removeLink(actor, id, input)),
-    detail(number),
-  );
+  return run(() => {
+    const id = taskIdSchema.parse(taskId); // id inválido vira { ok: false }, não exceção
+    return linked ? addLink(actor, id, input) : removeLink(actor, id, input);
+  }, detail(number));
 }
