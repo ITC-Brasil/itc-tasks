@@ -39,3 +39,10 @@ npm-debug.log*
 
 # Conversa Claude Code ↔ Cowork (ADR-030) — nunca vai para o GitHub
 .conversa/
+
+# Next.js (create-next-app)
+*.pem
+.vercel
+
+# Uploads locais (UPLOADS_DIR em desenvolvimento)
+data/

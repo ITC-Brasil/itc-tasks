@@ -1,0 +1,9 @@
+#!/bin/sh
+# Recusa push direto para a main (ADR-034). Emergência: ALLOW_MAIN_PUSH=1 git push ...
+while read -r local_ref local_sha remote_ref remote_sha; do
+  if [ "$remote_ref" = "refs/heads/main" ] && [ "$ALLOW_MAIN_PUSH" != "1" ]; then
+    echo "Push direto na main bloqueado. Use PR develop → main (ADR-034)." >&2
+    exit 1
+  fi
+done
+exit 0

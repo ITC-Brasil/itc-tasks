@@ -248,12 +248,16 @@ action; checagens no cliente são só de interface.
 
 ## 6. Módulos implementados
 
-Nenhum módulo implementado ainda. O plano de módulos está em `PROMPT_CLAUDE_CODE.md`:
+**Módulo 00 — Fundação (17/10/2026).** Next.js 16.4.2 (App Router, `output: "standalone"`, `cacheComponents`) com TypeScript 7.0.2 como compilador e TS 6.0.2 só para o typescript-eslint (ADR-032). Tokens do Design System em `src/styles/globals.css` mapeados por namespace do Tailwind 4.3.3 (`bg-muted` ≠ `text-muted`, `text-base` é cor), Inter e Archivo por `next/font`, e dez componentes shadcn 4.22.0 sobre `@base-ui/react` 1.9.0 restilizados (`src/components/ui/`). Drizzle 0.45.4 com `pg`, migração custom `drizzle/0000_base.sql` (`unaccent`, `unaccent_immutable`, `task_number_seq`), Postgres 18.6 e Mailpit no `docker-compose.dev.yml` (porta 5435) e banco `itc_tasks_test` criado no init. `src/lib/env.ts` valida o ambiente com `@t3-oss/env-nextjs`. Vitest 5.0.5 (projetos `unit` e `integration`, este travado em `itc_tasks_test`), Playwright 1.64.1 com axe, ESLint 10 com `eslint-plugin-security`, Prettier. CI `Quality Check` e Gitleaks verdes no GitHub, ações fixadas por SHA, Dependabot minor/patch. Produção: `Dockerfile` em `node:24.22.0-alpine`, entrypoint que aplica as migrações com o migrator do `drizzle-orm` antes do `server.js`, `docker-compose.yml` no padrão do `glpi-srv` e `/api/health` (200/503). A proteção da `main` ficou pendente: o plano gratuito do GitHub não a permite em repositório privado. Details: docs/modules/00-fundacao.md
+
+**Módulo 01 — Autenticação e membros (17/10/2026).** `src/server/auth.ts` configura Better Auth 1.7.10 com Drizzle, `disableSignUp`, senha mínima de 12, hash Argon2id pelo `@node-rs/argon2` 2.2.2 (`memoryCost 19456`, `timeCost 2`), `trustedOrigins` com `https://tasks.itcbr.xyz`, plugins `admin` (papéis `admin` e `member`, ADR-037), `apiKey` do pacote `@better-auth/api-key` (prefixo `itct_`, 60 req/min) e `nextCookies`, mais os campos de preferência do usuário (`initials`, `theme`, `sidebarCollapsed`, horário de silêncio, `emailDigest`). O schema `src/db/schema/auth.ts` sai do CLI `auth` e as migrações `0001_auth` e `0002_user_preferences` são aditivas. `src/proxy.ts` manda quem não tem cookie para `/login`; `requireActor()` em `src/server/actor.ts` valida a sessão, recusa banidos e devolve o `Actor`. A tela Entrar usa o cliente do Better Auth, e Configurações › Membros (`/config/membros`) cria membros, troca papel e desativa por ban, sempre pelo `membersService` com `assertAdmin`; ninguém altera a própria conta. `src/db/seed.mjs` cria o primeiro admin de forma idempotente, no dev e na imagem (`dist/seed.mjs`). Testes de integração cobrem login, cadastro bloqueado, desativação e permissões; E2E cobre rota protegida, erro de login e Membros com axe. Details: docs/modules/01-autenticacao.md
+
+Plano de módulos (`PROMPT_CLAUDE_CODE.md`):
 
 | Nº | Módulo | Status |
 |---|---|---|
-| 00 | Fundação (scaffold, Docker, DB, tokens, CI) | Planejado |
-| 01 | Autenticação e membros | Planejado |
+| 00 | Fundação (scaffold, Docker, DB, tokens, CI) | Concluído (17/10/2026) |
+| 01 | Autenticação e membros | Concluído (17/10/2026) |
 | 02 | Layout, navegação e tema | Planejado |
 | 03 | Cadastros (Projetos/Clientes, UMs, workflow, etiquetas) | Planejado |
 | 04 | Tarefas: núcleo, detalhe e criação rápida | Planejado |
@@ -289,9 +293,10 @@ Cada módulo concluído ganha aqui um parágrafo denso terminado em
 | `--bg-surface` | `#FDFBF7` | `#1E2422` |
 | `--bg-muted` | `#EBE4D8` | `#2A302E` |
 | `--border` | `#D8DEDE` | `#333B39` |
-| `--text-base` / `--text-muted` | `#1A2020` / `#697272` | `#F4F6F6` / `#8E9A98` |
+| `--text-base` / `--text-muted` | `#1A2020` / `#636C6C` (ADR-035) | `#F4F6F6` / `#8E9A98` |
 | `--accent` | `#008F95` | `#30A5AB` |
 | `--accent-text` | `#006C72` | `#30A5AB` |
+| `--accent-solid` / `-hover` (fundo com `on-accent`, ADR-035) | `#007A80` / `#006C72` | `#30A5AB` / `#46B5BA` |
 | `--on-accent` | `#FFFFFF` | `#08201F` |
 | `--ok` `--warn` `--err` `--info` | `#1A7F3C` `#CC7A00` `#C0392B` `#1565C0` | `#3DA35D` `#D98E2B` `#D75A4A` `#4B93DB` |
 | `--sev-medium` | `#C9A227` | `#C9A227` |
@@ -351,7 +356,7 @@ Detalhes do servidor, túnel, deploy e checklist de implantação: `docs/INFRA.m
 
 ## 11. Git e versionamento
 
-- Mesmo fluxo do NoteScan: `feat/…` → PR para `develop` → PR `develop → main` com CI verde e 1 aprovação; push direto na `main` bloqueado. Merge na `main` dispara o deploy (ADR-029).
+- Mesmo fluxo do NoteScan: `feat/…` → PR para `develop` → PR `develop → main` com CI verde e 1 aprovação; push direto na `main` bloqueado por disciplina e pelo hook `.githooks/pre-push` (ADR-034). Merge na `main` dispara o deploy (ADR-029).
 - Conventional Commits: `type(scope): descrição` (tabela em `CLAUDE.md`).
 - Hooks de pre-commit (planejado): lint + typecheck dos arquivos alterados.
 

@@ -608,7 +608,9 @@ Adotar no ITC Tasks o mesmo fluxo: branches `feat/…` → `develop` → `main` 
 - Manter CodeQL — indisponível sem custo para repositório privado.
 
 **Consequences**
-O time usa um só modelo mental para os dois apps. Análise estática fica limitada ao ESLint security plugin. O Postgres local de desenvolvimento usa a porta `5435` (o NoteScan local usa `5434`).
+O time usa um só modelo mental para os dois apps. Análise estática fica limitada ao ESLint security plugin.
+
+> Alterado pelo ADR-033 (audit só de produção; Gitleaks por imagem) e pelo ADR-034 (`main` protegida por disciplina e hook local, sem branch protection do GitHub). O Postgres local de desenvolvimento usa a porta `5435` (o NoteScan local usa `5434`).
 
 ---
 
@@ -691,3 +693,177 @@ avulsas por `npx`. Nunca pnpm nem yarn.
 **Consequences**
 Instalação um pouco mais lenta e `node_modules` maior; sem impacto em produção. O Dependabot usa
 o ecossistema `npm`. Um só gerenciador em todos os projetos da ITC.
+
+---
+
+## ADR-032 — TypeScript 7 lado a lado com o TypeScript 6 para as ferramentas
+
+**Status:** Accepted
+**Date:** 2026-10-17
+**Module:** 00 — Fundação
+
+**Context**
+O `eslint-config-next@16.4.2` depende do typescript-eslint, que recusa carregar com o TypeScript 7.0
+("typescript-eslint does not support TS 7.0"; suporte acompanhado em typescript-eslint#10940 para TS ≥ 7.1).
+Com `typescript@7.0.2` direto, `npm run lint` quebra.
+
+**Decision**
+Seguir o modo "lado a lado" do anúncio do TypeScript 7.0, com aliases do npm:
+`"@typescript/native": "npm:typescript@7.0.2"` (compilador do `typecheck`) e
+`"typescript": "npm:@typescript/typescript6@6.0.2"` (API importada pelo typescript-eslint e pelo Next).
+`npm run typecheck` = `next typegen` + `tsc` do TS 7 com `--noEmit`.
+
+**Alternatives considered**
+- Só TypeScript 6.0.3 — mais simples, mas abre mão do TS 7 previsto na stack.
+- Tirar `eslint-config-next/typescript` — perde as regras de lint para TypeScript.
+
+**Consequences**
+Duas versões do TypeScript no `node_modules`. A checagem de tipos vale pelo TS 7; o lint usa o TS 6.
+Quando o typescript-eslint suportar o TS 7, remover o alias e voltar a `typescript@7`.
+
+---
+
+## ADR-033 — Ajustes de CI do Módulo 00
+
+**Status:** Accepted
+**Date:** 2026-10-17
+**Module:** 00 — Fundação
+
+**Context**
+O ADR-029 previa `npm audit --audit-level=high` e Gitleaks no CI. No Módulo 00, o audit completo
+falha por `braces@3.0.3` (GHSA-vfj7-8cjw-p6xm), que não tem versão corrigida e só chega por
+ferramentas de desenvolvimento (`eslint-config-next`, `shadcn`, `@ts-morph`; `esbuild` via `drizzle-kit`).
+A `gitleaks/gitleaks-action` exige licença paga em repositório de organização.
+
+**Decision**
+Altera o ADR-029 em dois pontos:
+- `ci.yml` roda `npm audit --omit=dev --audit-level=high` (só dependências de produção).
+- `security.yml` roda a imagem oficial `ghcr.io/gitleaks/gitleaks` (v8.30.1) fixada por digest, no histórico inteiro.
+
+**Alternatives considered**
+- Audit completo com `--audit-level=critical` — esconderia também falhas altas de produção.
+- `overrides` do `braces` — não existe versão corrigida para apontar.
+- Licença da gitleaks-action — custo sem ganho sobre o binário.
+
+**Consequences**
+Falhas em ferramentas de dev não bloqueiam o CI; voltar ao audit completo quando sair a correção do
+`braces`. O Gitleaks é atualizado trocando o digest à mão (o Dependabot não acompanha a imagem).
+
+---
+
+## ADR-034 — Proteção da main por disciplina
+
+**Status:** Accepted
+**Date:** 2026-10-17
+**Module:** 00 — Fundação
+
+**Context**
+O ADR-029 previa a `main` protegida (PR, 1 aprovação, CI obrigatório). A API do GitHub devolve
+HTTP 403 ("Upgrade to GitHub Pro or make this repository public") para branch protection e rulesets
+em repositório privado da org ITC-Brasil no plano gratuito.
+
+**Decision**
+Merge na `main` só por PR `develop → main` com CI verde, garantido por disciplina:
+hook `.githooks/pre-push` que recusa push para `refs/heads/main` (passa só com `ALLOW_MAIN_PUSH=1`,
+para emergência), ativado com `git config core.hooksPath .githooks` logo depois de clonar, e a regra
+escrita no `CLAUDE.md`.
+
+**Alternatives considered**
+- GitHub Team — resolve, mas tem custo por usuário.
+- Repositório público — liberaria a proteção, mas expõe `docs/INFRA.md` (servidor, portas, usuários).
+
+**Consequences**
+O hook não impede push pela interface web, nem de uma máquina onde o `core.hooksPath` não foi
+configurado, nem com `--no-verify`. O CI continua rodando no PR, mas não bloqueia o merge.
+Altera o ADR-029 no ponto "main protegida".
+
+---
+
+## ADR-035 — Ajuste de contraste dos tokens
+
+**Status:** Accepted
+**Date:** 2026-10-17
+**Module:** 00 — Fundação
+
+**Context**
+O axe do E2E do Módulo 00 apontou dois contrastes abaixo de 4,5:1 no tema claro, que o Design System
+listava como exceção aceita: branco sobre o botão primário `#008F95` (3,92:1) e `text-muted`
+`#697272` sobre `bg-base` (4,36:1).
+
+**Decision**
+No tema claro: `--text-muted` passa a `#636C6C` (4,76:1 sobre `bg-base`); novo token
+`--accent-solid` `#007A80` (branco em cima: 5,13:1) com hover `--accent-solid-hover` `#006C72`,
+usado em toda superfície com `on-accent` (botão primário, checkbox marcado, switch ligado; mapeado
+também em `--color-primary`). `--accent` `#008F95` continua para anel de foco, item ativo, bordas e
+marca. Tema escuro sem mudança (`on-accent` sobre `#30A5AB` já dá 5,74:1). A regra `color-contrast`
+do axe volta a valer no E2E.
+
+**Alternatives considered**
+- Manter os valores da marca como exceção — falha WCAG 2.2 AA em rótulos de botão e metadados.
+- Escurecer o `--accent` inteiro — muda a cor da marca em foco, item ativo e logo.
+
+**Consequences**
+Botão primário um tom mais escuro que o ciano da marca no claro. O Design System no Claude Design é
+atualizado pelo Cowork. Componentes novos com `on-accent` usam `bg-accent-solid`, nunca `bg-accent`.
+
+---
+
+## ADR-036 — `cacheComponents` e `partialPrefetching` ligados no Next 16
+
+**Status:** Accepted
+**Date:** 2026-10-17
+**Module:** 00 — Fundação
+
+**Context**
+O `create-next-app@16.4.2` gera o `next.config.ts` com `cacheComponents: true` e
+`partialPrefetching: true`. Nenhum documento previa as duas opções, e elas mudam como páginas e rotas
+buscam dados: com `cacheComponents`, o que não está marcado com `"use cache"` é dinâmico e precisa
+estar sob `<Suspense>` ou sinalizar a requisição (`await connection()`, `cookies()`, `headers()`).
+
+**Decision**
+Manter as duas ligadas, como o scaffold do Next 16.4 entrega. Dados por usuário (tarefas, sessão,
+notificações) ficam dinâmicos; cache explícito com `"use cache"` só onde houver dado compartilhado
+(cadastros, workflow). Rotas sem leitura de requisição chamam `await connection()` antes de tocar o
+banco, como em `src/app/api/health/route.ts`.
+
+**Alternatives considered**
+- Desligar as duas — volta ao modelo do Next 15, mas contra o padrão do framework na versão adotada
+  e sem o prefetch parcial das telas.
+
+**Consequences**
+Validado no Módulo 00: `next build` passa, `/` sai estático e `/api/health` dinâmico (200/503 com o
+banco no ar e fora). Cada módulo novo precisa lembrar que leitura de banco fora de `<Suspense>` sem
+sinal de requisição quebra o build ou é pré-renderizada.
+
+---
+
+## ADR-037 — Membros: papel `member`, desativação por ban e seed em JS
+
+**Status:** Accepted
+**Date:** 2026-10-17
+**Module:** 01 — Autenticação e membros
+
+**Context**
+O plugin `admin` do Better Auth 1.7.10 conhece os papéis `admin` e `user`; o produto usa `admin` e
+`member`. A PRD pede "desativar" membros, e o ADR-018 proíbe excluir cadastros. O seed do primeiro
+admin precisa rodar no dev e dentro da imagem standalone, que não tem `tsx` nem os aliases `@/`.
+
+**Decision**
+- `admin({ roles: { admin: adminAc, member: userAc }, defaultRole: "member", adminRoles: ["admin"] })`
+  em `src/server/auth.ts`: `member` tem as permissões de `user` do plugin. Passar `ac: defaultAc`
+  quebra a tipagem no TS 7, então o `ac` padrão fica implícito.
+- Desativar = `banned = true` (campo do plugin `admin`), feito em `src/server/services/members.ts`,
+  que também apaga as sessões do usuário na mesma transação. O Better Auth já recusa login de banido
+  (`BANNED_USER`, 403).
+- Ninguém altera o próprio papel nem se desativa (`MemberError`), o que garante sempre um admin ativo.
+- `src/db/seed.mjs` em JS puro com `pg` e `@node-rs/argon2`, idempotente (`ON CONFLICT (email) DO
+  NOTHING`), copiado para `dist/seed.mjs` na imagem.
+
+**Alternatives considered**
+- Coluna própria `archived_at` em `user` — duplicaria o `banned` que o Better Auth já respeita no login.
+- Seed em TypeScript com `tsx` — dependência a mais e não roda na imagem standalone.
+- Seed por `auth.api.createUser` — exige carregar o app inteiro (env, aliases) fora do Next.
+
+**Consequences**
+O seed repete os parâmetros do Argon2id de `src/server/auth.ts`; mudar um exige mudar o outro.
+Seletores de responsável (Módulo 04) devem filtrar `banned = false`.

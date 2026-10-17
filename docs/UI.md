@@ -111,7 +111,8 @@ Atalhos de uma tecla não disparam com foco em campo de texto.
 - WCAG 2.2 AA, verificado por `@axe-core/playwright` em Minhas tarefas, Kanban, Lista, Detalhe, Criação rápida e Configurações.
 - Status e prioridade nunca só por cor: ícone com forma própria + texto (ou `title`/`aria-label` no card).
 - Foco visível: anel de 3 px em `accent-light` + borda `accent` nos campos; `outline` 2 px `accent` nos demais.
-- Contrastes conhecidos abaixo de 4,5:1 (valores da marca, mantidos): branco sobre `#008F95` (3,9:1) — rótulos curtos, peso 600; `warn` e `sev-medium` como texto no claro — evitar.
+- Contraste AA nos dois temas (ADR-035): superfícies com `on-accent` usam `accent-solid` (`#007A80` no claro, 5,13:1); `text-muted` `#636C6C` (4,76:1 sobre `bg-base`). A regra `color-contrast` do axe fica ligada no E2E.
+- `warn` e `sev-medium` continuam sem carregar texto no claro — só ícone/barra.
 - Rótulos visíveis em todos os campos; erros dizem como corrigir.
 
 ## 9. Textos da interface

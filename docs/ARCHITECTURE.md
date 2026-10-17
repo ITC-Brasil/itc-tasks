@@ -55,7 +55,7 @@ Diagramas de sequência: `docs/FLOWS.md`.
 |---|---|---|---|---|
 | `itc-tasks` | `itc-tasks:local` (build local, ADR-027) | `node server.js` (Next standalone) | `itc-tasks-uploads:/data/uploads` | `127.0.0.1:3021:3000` |
 | `itc-tasks-worker` | mesma | `node worker/index.js` | `itc-tasks-uploads:/data/uploads` | nenhuma |
-| `itc-tasks-db` | `postgres:18.6-alpine` | — | `itc-tasks-db-data:/var/lib/postgresql/data` | nenhuma |
+| `itc-tasks-db` | `postgres:18.6-alpine` | — | `itc-tasks-db-data:/var/lib/postgresql` | nenhuma |
 
 **Onde roda:** `glpi-srv` (Dell PowerEdge R250, Ubuntu 24.04.4, Docker 29.5.3), pasta
 `/home/glpissh/docker/itc-tasks` — o padrão do servidor, onde estão todos os containers (`~/docker/<nome>`, junto de

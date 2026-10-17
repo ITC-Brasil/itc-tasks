@@ -1,0 +1,16 @@
+.git
+.github
+.claude
+.conversa
+.next
+node_modules
+coverage
+playwright-report
+test-results
+data
+.env
+.env.*
+!.env.example
+docs
+tests
+*.md

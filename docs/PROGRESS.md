@@ -4,12 +4,10 @@
 
 > Sobrescrito a cada passagem de sessão. Não é registro permanente.
 
-- **Fase:** pré-implementação concluída (17/10/2026). Nenhum código escrito.
-- **Próximo passo:** Módulo 00 — Fundação (`PROMPT_CLAUDE_CODE.md`).
-- **Prontos:** PRD, arquitetura, 31 ADRs, schema planejado, contrato MCP, fluxos, guia de UI,
-  Design System, telas, marca e pacote PWA.
-- **Definido em 17/10/2026:** domínio `tasks.itcbr.xyz`, GLPI `http://glpi.grupoitcbrasil.com.br:8888`,
-  e-mail Titan Mail em `@itcbr.xyz` (ADR-026), GitHub `itc-brasil/itc-tasks`, sem registry de imagens (ADR-027); produção no `glpi-srv` com o túnel `itcbr-tunnel` existente, porta `127.0.0.1:3021` (ADR-028); fluxo de Git, CI e deploy igual ao do NoteScan (ADR-029).
+- **Fase:** Módulo 01 — Autenticação e membros aprovado (M-007) e ajustado em 17/10/2026, na `develop`.
+- **Próximo passo:** Módulo 02 — Layout, navegação e tema, depois da aprovação.
+- **Prontos:** Next 16.4.2 standalone, tokens do Design System, 10 componentes base em Base UI, Drizzle com a migração base, env tipado, Vitest/Playwright/ESLint/Prettier, CI (Quality Check + Gitleaks) verde no GitHub, Dockerfile e `docker-compose.yml` de produção, `/api/health`; Better Auth com Argon2id, tela Entrar, `requireActor()`, seed do admin (`npm run db:seed`), Configurações › Membros.
+- **Proteção da `main`:** por disciplina e hook local (ADR-034); depois de clonar, `git config core.hooksPath .githooks`.
 - **Backup:** não definido por decisão de 17/10/2026 (`docs/INFRA.md` §9); migrações só aditivas até lá.
 - **Pendências externas:** criar a caixa `tasks@itcbr.xyz` no Titan e
   conferir SPF/DKIM/DMARC do `itcbr.xyz`; adicionar a rota `tasks.itcbr.xyz` ao `itcbr-tunnel`.
@@ -18,6 +16,10 @@
 
 | Data | Módulo | Resumo |
 |---|---|---|
+| 2026-10-17 | 01 — Revisão | Ajustes de M-007: redefinir senha pelo admin (encerra sessões), `MemberError` para membro inexistente e para e-mail duplicado em corrida, IP do cliente por `cf-connecting-ip`/`x-forwarded-for` no rate limit. E2E fora do CI até o Módulo 11 (aceito na M-007); os testes de integração de auth rodam no Quality Check (`npm run test:coverage`). |
+| 2026-10-17 | 01 — Autenticação e membros | Better Auth 1.7.10 (`admin`, `@better-auth/api-key`, `nextCookies`) com Argon2id; schema gerado pelo CLI `auth` (`0001_auth`, `0002_user_preferences`); `src/proxy.ts` + `requireActor()`; tela Entrar; `src/db/seed.mjs`; Membros (criar, trocar papel, desativar por ban). ADR-037. Ajuste M-005: `--accent-solid-pressed`. Detalhes: `docs/modules/01-autenticacao.md`. |
+| 2026-10-17 | 00 — Revisão | Ajustes de M-002/M-003: ADR-033 (audit só de produção, Gitleaks por imagem), ADR-034 (`main` por disciplina + `.githooks/pre-push`), ADR-035 (`text-muted` `#636C6C`, `accent-solid` `#007A80`, axe `color-contrast` religado), ADR-036 (`cacheComponents`/`partialPrefetching`); nota do Postgres 18 no `docs/INFRA.md` §3; `.claude/launch.json` versionado. |
+| 2026-10-17 | 00 — Fundação | Scaffold Next 16.4.2, tokens, componentes Base UI, Drizzle + migração base, env, testes, CI, Docker, `/api/health`. ADR-032 (TS 7 + TS 6). Fora de ADR: `npm audit --omit=dev` no CI (`braces` sem correção nas ferramentas de dev); Gitleaks por imagem fixada por digest (a action exige licença em org); volume do Postgres 18 em `/var/lib/postgresql`; worker em perfil até o Módulo 08. Proteção da `main` bloqueada pelo plano do GitHub. Detalhes: `docs/modules/00-fundacao.md`. |
 | 2026-10-17 | Pré-implementação | ADR-031: npm 11.19.1 (o do Node 24.22.0) no lugar do pnpm; `package-lock.json`, `npm ci` no CI e no Docker, `.npmrc` com `save-exact=true`. |
 | 2026-10-17 | Pré-implementação | ADR-030: conversa Claude Code ↔ Cowork em `.conversa/` (fora do Git); repositório editado no Windows com `eol=lf`; o Cowork monta a pasta inicial (docs, marca em `public/` e `docs/brand/`, `.gitignore`, `.gitattributes`, `.conversa/`) e o Claude Code faz o commit inicial no Módulo 00. |
 | 2026-10-17 | Pré-implementação | Documentação inicial: `documentacao-itc-tasks.md`, `CLAUDE.md`, `PROMPT_CLAUDE_CODE.md`, `docs/` (PRD, ARCHITECTURE, INFRA, DECISIONS com ADR-001 a ADR-029, SCHEMA, API, FLOWS, UI). Versões das dependências levantadas no npm em 17/10/2026. |

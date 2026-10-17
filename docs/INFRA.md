@@ -97,6 +97,7 @@ Baseados em `novo-container-glpi-srv.md`:
 | Monitor no Uptime Kuma | HTTP(s) em `https://tasks.itcbr.xyz/api/health` |
 | Registro na documentação do servidor | Guia (nova seção 3.x), contexto (serviços, portas, contador) e credenciais |
 | Senhas | Únicas, só no `.env` da pasta, nunca no `docker-compose.yml` nem no repositório |
+| Volume do Postgres | Postgres 18 ou maior: montar o volume em `/var/lib/postgresql`, não em `/var/lib/postgresql/data` |
 
 ---
 
@@ -133,6 +134,7 @@ sudo systemctl restart cloudflared
 - O cloudflared foi instalado por `.deb` do GitHub (o APT da Cloudflare falha no Ubuntu 24.04); **não atualiza com `apt upgrade`** (lição 1).
 - O locale precisa ser `pt_BR.UTF-8`: com POSIX, acentos no `config.yml` corrompem o arquivo (`invalid trailing UTF-8 octet`) (lição 5). Preferir comentários sem acento.
 - **Limites do túnel que moldam o app:** ~100 s de timeout por requisição, uploads até 100 MB (o Pingvin Share usa chunks de 90 MB pelo mesmo motivo), conexões ociosas podem cair. No ITC Tasks: jobs fora da requisição, anexos ≤ 25 MB, SSE com heartbeat de 25 s.
+- **IP do cliente:** o app só vê o IP do túnel no socket. `src/server/auth.ts` lê `cf-connecting-ip` e depois `x-forwarded-for` (`advanced.ipAddress.ipAddressHeaders`), para o rate limit do Better Auth não juntar todo mundo numa chave só. Esse rate limit liga só com `NODE_ENV=production` (definido no `Dockerfile`) e guarda os contadores em memória: reiniciar o container zera, o que é aceitável com uma réplica.
 - `/mcp` precisa ser acessível por agentes sem login no navegador. Se um dia o subdomínio ficar atrás de Cloudflare Access (há uma avaliação pendente para o Homepage), liberar `/mcp` com service token ou regra de bypass.
 
 ---
@@ -144,7 +146,7 @@ sudo systemctl restart cloudflared
 | Pasta | `/home/glpissh/docker/notescan` |
 | Containers | `notescan-app` (Next.js standalone, porta 3010) e `notescan-db` (PostgreSQL 16, rede interna `notescan_default`) |
 | Túnel | `notescan.itcbr.xyz` → `http://localhost:3010` |
-| Branches | `feat/…` → `develop` → PR → `main` (protegida, 1 aprovação, push direto bloqueado) |
+| Branches | `feat/…` → `develop` → PR → `main` (protegida, 1 aprovação, push direto bloqueado). No ITC Tasks a proteção é por disciplina e hook local (ADR-034) |
 | CI | "Quality Check": `npm ci`, `prisma generate`, type-check, lint (com `eslint-plugin-security`), `prisma migrate deploy` no Postgres de serviço, testes com cobertura, `npm audit --audit-level=high` |
 | Segurança no GitHub | Dependabot (minor/patch, máx. 5 PRs), Secret Scanning. **CodeQL removido**: o GitHub Advanced Security não está disponível no plano gratuito para repositório privado da org ITC-Brasil |
 | CD | Merge na `main` → `deploy.yml` com `appleboy/ssh-action@v1` (por tag, não SHA), `port: 2222` fixo, `command_timeout: 20m`; script: `cd /home/glpissh/docker/notescan && git pull origin main && docker compose up -d --build && docker image prune -f`. Sem health check depois do deploy |
@@ -230,7 +232,7 @@ services:
       - POSTGRES_USER=itc_tasks
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     volumes:
-      - itc-tasks-db-data:/var/lib/postgresql/data
+      - itc-tasks-db-data:/var/lib/postgresql   # Postgres 18: PGDATA em /var/lib/postgresql/18/docker
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U itc_tasks -d itc_tasks"]
       interval: 10s
@@ -241,7 +243,7 @@ volumes:
   itc-tasks-db-data:
 ```
 
-Sem label do Watchtower (§3). Sem porta do Postgres no host.
+Sem label do Watchtower (§3). Sem porta do Postgres no host. Versão implementada: `docker-compose.yml` na raiz do repositório (Módulo 00), com o `itc-tasks-worker` no perfil `worker` até o Módulo 08.
 
 ### 6.3 `.env` de produção (nomes; valores no Vaultwarden)
 
@@ -273,7 +275,7 @@ Trocar as chaves VAPID depois do go-live invalida todas as assinaturas de push (
 ### 7.1 Fluxo
 
 ```
-feat/… ──PR──▶ develop ──PR (CI verde + 1 aprovação)──▶ main
+feat/… ──PR──▶ develop ──PR (CI verde + 1 aprovação; ADR-034)──▶ main
                                                          │
                                        GitHub Actions: deploy.yml
                                                          │  ssh -p 2222 github-deploy@glpi.grupoitcbrasil.com.br

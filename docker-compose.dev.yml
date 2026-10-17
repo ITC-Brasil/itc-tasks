@@ -1,0 +1,19 @@
+services:
+  db:
+    image: postgres:18.6-alpine
+    environment:
+      POSTGRES_USER: itc
+      POSTGRES_PASSWORD: itc
+      POSTGRES_DB: itc_tasks
+    ports: ["5435:5432"] # 5434 já é do NoteScan local; uma porta por projeto
+    volumes:
+      - db-data:/var/lib/postgresql # Postgres 18: PGDATA em /var/lib/postgresql/18/docker
+      - ./scripts/db-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U itc -d itc_tasks"]
+      interval: 5s
+  mailpit:
+    image: axllent/mailpit:v1.31.6
+    ports: ["8025:8025", "1025:1025"]
+volumes:
+  db-data:
