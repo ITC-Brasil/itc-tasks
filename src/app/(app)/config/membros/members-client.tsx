@@ -24,6 +24,7 @@ import {
 import {
   type ActionResult,
   createMemberAction,
+  resetMemberPasswordAction,
   setMemberActiveAction,
   setMemberRoleAction,
 } from "@/server/actions/members";
@@ -141,6 +142,60 @@ export function NewMemberDialog() {
   );
 }
 
+function ResetPasswordDialog({ member }: { member: Member }) {
+  const [open, setOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const password = String(new FormData(event.currentTarget).get("password"));
+    startTransition(async () => {
+      const result = await resetMemberPasswordAction(member.id, password);
+      if (!result.ok) return setError(result.error);
+      setError(null);
+      setOpen(false);
+      toast.success("Senha redefinida");
+    });
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger render={<Button variant="secondary" />}>Redefinir senha</DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Redefinir senha de {member.name}</DialogTitle>
+          <DialogDescription>
+            As sessões abertas são encerradas. Passe a senha nova por um canal seguro.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={onSubmit} className="flex flex-col gap-4">
+          <label className="flex flex-col gap-1.5 font-medium">
+            Senha nova
+            <Input
+              name="password"
+              type="password"
+              required
+              minLength={12}
+              autoComplete="new-password"
+            />
+          </label>
+          {error && (
+            <p role="alert" className="text-err">
+              {error}
+            </p>
+          )}
+          <DialogFooter>
+            <Button type="submit" disabled={pending}>
+              {pending ? "Redefinindo…" : "Redefinir senha"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function MembersTable({ members, selfId }: { members: Member[]; selfId: string }) {
   const [pending, startTransition] = useTransition();
 
@@ -189,18 +244,21 @@ export function MembersTable({ members, selfId }: { members: Member[]; selfId: s
                 <td className="px-4 py-3">{m.banned ? "Desativado" : "Ativo"}</td>
                 <td className="px-4 py-3 text-right">
                   {!self && (
-                    <Button
-                      variant={m.banned ? "secondary" : "destructive"}
-                      disabled={pending}
-                      onClick={() =>
-                        run(
-                          () => setMemberActiveAction(m.id, !!m.banned),
-                          m.banned ? "Membro reativado" : "Membro desativado",
-                        )
-                      }
-                    >
-                      {m.banned ? "Reativar" : "Desativar"}
-                    </Button>
+                    <div className="flex justify-end gap-2">
+                      <ResetPasswordDialog member={m} />
+                      <Button
+                        variant={m.banned ? "secondary" : "destructive"}
+                        disabled={pending}
+                        onClick={() =>
+                          run(
+                            () => setMemberActiveAction(m.id, !!m.banned),
+                            m.banned ? "Membro reativado" : "Membro desativado",
+                          )
+                        }
+                      >
+                        {m.banned ? "Reativar" : "Desativar"}
+                      </Button>
+                    </div>
                   )}
                 </td>
               </tr>

@@ -1,12 +1,13 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db, pool } from "@/db";
-import { user } from "@/db/schema";
+import { session, user } from "@/db/schema";
 import { type Actor, ForbiddenError } from "@/server/actor";
 import { auth } from "@/server/auth";
 import {
   MemberError,
   createMember,
+  resetMemberPassword,
   setMemberActive,
   setMemberRole,
 } from "@/server/services/members";
@@ -91,5 +92,56 @@ describe("permissões", () => {
     await expect(
       createMember(admin, { name: "Dup", email: `membro-${run}@t.test`, password, role: "member" }),
     ).rejects.toBeInstanceOf(MemberError);
+  });
+
+  it("alvo inexistente é recusado", async () => {
+    await expect(setMemberRole(admin, "nao-existe", "admin")).rejects.toThrow(
+      "Membro não encontrado",
+    );
+    await expect(setMemberActive(admin, "nao-existe", false)).rejects.toThrow(
+      "Membro não encontrado",
+    );
+    await expect(resetMemberPassword(admin, "nao-existe", "outra-senha-123")).rejects.toThrow(
+      "Membro não encontrado",
+    );
+  });
+
+  it("cadastros simultâneos com o mesmo e-mail: um entra, o outro vira MemberError", async () => {
+    const input = {
+      name: "Corrida",
+      email: `corrida-${run}@t.test`,
+      password,
+      role: "member" as const,
+    };
+    const results = await Promise.allSettled([
+      createMember(admin, input),
+      createMember(admin, input),
+    ]);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    const rejected = results.find((r) => r.status === "rejected");
+    expect(rejected?.reason).toBeInstanceOf(MemberError);
+  });
+});
+
+describe("redefinir senha", () => {
+  it("member não redefine", async () => {
+    await expect(resetMemberPassword(member, adminId, "nova-senha-123")).rejects.toBeInstanceOf(
+      ForbiddenError,
+    );
+  });
+
+  it("admin não redefine a própria pelo painel", async () => {
+    await expect(resetMemberPassword(admin, adminId, "nova-senha-123")).rejects.toBeInstanceOf(
+      MemberError,
+    );
+  });
+
+  it("senha nova entra, antiga falha, sessões encerradas", async () => {
+    const email = `membro-${run}@t.test`;
+    expect((await signIn(email)).status).toBe(200);
+    await resetMemberPassword(admin, memberId, "nova-senha-123");
+    expect(await db.$count(session, eq(session.userId, memberId))).toBe(0);
+    expect((await signIn(email)).status).toBe(401);
+    expect((await signIn(email, "nova-senha-123")).status).toBe(200);
   });
 });

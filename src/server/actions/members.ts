@@ -2,11 +2,17 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { createMemberSchema, memberIdSchema, roleSchema } from "@/lib/validation/members";
+import {
+  createMemberSchema,
+  memberIdSchema,
+  passwordSchema,
+  roleSchema,
+} from "@/lib/validation/members";
 import { ForbiddenError, requireActor } from "@/server/actor";
 import {
   MemberError,
   createMember,
+  resetMemberPassword,
   setMemberActive,
   setMemberRole,
 } from "@/server/services/members";
@@ -45,4 +51,14 @@ export async function setMemberActiveAction(
 ): Promise<ActionResult> {
   const actor = await requireActor();
   return run(() => setMemberActive(actor, memberIdSchema.parse(userId), z.boolean().parse(active)));
+}
+
+export async function resetMemberPasswordAction(
+  userId: string,
+  password: string,
+): Promise<ActionResult> {
+  const actor = await requireActor();
+  return run(() =>
+    resetMemberPassword(actor, memberIdSchema.parse(userId), passwordSchema.parse(password)),
+  );
 }
