@@ -1,6 +1,6 @@
 # Módulo 00 — Fundação
 
-**Concluído em:** 2026-10-17 · **Branch:** `develop` · **Status:** aguardando revisão do Cowork
+**Concluído em:** 2026-10-17 · **Branch:** `develop` · **Status:** aprovado pelo Cowork (M-002) com os ajustes de M-002 e M-003 aplicados
 
 ## O que foi implementado
 
@@ -128,21 +128,25 @@
 | Migração base nos dois bancos | `npm run db:migrate` + migrate no `itc_tasks_test` | ✅ `unaccent_immutable('Ação')` = `Acao`; `nextval` = 1 |
 | Unit + integração | `npm test` | ✅ 2 arquivos, 2 testes |
 | Guarda do banco de teste | `tests/integration/test-db.ts` | ✅ só aceita `/itc_tasks_test` |
-| E2E + axe | `npm run test:e2e` | ✅ desktop e mobile (regra `color-contrast` desligada, ver Pontos de atenção) |
+| E2E + axe | `npm run test:e2e` | ✅ desktop e mobile, com `color-contrast` ligado depois do ADR-035 |
 | Lockfile aceito pelo `npm ci` | `npm ci` local | ✅ (avisos de peer do eslint 10) |
 | CI no GitHub | push em `develop` (run 39010702627) | ✅ Quality Check verde |
 | Gitleaks | local e run 39010702629 | ✅ 9 commits, nenhum vazamento |
 | Imagem de produção | `docker build` + container contra o Postgres local | ✅ migrações aplicadas, `/api/health` 200 |
 | Health com banco fora | `npm run start`, `docker stop` do Postgres | ✅ 503 `{"db":"down","version":"0.1.0"}` |
 | Auditoria de produção | `npm audit --omit=dev --audit-level=high` | ✅ 0 vulnerabilidades |
-| Proteção da `main` | `gh api -X PUT …/branches/main/protection` | ❌ HTTP 403: exige GitHub Pro/Team em repositório privado |
+| Proteção da `main` no GitHub | `gh api -X PUT …/branches/main/protection` | ❌ HTTP 403: exige GitHub Pro/Team em repositório privado → ADR-034 |
+| Hook `pre-push` | `git push --dry-run origin develop:main` / `develop` / com `ALLOW_MAIN_PUSH=1` | ✅ recusa a `main`; `develop` e emergência passam |
 
 ## Decisões
 
-- ADR-032 — TypeScript 7 lado a lado com o TypeScript 6 para as ferramentas. Ver `docs/DECISIONS.md`.
-- Sem ADR (registradas aqui e no PROGRESS): auditoria do CI com `--omit=dev`; Gitleaks por imagem
-  Docker em vez da `gitleaks-action`; volume do Postgres 18 em `/var/lib/postgresql`; worker em
-  perfil até o Módulo 08.
+ADR-032 a ADR-036 — ver `docs/DECISIONS.md`:
+- ADR-032 — TypeScript 7 lado a lado com o TypeScript 6 para as ferramentas.
+- ADR-033 — Ajustes de CI: `npm audit --omit=dev` e Gitleaks pela imagem fixada por digest (altera o ADR-029).
+- ADR-034 — Proteção da `main` por disciplina: hook `.githooks/pre-push` + `git config core.hooksPath .githooks` (altera o ADR-029).
+- ADR-035 — Contraste: `text-muted` `#636C6C` e token `accent-solid` `#007A80` no claro; `color-contrast` do axe religado.
+- ADR-036 — `cacheComponents` e `partialPrefetching` ligados.
+- Sem ADR: volume do Postgres 18 em `/var/lib/postgresql` (nota em `docs/INFRA.md` §3); worker em perfil até o Módulo 08.
 
 ## Dependências entre módulos
 
@@ -158,9 +162,9 @@
 
 ## Pontos de atenção
 
-- **Proteção da `main` não aplicada.** O plano atual da org ITC-Brasil não permite branch
-  protection nem rulesets em repositório privado (HTTP 403). Até haver plano pago ou outra decisão,
-  o fluxo `develop` → PR → `main` depende de disciplina.
+- **Proteção da `main` por disciplina (ADR-034).** O GitHub Free não protege branch em repositório
+  privado. O hook `.githooks/pre-push` só vale onde `git config core.hooksPath .githooks` foi
+  rodado, e não cobre a interface web nem `--no-verify`.
 - **Postgres 18 mudou o PGDATA** para `/var/lib/postgresql/18/docker`. O volume vai em
   `/var/lib/postgresql`; montar em `/var/lib/postgresql/data` (como no rascunho do INFRA) faz a
   imagem 18 recusar iniciar. `docs/INFRA.md` §6.2 e `docs/ARCHITECTURE.md` foram corrigidos.
@@ -171,9 +175,11 @@
   `eslint@10.13.0` o npm avisa (ERESOLVE overriding) mas instala e o lint roda.
 - **`shadcn` em `devDependencies`:** só o `shadcn/tailwind.css` é usado, no build. Em
   `dependencies` ele levava a cadeia do `braces` para a auditoria de produção.
-- **Contraste:** o axe aponta `on-accent` sobre `accent` (3.9:1) e `text-muted` sobre `bg-base`
-  (4.4:1), valores documentados no Design System. O E2E desliga só `color-contrast` até a auditoria
-  do Módulo 11.
+- **Contraste (ADR-035):** superfície com `on-accent` usa `bg-accent-solid`, nunca `bg-accent`;
+  `--color-primary` aponta para `accent-solid`. O E2E cobre só o tema claro; o escuro entra na
+  auditoria do Módulo 11.
+- **`cacheComponents` (ADR-036):** leitura de banco fora de `<Suspense>` precisa de `await connection()`
+  ou outro sinal de requisição.
 - **Cobertura sem limite mínimo** em `vitest.config.ts` (hoje 5,4% de linhas, só a vitrine e o
   `cn()`). Definir limites quando houver services (Módulo 03/04).
 - **`@theme inline` não emite variáveis:** utilitários próprios (`@utility tech`) usam valores
@@ -197,6 +203,17 @@ d0fa7f1 ci: add quality check and security workflows
 86a67a7 chore: add production docker setup
 33ea60d feat(api): add health endpoint
 ea52a4b fix(api): match health payload to api contract
+```
+
+Ajustes da revisão (M-002 e M-003):
+
+```
+6e0d88b docs: add adr-033 ci adjustments
+2fd6a82 docs: add adr-034 main protection by discipline
+064b1bd docs: add adr-035 token contrast adjustment
+1685b66 fix(ui): raise contrast of muted text and primary surfaces
+1cf6b73 docs: add adr-036 cache components
+76bd9fb chore: add preview launch config
 ```
 
 Antes do módulo, na `main`: `a6435d3 docs: add initial documentation and brand assets`.
