@@ -8,14 +8,15 @@ import { ArchiveButton, FieldLabel, FormDialog, FormSelect, Situation } from "..
 
 type Label = { id: string; name: string; colorToken: string; archivedAt: Date | null };
 
-// classes literais para o Tailwind enxergar; só fundo, nunca texto (warn/sev-medium no claro)
+// classes literais para o Tailwind enxergar; só fundo do ponto (ADR-041)
 const COLORS: { value: string; label: string; dot: string }[] = [
-  { value: "info", label: "Azul", dot: "bg-info" },
-  { value: "sev-medium", label: "Amarelo", dot: "bg-sev-medium" },
-  { value: "bordo", label: "Bordô", dot: "bg-bordo" },
-  { value: "accent", label: "Ciano", dot: "bg-accent" },
-  { value: "ok", label: "Verde", dot: "bg-ok" },
-  { value: "warn", label: "Laranja", dot: "bg-warn" },
+  { value: "label-teal", label: "Verde-azulado", dot: "bg-label-teal" },
+  { value: "label-blue", label: "Azul", dot: "bg-label-blue" },
+  { value: "label-plum", label: "Ameixa", dot: "bg-label-plum" },
+  { value: "label-rose", label: "Rosa", dot: "bg-label-rose" },
+  { value: "label-olive", label: "Oliva", dot: "bg-label-olive" },
+  { value: "label-brown", label: "Marrom", dot: "bg-label-brown" },
+  { value: "label-slate", label: "Ardósia", dot: "bg-label-slate" },
 ];
 
 function Swatch({ token }: { token: string }) {
@@ -54,7 +55,7 @@ export function LabelDialog({ label }: { label?: Label }) {
         name="colorToken"
         label="Cor"
         items={COLORS}
-        defaultValue={label?.colorToken ?? "info"}
+        defaultValue={label?.colorToken ?? "label-blue"}
       />
     </FormDialog>
   );

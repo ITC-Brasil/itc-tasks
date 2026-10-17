@@ -46,7 +46,8 @@ try {
   );
   await client.query(
     `INSERT INTO labels (name, color_token)
-     VALUES ('rede', 'info'), ('hardware', 'sev-medium'), ('segurança', 'bordo'), ('campo', 'accent')
+     SELECT * FROM (VALUES ('rede', 'label-blue'), ('hardware', 'label-plum'),
+       ('segurança', 'label-rose'), ('campo', 'label-teal')) v
      ON CONFLICT (name) DO NOTHING`,
   );
   // destino das tarefas do Windshift sem projeto identificável (PRD §9)

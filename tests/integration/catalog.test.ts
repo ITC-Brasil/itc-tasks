@@ -1,4 +1,6 @@
+import { sql } from "drizzle-orm";
 import { expect, it } from "vitest";
+import { db } from "@/db";
 import { type Actor, ForbiddenError } from "@/server/actor";
 import {
   CatalogError,
@@ -40,8 +42,22 @@ it("sigla é única sem diferenciar maiúsculas e tem 2 a 4 letras", async () =>
   );
 });
 
+it("etiqueta só aceita a paleta própria, nunca cor funcional (ADR-041)", async () => {
+  await expect(
+    createLabel(admin, { name: `func-${code}`, colorToken: "info" as never }),
+  ).rejects.toThrow("Escolha uma cor");
+  const l = await createLabel(admin, { name: `pal-${code}`, colorToken: "label-slate" });
+  expect(l.colorToken).toBe("label-slate");
+  const [{ legacy }] = (
+    await db.execute<{ legacy: number }>(
+      sql`SELECT count(*)::int AS legacy FROM labels WHERE color_token NOT LIKE 'label-%'`,
+    )
+  ).rows;
+  expect(legacy).toBe(0); // migração 0004 renomeou os tokens antigos
+});
+
 it("member não escreve cadastros", async () => {
-  await expect(createLabel(member, { name: "x", colorToken: "info" })).rejects.toThrow(
+  await expect(createLabel(member, { name: "x", colorToken: "label-blue" })).rejects.toThrow(
     ForbiddenError,
   );
   await expect(createStatus(member, { name: "x", category: "todo" })).rejects.toThrow(
@@ -56,7 +72,7 @@ it("arquivado sai dos seletores e volta ao reativar", async () => {
     kind: "client",
   });
   const u = await createMobileUnit(admin, { code: `UM-${code}`, projectId: p.id });
-  const l = await createLabel(admin, { name: `etq-${code}`, colorToken: "ok" });
+  const l = await createLabel(admin, { name: `etq-${code}`, colorToken: "label-olive" });
 
   await setProjectArchived(admin, p.id, true);
   await setMobileUnitArchived(admin, u.id, true);

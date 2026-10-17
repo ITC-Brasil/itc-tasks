@@ -41,8 +41,16 @@ export const mobileUnitSchema = z.object({
 });
 export type MobileUnitInput = z.input<typeof mobileUnitSchema>;
 
-// tokens funcionais e da marca; o banco guarda o nome, nunca hex
-export const LABEL_COLORS = ["info", "sev-medium", "bordo", "accent", "ok", "warn"] as const;
+// paleta própria (ADR-041), nunca cores funcionais; o banco guarda o nome, nunca hex
+export const LABEL_COLORS = [
+  "label-teal",
+  "label-blue",
+  "label-plum",
+  "label-rose",
+  "label-olive",
+  "label-brown",
+  "label-slate",
+] as const;
 
 export const labelSchema = z.object({
   name: z.string().trim().toLowerCase().min(1, "Informe o nome").max(30),
