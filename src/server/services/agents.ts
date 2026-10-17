@@ -224,10 +224,17 @@ export async function markdownToDoc(md: string) {
   };
 }
 
+/** M-044: `cycle` está no contrato, mas o service de ciclos é do Módulo 10; recusa em vez de ignorar. */
+function noCycle(cycle: unknown) {
+  if (cycle !== undefined)
+    throw new TaskError("VALIDATION", "Ciclo ainda não suportado (entra no Módulo 10)");
+}
+
 type Fields = Omit<McpCreateTask, "title" | "checklist">;
 
 /** Campos do MCP → entrada do tasksService; só os enviados. */
 async function serviceFields(actor: AgentActor, input: Fields) {
+  noCycle(input.cycle);
   const out: UpdateTaskInput = {};
   if (input.projectIds)
     out.projectIds = await idsByCode(projects, input.projectIds, "Projeto/Cliente");
@@ -346,6 +353,7 @@ export async function taskIdOf(number: number) {
 
 // ponytail: filtra em memória sobre o listTasks das visões (time de 4); consulta paginada se crescer
 export async function listTasksForAgent(actor: AgentActor, input: McpListTasks) {
+  noCycle(input.cycle);
   const filters = {
     statusIds: input.status ? await idsByName(workflowStatuses, input.status, "Status") : [],
     projectIds: input.project ? await idsByCode(projects, [input.project], "Projeto/Cliente") : [],

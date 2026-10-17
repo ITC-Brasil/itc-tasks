@@ -27,6 +27,10 @@ export const mcpListTasks = {
   overdue: z.boolean().optional(),
   limit: z.number().int().min(1).max(100).optional(),
   cursor: z.string().max(20).optional(),
+  cycle: z
+    .union([z.literal("current"), z.number().int().positive()])
+    .optional()
+    .describe("ainda não suportado (Módulo 10): enviar responde VALIDATION"),
 };
 
 const taskFields = {
@@ -46,6 +50,10 @@ const taskFields = {
   dueDate: date.nullable().optional(),
   labels: z.array(code).max(20).optional(),
   checklist: z.array(z.string().trim().min(1).max(200)).max(50).optional(),
+  cycle: z
+    .union([z.literal("current"), z.number().int().positive()])
+    .optional()
+    .describe("ainda não suportado (Módulo 10): enviar responde VALIDATION"),
 };
 
 export const mcpCreateTask = taskFields;
