@@ -4,7 +4,7 @@ import { Ellipsis, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useTheme } from "next-themes";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { setSidebarCollapsedAction } from "@/server/actions/preferences";
@@ -55,6 +55,18 @@ export function AppShell({
     savePreference(setSidebarCollapsedAction(!collapsed), () => setCollapsed(collapsed));
   }, [collapsed]);
 
+  // tablet: Esc fecha a sidebar sobreposta e devolve o foco ao botão de expandir
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!overlay) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== "Escape") return;
+      setOverlayAt(null);
+      toggleRef.current?.focus();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [overlay]);
   const showShortcuts = useCallback(() => setShortcutsOpen(true), []);
   useShortcut("[", toggle);
   useShortcut("?", showShortcuts);
@@ -135,6 +147,7 @@ export function AppShell({
         ))}
         <div className="flex-1" />
         <button
+          ref={toggleRef}
           type="button"
           onClick={toggle}
           aria-label={expanded ? undefined : "Expandir menu"}

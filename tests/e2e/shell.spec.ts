@@ -107,3 +107,17 @@ test("falha ao salvar a preferência desfaz a mudança e avisa", async ({ page, 
   await page.getByRole("menuitem", { name: /Usar tema/ }).click();
   await expect(html).toHaveAttribute("data-theme", theme!);
 });
+
+test("tablet: Esc fecha a sidebar sobreposta e devolve o foco", async ({ page, isMobile }) => {
+  test.skip(isMobile, "viewport de tablet no projeto desktop");
+  await page.setViewportSize({ width: 900, height: 800 });
+  await login(page);
+  await page.waitForLoadState("networkidle");
+  const expand = page.getByRole("button", { name: "Expandir menu" });
+  await expand.click();
+  await expect(page.getByRole("button", { name: /Recolher menu/ })).toBeVisible();
+
+  await page.keyboard.press("Escape");
+  await expect(expand).toBeVisible();
+  await expect(expand).toBeFocused();
+});
