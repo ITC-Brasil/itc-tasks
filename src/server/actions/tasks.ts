@@ -21,6 +21,7 @@ import {
   moveTask,
   removeChecklistItem,
   removeLink,
+  searchTasks,
   updateChecklistItem,
   updateTask,
 } from "@/server/services/tasks";
@@ -157,4 +158,9 @@ export async function addCommentAction(taskId: string, number: number, body: unk
 export async function editCommentAction(commentId: string, number: number, body: unknown) {
   const actor = await requireActor();
   return run(() => editComment(actor, commentId, body).then(() => undefined), detail(number));
+}
+
+export async function searchTasksAction(q: string) {
+  const actor = await requireActor();
+  return searchTasks(actor, String(q));
 }

@@ -36,6 +36,7 @@ it("grava o arquivo no volume, a linha e o evento; tipo vem da extensão", async
   expect(row.fileName).toBe("roteador.LOG");
   expect(row.mimeType).toBe("text/plain");
   const stored = await getAttachment(row.id);
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- caminho do próprio service
   expect(await readFile(stored!.path, "utf8")).toBe("log do roteador");
   expect((await listAttachments(task.id)).map((a) => a.fileName)).toEqual(["roteador.LOG"]);
   expect((await listActivity(task.id)).map((a) => a.text)).toContain("anexou roteador.LOG");

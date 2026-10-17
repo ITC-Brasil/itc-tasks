@@ -50,11 +50,7 @@ import type { Actor } from "@/server/actor";
 
 // Toda escrita de tarefa passa aqui com um Actor e grava task_events (ADR-003, ADR-042)
 export type TaskErrorCode =
-  | "VALIDATION"
-  | "NOT_FOUND"
-  | "ARCHIVED_REFERENCE"
-  | "TOO_LARGE"
-  | "UNSUPPORTED_TYPE";
+  "VALIDATION" | "NOT_FOUND" | "ARCHIVED_REFERENCE" | "TOO_LARGE" | "UNSUPPORTED_TYPE";
 export class TaskError extends Error {
   constructor(
     public code: TaskErrorCode,
@@ -882,3 +878,61 @@ export async function listTasks(
   };
 }
 export type TaskRow = Awaited<ReturnType<typeof listTasks>>["tasks"][number];
+
+// ── Busca ⌘K (ADR-048) ──────────────────────────────────────────────
+
+/** Palavras viram prefixos (`roteador:*`) para buscar enquanto digita; só letras e dígitos. */
+export function prefixQuery(q: string) {
+  const words = q.match(/[\p{L}\p{N}]+/gu) ?? [];
+  return words.map((w) => `${w}:*`).join(" & ");
+}
+
+/** Título/descrição, `TI-142`, `#48213` (GLPI) e código de UM; abertas primeiro, até 20. */
+export async function searchTasks(_actor: Actor, input: string) {
+  const q = input.trim().slice(0, 100);
+  if (!q) return [];
+  const bare = q.replace(/^TI-?/i, "");
+  const number = /^\d{1,9}$/.test(bare) ? bare : undefined;
+  const glpi = /^#(\d{1,7})$/.exec(q)?.[1];
+  const unit = q.replace(/^UM-/i, "").replace(/[\\%_]/g, "\\$&");
+  const words = prefixQuery(q);
+  const tsq = words ? sql`to_tsquery('portuguese', unaccent_immutable(${words}))` : null;
+  if (!number && !glpi && !tsq && unit.length < 2) return []; // sem critério, sem resultado
+  return db
+    .select({
+      id: tasks.id,
+      number: tasks.number,
+      title: tasks.title,
+      category: workflowStatuses.category,
+      glpiTicket: tasks.glpiTicket,
+    })
+    .from(tasks)
+    .innerJoin(workflowStatuses, eq(workflowStatuses.id, tasks.statusId))
+    .where(
+      and(
+        isNull(tasks.archivedAt),
+        or(
+          number ? eq(tasks.number, Number(number)) : undefined,
+          glpi ? eq(tasks.glpiTicket, Number(glpi)) : undefined,
+          tsq ? sql`${tasks.search} @@ ${tsq}` : undefined,
+          unit.length >= 2
+            ? inArray(
+                tasks.id,
+                db
+                  .select({ id: taskMobileUnits.taskId })
+                  .from(taskMobileUnits)
+                  .innerJoin(mobileUnits, eq(mobileUnits.id, taskMobileUnits.mobileUnitId))
+                  .where(sql`${mobileUnits.code} ILIKE ${unit + "%"}`),
+              )
+            : undefined,
+        ),
+      ),
+    )
+    .orderBy(
+      sql`${workflowStatuses.category} = 'done'`,
+      tsq ? sql`ts_rank(${tasks.search}, ${tsq}) DESC` : desc(tasks.number),
+      desc(tasks.number),
+    )
+    .limit(20);
+}
+export type SearchHit = Awaited<ReturnType<typeof searchTasks>>[number];
