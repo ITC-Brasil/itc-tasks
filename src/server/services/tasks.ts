@@ -105,6 +105,11 @@ export async function record(
       payload: e.payload ?? {},
     })),
   );
+  // ADR-048: o Postgres só entrega o NOTIFY no commit; /api/events repassa às abas
+  const fields = JSON.stringify([...new Set(events.map((e) => e.type))]);
+  await tx.execute(
+    sql`SELECT pg_notify('task_changed', json_build_object('id', id, 'number', number, 'fields', ${fields}::json)::text) FROM tasks WHERE id = ${taskId}`,
+  );
 }
 
 /** JSON com chaves ordenadas: o jsonb do Postgres não preserva a ordem enviada. */

@@ -12,6 +12,7 @@ import { setSidebarCollapsedAction } from "@/server/actions/preferences";
 import { NAV, isActive } from "./nav";
 import { savePreference } from "./save-preference";
 import { CommandPalette } from "./command-palette";
+import { LiveRefresh } from "./live-refresh";
 import { ShortcutsDialog, useShortcut } from "./shortcuts";
 import { UserMenu } from "./user-menu";
 
@@ -250,6 +251,7 @@ export function AppShell({
       <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
       <QuickCreate />
       <CommandPalette isAdmin={profile.role === "admin"} />
+      <LiveRefresh />
     </div>
   );
 }
