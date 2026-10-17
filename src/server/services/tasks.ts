@@ -106,9 +106,10 @@ export async function record(
     })),
   );
   // ADR-048: o Postgres só entrega o NOTIFY no commit; /api/events repassa às abas
+  // `by` só para pessoa: a aba ignora as próprias escritas, mas não as do agente dela (M-039)
   const fields = JSON.stringify([...new Set(events.map((e) => e.type))]);
   await tx.execute(
-    sql`SELECT pg_notify('task_changed', json_build_object('id', id, 'number', number, 'fields', ${fields}::json, 'by', ${"userId" in actor ? actor.userId : null}::text)::text) FROM tasks WHERE id = ${taskId}`,
+    sql`SELECT pg_notify('task_changed', json_build_object('id', id, 'number', number, 'fields', ${fields}::json, 'by', ${actor.kind === "user" ? actor.userId : null}::text)::text) FROM tasks WHERE id = ${taskId}`,
   );
 }
 
