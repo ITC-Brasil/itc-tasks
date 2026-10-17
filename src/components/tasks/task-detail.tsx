@@ -21,6 +21,7 @@ import {
   updateChecklistItemAction,
   updateTaskAction,
 } from "@/server/actions/tasks";
+import type { listActivity } from "@/server/services/activity";
 import type { listComments } from "@/server/services/comments";
 import type { getTaskByNumber } from "@/server/services/tasks";
 import { GlpiChip, LabelChip, ProjectChip, StatusIcon, UnitChip, glpiUrl } from "./badges";
@@ -30,6 +31,7 @@ import { type PickItem, Pick, PickMany, optionItems } from "./fields";
 
 type Task = NonNullable<Awaited<ReturnType<typeof getTaskByNumber>>>;
 type Comment = Awaited<ReturnType<typeof listComments>>[number];
+type Event = Awaited<ReturnType<typeof listActivity>>[number];
 type Patch = Partial<
   Pick<Task, "title" | "statusId" | "priority" | "assigneeId" | "glpiTicket" | "dueDate">
 > & {
@@ -52,11 +54,13 @@ const withCurrent = (items: PickItem[], value: string | null, label: string | nu
 export function TaskDetail({
   task,
   comments,
+  activity,
   options,
   glpiBaseUrl,
 }: {
   task: Task;
   comments: Comment[];
+  activity: Event[];
   options: TaskFormOptions;
   glpiBaseUrl: string;
 }) {
@@ -168,7 +172,7 @@ export function TaskDetail({
 
         <Links task={task} />
 
-        <Comments task={task} comments={comments} options={options} />
+        <Activity task={task} comments={comments} activity={activity} options={options} />
       </article>
 
       <aside
@@ -431,74 +435,98 @@ function Links({ task }: { task: Task }) {
   );
 }
 
-function Comments({
+function When({ at }: { at: Date }) {
+  return (
+    <time
+      dateTime={at.toISOString()}
+      title={at.toLocaleString("pt-BR")}
+      className="text-xs text-muted tabular-nums"
+      suppressHydrationWarning
+    >
+      {relativeTime(at)}
+    </time>
+  );
+}
+
+const via = (kind: string, token: string | null) =>
+  kind === "agent" && <span className="text-xs text-muted">via MCP · {token}</span>;
+
+/** Comentários e histórico numa linha do tempo, mais recente embaixo (ADR-048). */
+function Activity({
   task,
   comments,
+  activity,
   options,
 }: {
   task: Task;
   comments: Comment[];
+  activity: Event[];
   options: TaskFormOptions;
 }) {
+  const entries = [
+    ...comments.map((c) => ({ at: c.createdAt, comment: c, event: undefined })),
+    ...activity.map((e) => ({ at: e.createdAt, event: e, comment: undefined })),
+  ].sort((a, b) => a.at.getTime() - b.at.getTime());
   const [editing, setEditing] = useState<string | null>(null);
   const done = (r: TaskResult) => {
     if (!r.ok) toast.error(r.error);
     return r.ok;
   };
   return (
-    <section aria-labelledby="comments" className="flex flex-col gap-3">
-      <h2 id="comments" className="flex items-center gap-2 text-h4 font-semibold">
+    <section aria-labelledby="activity" className="flex flex-col gap-3">
+      <h2 id="activity" className="flex items-center gap-2 text-h4 font-semibold">
         <MessageSquare className="size-4 text-muted" aria-hidden="true" />
-        Comentários
+        Atividade
       </h2>
-      <ol className="flex flex-col gap-4">
-        {comments.map((c) => (
-          <li key={c.id} className="flex gap-3">
-            <Avatar initials={c.authorInitials ?? ""} size="lg" />
-            <div className="flex min-w-0 flex-1 flex-col gap-1">
-              <p className="flex flex-wrap items-baseline gap-x-2 text-sm">
-                <span className="font-medium">{c.authorName}</span>
-                {c.actorKind === "agent" && (
-                  <span className="text-xs text-muted">via MCP · {c.tokenName}</span>
+      <ol className="flex flex-col gap-3">
+        {entries.map(({ event: e, comment: c }) =>
+          e ? (
+            <li key={e.id} className="flex items-baseline gap-x-2 pl-1 text-sm text-muted">
+              <span>
+                <span className="font-medium text-foreground">{e.actor}</span> {e.text}
+              </span>
+              {via(e.actorKind, e.tokenName)}
+              <When at={e.createdAt} />
+            </li>
+          ) : (
+            <li key={c.id} className="flex gap-3">
+              <Avatar initials={c.authorInitials ?? ""} size="lg" />
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
+                <p className="flex flex-wrap items-baseline gap-x-2 text-sm">
+                  <span className="font-medium">{c.authorName}</span>
+                  {via(c.actorKind, c.tokenName)}
+                  <When at={c.createdAt} />
+                  {c.editedAt && <span className="text-xs text-muted">(editado)</span>}
+                  {c.authorId === options.actorId && editing !== c.id && (
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="h-auto p-0 text-xs"
+                      onClick={() => setEditing(c.id)}
+                    >
+                      Editar
+                    </Button>
+                  )}
+                </p>
+                {editing === c.id ? (
+                  <CommentEditor
+                    people={options.people}
+                    content={c.bodyJson as object}
+                    submitLabel="Salvar"
+                    onCancel={() => setEditing(null)}
+                    onSubmit={async (doc) => {
+                      const ok = done(await editCommentAction(c.id, task.number, doc));
+                      if (ok) setEditing(null);
+                      return ok;
+                    }}
+                  />
+                ) : (
+                  <CommentBody key={String(c.editedAt)} content={c.bodyJson as object} />
                 )}
-                <time
-                  dateTime={c.createdAt.toISOString()}
-                  title={c.createdAt.toLocaleString("pt-BR")}
-                  className="text-xs text-muted tabular-nums"
-                  suppressHydrationWarning
-                >
-                  {relativeTime(c.createdAt)}
-                </time>
-                {c.editedAt && <span className="text-xs text-muted">(editado)</span>}
-                {c.authorId === options.actorId && editing !== c.id && (
-                  <Button
-                    variant="link"
-                    size="sm"
-                    className="h-auto p-0 text-xs"
-                    onClick={() => setEditing(c.id)}
-                  >
-                    Editar
-                  </Button>
-                )}
-              </p>
-              {editing === c.id ? (
-                <CommentEditor
-                  people={options.people}
-                  content={c.bodyJson as object}
-                  submitLabel="Salvar"
-                  onCancel={() => setEditing(null)}
-                  onSubmit={async (doc) => {
-                    const ok = done(await editCommentAction(c.id, task.number, doc));
-                    if (ok) setEditing(null);
-                    return ok;
-                  }}
-                />
-              ) : (
-                <CommentBody key={String(c.editedAt)} content={c.bodyJson as object} />
-              )}
-            </div>
-          </li>
-        ))}
+              </div>
+            </li>
+          ),
+        )}
       </ol>
       <CommentEditor
         people={options.people}
