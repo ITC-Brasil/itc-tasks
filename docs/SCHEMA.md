@@ -355,6 +355,8 @@ CREATE SEQUENCE IF NOT EXISTS task_number_seq START 1;
 
 ## Regras de negócio no schema
 
+- **`tasks.position` e `checklist_items.position`** — `text COLLATE "C"` (implementado no Módulo 04, ADR-042): as chaves do índice fracionário comparam por byte.
+
 - **`tasks.project_id NOT NULL`** — a regra principal do produto existe também no banco.
 - **`tasks.completed_at`** — preenchido pelo service quando o status entra em categoria `done`; limpo ao sair (ADR-022).
 - **`cycles_one_active_uq`** — índice único parcial: no máximo um ciclo `active`.

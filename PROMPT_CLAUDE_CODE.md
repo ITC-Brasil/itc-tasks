@@ -163,11 +163,11 @@ Sequencial, um módulo por vez. Cada módulo começa numa sessão nova do Claude
 - [x] Testes: sigla única, arquivado fora dos seletores — `test(catalog): cover archiving rules`
 
 ### Módulo 04 — Tarefas: núcleo
-- [ ] Schema `tasks.ts` (tasks, checklist, links, labels, events, comments, attachments) — `feat(db): add tasks schema`
-- [ ] `tasksService` (create, update, move, complete, bulk) com `task_events` — `feat(tasks): add tasks service`
-- [ ] Criação rápida (atalho `C`, "Criar outra", template) — `feat(tasks): add quick create`
-- [ ] Detalhe da tarefa (edição inline, subtarefas, vínculos, campos ITC, link GLPI) — `feat(tasks): add task detail`
-- [ ] Testes: sem Projeto/Cliente recusado; projeto arquivado recusado; `completedAt` ao entrar/sair de `done` — `test(tasks): cover core rules`
+- [x] Schema `tasks.ts` (tasks, checklist, links, labels, events, comments, attachments) — `feat(db): add tasks schema`
+- [x] `tasksService` (create, update, move, complete, bulk) com `task_events` — `feat(tasks): add tasks service`
+- [x] Criação rápida (atalho `C`, "Criar outra", template) — `feat(tasks): add quick create`
+- [x] Detalhe da tarefa (edição inline, subtarefas, vínculos, campos ITC, link GLPI) — `feat(tasks): add task detail`
+- [x] Testes: sem Projeto/Cliente recusado; projeto arquivado recusado; `completedAt` ao entrar/sair de `done` — `test(tasks): cover core rules`
 
 ### Módulo 05 — Visões e filtros
 - [ ] Kanban com `@dnd-kit/react`, posição fracionária, otimista — `feat(board): add kanban`

@@ -5,6 +5,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 
 // UI.md §5. Cada módulo acrescenta aqui os atalhos que passa a atender.
 export const SHORTCUTS: { keys: string[]; label: string }[] = [
+  { keys: ["C"], label: "Criar tarefa" },
+  { keys: ["⌘", "↵"], label: "Enviar (criar)" },
   { keys: ["["], label: "Recolher/expandir menu" },
   { keys: ["?"], label: "Mostrar atalhos" },
   { keys: ["Esc"], label: "Fechar modal/painel" },

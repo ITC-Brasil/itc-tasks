@@ -192,7 +192,7 @@ Não são rotas públicas; listadas para mapear UI → service.
 | Action (`src/server/actions/`) | Service |
 |---|---|
 | `createTaskAction`, `updateTaskAction`, `moveTaskAction`, `completeTaskAction`, `bulkUpdateTasksAction` | `tasksService` |
-| `toggleChecklistItemAction`, `addChecklistItemAction` | `tasksService` |
+| `getTaskFormOptionsAction`, `addChecklistItemAction`, `updateChecklistItemAction`, `removeChecklistItemAction`, `setLinkAction` | `tasksService` (Módulo 04; `moveTaskAction`, `completeTaskAction` e `bulkUpdateTasksAction` entram com as telas do Módulo 05) |
 | `addCommentAction` | `commentsService` |
 | `createProjectAction`, `archiveProjectAction`, `createMobileUnitAction`, `archiveMobileUnitAction` | `catalogService` |
 | `startCycleAction`, `closeCycleAction`, `createMilestoneAction` | `planningService` |
