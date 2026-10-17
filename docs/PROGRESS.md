@@ -16,6 +16,7 @@
 
 | Data | Módulo | Resumo |
 |---|---|---|
+| 2026-10-17 | 04 — M-029 | `applyUpdate` só recalcula o projeto/UM principal quando `projectIds`/`mobileUnitIds` vêm no patch (antes, `linkedIds()` sem ordem podia trocar o principal em silêncio). Vitest 39. |
 | 2026-10-17 | 04 — M-024/M-026 | ADR-044 (sigla 2–12, tipo `project`, UM com Projeto/Cliente, seed dos 9 cadastros e 12 UMs reais) e ADR-045 (sem responsável automático; `task_projects`/`task_mobile_units` com cópia das tarefas existentes; `projectIds`/`mobileUnitIds`; UM sempre de um dos projetos da tarefa). Vitest 38, E2E 18. |
 | 2026-10-17 | 04 — Revisão | Ajustes de M-022: ADR-043 (responsável padrão e UM × cliente no `tasksService`); `setLinkAction` sem exceção para id inválido; criador de sistema ignora desativados; descrição igual não grava; `moveTask` atualiza `updatedAt`. Decisão do Matheus: qualquer membro/agente edita qualquer tarefa. |
 | 2026-10-17 | 04 — Tarefas: núcleo | ADR-042 antes do código (planejamento antecipado, `fractional-indexing` 4.0.0, formato de `task_events`). `0005_tasks` com `position` em `COLLATE "C"`; `tasksService` (create, update, move, complete, bulk, checklist, vínculos); criação rápida e detalhe com Tiptap. Integração 33 e E2E 18 passaram. Detalhes: `docs/modules/04-tarefas.md`. |

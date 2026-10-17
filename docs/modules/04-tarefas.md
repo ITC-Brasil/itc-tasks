@@ -147,6 +147,8 @@ f63e025 refactor(tasks): drop automatic default assignee
 c31c002 feat(tasks): support many projects and mobile units per task
 ```
 
+Ajuste da M-029: o principal (`tasks.project_id`/`mobile_unit_id`) só é recalculado quando a lista vem no patch; `linkedIds()` não tem ordem. Teste: update só do título ou só das UMs mantém o projeto principal.
+
 Ponto de atenção: numa das rodadas paralelas do E2E, o axe em `/config/projetos` acusou violação
 uma vez e não repetiu em 4 rodadas seguintes (oscilação sob carga, investigar se voltar).
 
