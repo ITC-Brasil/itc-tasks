@@ -176,7 +176,10 @@ export function CommentBody({ content }: { content: object }) {
     editable: false,
     content,
     extensions: [StarterKit, Mention.configure({ HTMLAttributes: { class: "mention" } })],
-    editorProps: { attributes: { class: PROSE } },
+    // o Tiptap marca role=textbox mesmo só leitura: precisa de nome (axe)
+    editorProps: {
+      attributes: { class: PROSE, "aria-label": "Texto do comentário", "aria-readonly": "true" },
+    },
   });
   return <EditorContent editor={editor} />;
 }
