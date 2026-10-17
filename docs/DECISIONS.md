@@ -1271,3 +1271,59 @@ TanStack Query (ADR-046), então "invalidar queries" precisa de outro mecanismo.
 própria escrita é ignorada, e o refresh espera a pessoa terminar de arrastar/digitar); com 4 pessoas é
 barato. Se pesar, filtrar pelo `id` da tarefa aberta. O backup precisa do volume `uploads`
 (ADR-025).
+
+---
+
+## ADR-049 — Servidor MCP: transporte sem sessão, tokens e contrato (Módulo 07)
+
+**Status:** Accepted
+**Date:** 2026-10-17
+**Module:** 07 — Servidor MCP
+
+**Context**
+O ADR-009 fixou o MCP embutido em `/mcp` com API key do Better Auth e 60 req/min por token. Faltava
+decidir como o transporte guarda estado, como as permissões ficam no token, o que é "revogar", como
+os erros de schema viram `VALIDATION` e como as ferramentas leem códigos legíveis.
+
+**Decision**
+- **Transporte sem sessão:** `WebStandardStreamableHTTPServerTransport` com
+  `sessionIdGenerator: undefined` e `enableJsonResponse: true`; um `McpServer` novo por requisição.
+  `GET` e `DELETE /mcp` → 405 (o servidor não manda mensagens por conta própria).
+- **Autenticação:** `Authorization: Bearer itct_…` conferido por `auth.api.verifyApiKey`. Token
+  inexistente, desativado ou expirado, ou dono desativado → 401. O rate limit é o do plugin (60/min
+  por token, contado no banco) → 429 com `Retry-After: 60`. O agente vira
+  `Actor { kind: "agent", userId: dono, role, apiKeyId }`.
+- **Permissões no token:** `permissions = { tasks: ["read"] }` (só leitura) ou
+  `{ tasks: ["read", "write"] }`. Cada ferramenta exige `read` ou `write`; sem ela → `FORBIDDEN`.
+- **Criar e revogar:** só pelo servidor (`auth.api.createApiKey` com `userId` e `permissions`; o
+  cliente não define permissões). O segredo aparece uma única vez. Membro gerencia os próprios
+  tokens; admin, os de qualquer pessoa. **Revogar = `enabled = false`**, sem excluir: `task_events`
+  e `comments` apontam para `apikey.id` (ADR-018).
+- **Erros:** `TaskError` → seu `code`; `ZodError` e erro de schema do SDK → `VALIDATION`;
+  `ForbiddenError` → `FORBIDDEN`. O SDK 1.32.1 transforma a falha de schema em texto sem `code`; o
+  `createToolError` interno é trocado para devolver `structuredContent: { code, message }` (coberto
+  por teste, que quebra se o SDK mudar).
+- **Referências legíveis** (código do projeto, código da UM, nome do status/etiqueta, e-mail ou
+  `me`) são resolvidas no `agentsService` (`src/server/services/agents.ts`), que também monta
+  `TaskSummary`. As ferramentas só validam, chamam services e mapeiam erros (ADR-003).
+- **Markdown:** conversão mínima para Tiptap — parágrafos (linha em branco) e quebras de linha;
+  `@email` de pessoa ativa vira menção. Na leitura, a descrição volta como texto (`docText`).
+- **`list_tasks`:** usa o `listTasks` das visões (abertas + até 1 000 concluídas mais recentes);
+  `query`, `category`, `dueBefore` e `overdue` filtram em memória; ordem `number desc`; `cursor` é o
+  último número devolvido. `query` procura no título e no `#GLPI`, não na descrição.
+- **Fora agora:** `cycle` em `create_task`, `update_task` e no filtro de `list_tasks` entra com o
+  service de ciclos (Módulo 10); `list_cycles` já lê a tabela.
+
+**Alternatives considered**
+- Sessões em memória (`sessionIdGenerator`) — estado no processo sem ganho: nenhuma ferramenta é longa
+  nem notifica o cliente.
+- Excluir o token ao revogar — quebraria as referências do histórico.
+- Schema frouxo no MCP (tudo `unknown`) para validar só no service — o agente perderia os tipos na
+  listagem de ferramentas.
+- Busca do `list_tasks` pelo `tsvector` — `searchTasks` devolve no máximo 20 e não combina com os filtros.
+
+**Consequences**
+Cada chamada faz `verifyApiKey` (uma escrita no `apikey` para o contador); com 60/min é barato. Se o
+time crescer muito, `list_tasks` deve ir para uma consulta paginada no banco. Trocar o
+`createToolError` depende de um detalhe interno do SDK: ao atualizar o SDK, o teste de `VALIDATION`
+diz se ainda vale.

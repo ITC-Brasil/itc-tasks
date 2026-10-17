@@ -1,4 +1,4 @@
-import { Columns3, House, Settings, type LucideIcon } from "lucide-react";
+import { Bot, Columns3, House, Settings, type LucideIcon } from "lucide-react";
 
 export type NavItem = {
   href: string;
@@ -7,6 +7,8 @@ export type NavItem = {
   /** prefixo que marca o item como ativo (padrão: o próprio href) */
   match?: string;
   adminOnly?: boolean;
+  /** só para quem não é admin (o admin chega pela aba de Configurações) */
+  memberOnly?: boolean;
 };
 export type NavGroup = { label?: string; items: NavItem[] };
 
@@ -28,6 +30,7 @@ export const NAV: NavGroup[] = [
         match: "/config",
         adminOnly: true,
       },
+      { href: "/config/agentes", label: "Agentes e MCP", icon: Bot, memberOnly: true },
     ],
   },
 ];

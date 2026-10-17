@@ -77,7 +77,7 @@ export function AppShell({
 
   const groups = NAV.map((g) => ({
     ...g,
-    items: g.items.filter((i) => !i.adminOnly || profile.role === "admin"),
+    items: g.items.filter((i) => (profile.role === "admin" ? !i.memberOnly : !i.adminOnly)),
   })).filter((g) => g.items.length);
   const home = groups[0].items[0];
   const expanded = overlay || !collapsed;

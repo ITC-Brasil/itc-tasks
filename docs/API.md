@@ -1,6 +1,6 @@
 # ITC Tasks — API e contrato do MCP
 
-> Estado: **planejado** (17/10/2026). O contrato do MCP é tratado como API pública
+> Estado: MCP **implementado** no Módulo 07 (17/10/2026, ADR-049). O contrato do MCP é tratado como API pública
 > (ADR-009): mudanças incompatíveis exigem ADR e nova versão do servidor (`serverInfo.version`).
 
 A interface usa **Server Actions** (`src/server/actions/`) e não expõe REST para CRUD. As rotas
@@ -10,12 +10,16 @@ HTTP existem só onde é preciso: auth, MCP, tempo real, push, anexos e saúde.
 
 ## 1. Servidor MCP
 
-### POST /mcp (e GET /mcp para o stream do Streamable HTTP)
+### POST /mcp
+Transporte sem sessão (ADR-049): `GET` e `DELETE /mcp` → 405.
 Auth: `Authorization: Bearer <token>` — API key do Better Auth (plugin `apiKey`).
 Transporte: Streamable HTTP, `@modelcontextprotocol/sdk` 1.32.1.
 `serverInfo`: `{ name: "itc-tasks", version: "1.0.0" }`.
 Response 401: token ausente, inválido, expirado ou revogado.
-Response 429: mais de 60 requisições/min no mesmo token.
+Response 429: mais de 60 requisições/min no mesmo token (`Retry-After: 60`).
+Token: `permissions = { tasks: ["read"] }` ou `{ tasks: ["read", "write"] }`; revogar = `enabled = false`.
+
+**Diferenças da implementação (Módulo 07):** `cycle` em `list_tasks`, `create_task` e `update_task` é aceito no schema mas responde `VALIDATION` ("Ciclo ainda não suportado") até o Módulo 10 (M-044); o `tools/list` de um token só-leitura traz só as ferramentas de leitura (chamar uma de escrita → `FORBIDDEN`); `query` de `list_tasks` procura no título e no `#GLPI`; erro inesperado sai como `code: "INTERNAL"`; `update_task` aceita `checklist` (acrescenta itens).
 
 **Regras comuns a todas as ferramentas**
 - O agente age **em nome do dono do token**; histórico registra `actorKind = 'agent'` e `apiKeyId`.
@@ -105,7 +109,7 @@ input: { id: string | number } & Partial<Omit<CreateTaskInput, never>> & {
 }
 output: TaskSummary
 ```
-Só os campos enviados mudam. `projectIds: []` é recusado (`VALIDATION`); UM de projeto que não está na tarefa e remoção de projeto que ainda tem UM sua na tarefa também (ADR-045).
+Só os campos enviados mudam. Tudo é validado antes da primeira escrita: erro em qualquer parte → nada gravado. `checklist` acrescenta itens no fim; `checklistToggle.index` conta sobre o checklist **antes** desta chamada (0 = primeiro item atual). `projectIds: []` é recusado (`VALIDATION`); UM de projeto que não está na tarefa e remoção de projeto que ainda tem UM sua na tarefa também (ADR-045).
 
 #### `complete_task`
 `input: { id, comment?: string }` → move para o primeiro status de categoria `done`; idempotente.
@@ -201,6 +205,6 @@ Não são rotas públicas; listadas para mapear UI → service.
 | `startCycleAction`, `closeCycleAction`, `createMilestoneAction` | `planningService` |
 | `saveAutomationRuleAction`, `toggleAutomationRuleAction` | `automationService` |
 | `markNotificationsReadAction`, `updateNotificationPreferencesAction` | `notificationsService` |
-| `createApiKeyAction`, `revokeApiKeyAction` | Better Auth `apiKey` + `agentsService` |
+| `createApiKeyAction`, `revokeApiKeyAction` (`src/server/actions/agents.ts`) | `agentsService` (`src/server/services/agents.ts`) sobre o Better Auth `apiKey` |
 | `updateUserPreferencesAction` (tema, sidebar) | `usersService` |
 | `createMemberAction`, `setMemberRoleAction`, `setMemberActiveAction` (`src/server/actions/members.ts`) | `membersService` (`src/server/services/members.ts`) |
