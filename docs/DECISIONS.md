@@ -1342,11 +1342,13 @@ TypeScript roda em produção.
 **Decision**
 - **Worker:** `worker/index.ts`. Em dev, `npm run worker:dev` (`tsx watch`); na imagem, o esbuild
   empacota tudo num `dist/worker.mjs` (`node dist/worker.mjs`), porque o `standalone` do Next só leva
-  o que o app importa. O worker é quem cria/migra o schema `pgboss` no `start()`.
+  o que o app importa.
 - **Fila na mesma transação:** `record()` (todo `task_event`) chama `enqueue(tx, "notification.fanout",
   { eventIds })`, que faz o `send` do pg-boss pela própria transação do Drizzle (opção `db`). Escrita
   desfeita não notifica; worker parado não perde nada. O processo web tem um `PgBoss` só para enviar
-  (`supervise`, `schedule` e `migrate` desligados).
+  (`supervise` e `schedule` desligados); quem iniciar primeiro, web ou worker, cria o schema `pgboss` e
+  as filas (o pg-boss serializa a migração com advisory lock), para a escrita não depender de o
+  worker já ter rodado.
 - **Destinatários** (por escrita, no máximo uma notificação por pessoa e tipo):
   | Evento | Quem recebe | Tipo |
   |---|---|---|
@@ -1390,6 +1392,5 @@ TypeScript roda em produção.
 - Rodar o worker com `tsx` na imagem — leva o código-fonte e um transpilador para produção.
 
 **Consequences**
-Toda escrita de tarefa insere um job do pg-boss na mesma transação (uma linha a mais). O schema
-`pgboss` só existe depois do primeiro `start()` do worker; o `/api/health` mostra `queue: down` até
-lá. Ligar mais tipos de evento é acrescentar uma linha na tabela de destinatários.
+Toda escrita de tarefa insere um job do pg-boss na mesma transação (uma linha a mais). Sem o worker
+rodando, os jobs se acumulam e são processados quando ele subir. Ligar mais tipos de evento é acrescentar uma linha na tabela de destinatários.

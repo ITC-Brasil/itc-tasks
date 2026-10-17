@@ -47,6 +47,7 @@ import {
   updateTaskSchema,
 } from "@/lib/validation/tasks";
 import type { Actor } from "@/server/actor";
+import { type FanoutJob, QUEUES, enqueue } from "@/server/jobs";
 
 // Toda escrita de tarefa passa aqui com um Actor e grava task_events (ADR-003, ADR-042)
 export type TaskErrorCode =
@@ -97,14 +98,19 @@ export async function record(
   events: { type: EventType; payload?: Record<string, unknown> }[],
 ) {
   if (events.length === 0) return;
-  await tx.insert(taskEvents).values(
-    events.map((e) => ({
-      taskId,
-      ...actorColumns(actor),
-      type: e.type,
-      payload: e.payload ?? {},
-    })),
-  );
+  const inserted = await tx
+    .insert(taskEvents)
+    .values(
+      events.map((e) => ({
+        taskId,
+        ...actorColumns(actor),
+        type: e.type,
+        payload: e.payload ?? {},
+      })),
+    )
+    .returning({ id: taskEvents.id });
+  // ADR-050: o fanout entra na fila na mesma transação
+  await enqueue(tx, QUEUES.fanout, { eventIds: inserted.map((r) => r.id) } satisfies FanoutJob);
   // ADR-048: o Postgres só entrega o NOTIFY no commit; /api/events repassa às abas
   // `by` só para pessoa: a aba ignora as próprias escritas, mas não as do agente dela (M-039)
   const fields = JSON.stringify([...new Set(events.map((e) => e.type))]);
@@ -120,6 +126,15 @@ export function stable(value: unknown): string {
       ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a.localeCompare(b)))
       : v,
   );
+}
+
+/** IDs dos nós `mention` do documento Tiptap. */
+export function mentionIds(node: unknown): string[] {
+  if (!node || typeof node !== "object") return [];
+  const n = node as { type?: unknown; attrs?: { id?: unknown }; content?: unknown };
+  const own = n.type === "mention" && typeof n.attrs?.id === "string" ? [n.attrs.id] : [];
+  const children = Array.isArray(n.content) ? n.content.flatMap(mentionIds) : [];
+  return [...new Set([...own, ...children])];
 }
 
 /** Texto puro do documento Tiptap, para a busca (ADR-042). */
@@ -404,7 +419,16 @@ async function applyUpdate(
     set.descriptionJson = data.descriptionJson;
     set.descriptionText = docText(data.descriptionJson);
     if (set.descriptionText !== current.descriptionText)
-      events.push({ type: "field_changed", payload: { field: "description" } });
+      events.push({
+        type: "field_changed",
+        payload: {
+          field: "description",
+          // ADR-050: só os mencionados novos são avisados
+          mentions: mentionIds(set.descriptionJson).filter(
+            (id) => !mentionIds(current.descriptionJson).includes(id),
+          ),
+        },
+      });
   }
   if (data.statusId && data.statusId !== current.statusId) {
     const [status, from] = await Promise.all([
