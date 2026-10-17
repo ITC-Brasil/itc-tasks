@@ -1,0 +1,81 @@
+import AxeBuilder from "@axe-core/playwright";
+import { expect, test, type Page } from "@playwright/test";
+
+const email = process.env.SEED_ADMIN_EMAIL;
+const password = process.env.SEED_ADMIN_PASSWORD;
+
+async function login(page: Page) {
+  await page.goto("/login");
+  await page.getByLabel("E-mail").fill(email!);
+  await page.getByLabel("Senha").fill(password!);
+  await page.getByRole("button", { name: "Entrar" }).click();
+  await page.waitForURL("/");
+}
+
+// espera a server action gravar a preferência antes de recarregar ou sair
+async function press(page: Page, key: string) {
+  const saved = page.waitForResponse((r) => r.request().method() === "POST");
+  await page.keyboard.press(key);
+  await saved;
+}
+
+async function axe(page: Page) {
+  const { violations } = await new AxeBuilder({ page }).analyze();
+  expect(violations).toEqual([]);
+}
+
+test.beforeEach(() => test.skip(!email || !password, "SEED_ADMIN_* não definidos"));
+// os dois testes mudam preferências do mesmo admin: em série
+test.describe.configure({ mode: "serial" });
+
+test("desktop: [ recolhe a sidebar e a escolha sobrevive ao recarregar", async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(isMobile, "sidebar só a partir de 768 px");
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  const nav = page.getByRole("navigation", { name: "Navegação principal" });
+  const width = async () => (await nav.boundingBox())!.width;
+  const start = await width();
+
+  await press(page, "[");
+  await expect.poll(width).not.toBe(start);
+  await page.reload();
+  await expect.poll(width).not.toBe(start);
+
+  await press(page, "[");
+  await expect.poll(width).toBe(start);
+
+  await page.keyboard.press("?");
+  await expect(page.getByRole("dialog", { name: "Atalhos de teclado" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await axe(page);
+});
+
+test("tema claro e escuro pelo menu da conta, sem violações do axe", async ({ page, isMobile }) => {
+  test.skip(isMobile, "preferência compartilhada com o teste desktop");
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  const html = page.locator("html");
+  const account = page.getByRole("button", { name: /Administrador/ });
+
+  // alterna duas vezes (vale para qualquer tema inicial) e roda o axe nos dois
+  for (let i = 0; i < 2; i++) {
+    const before = await html.getAttribute("data-theme");
+    const saved = page.waitForResponse((r) => r.request().method() === "POST");
+    await account.click();
+    await page.getByRole("menuitem", { name: /Usar tema/ }).click();
+    await expect(html).not.toHaveAttribute("data-theme", before!);
+    await saved;
+    await axe(page);
+  }
+});
+
+test("mobile: barra inferior no lugar da sidebar", async ({ page, isMobile }) => {
+  test.skip(!isMobile, "só no mobile");
+  await login(page);
+  await expect(page.getByRole("navigation", { name: "Navegação principal" })).toBeHidden();
+  await expect(page.getByRole("navigation", { name: "Navegação", exact: true })).toBeVisible();
+  await axe(page);
+});
