@@ -4,6 +4,7 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import { admin } from "better-auth/plugins";
+import { adminAc, userAc } from "better-auth/plugins/admin/access";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
 import { env } from "@/lib/env";
@@ -49,7 +50,12 @@ export const auth = betterAuth({
     },
   },
   plugins: [
-    admin({ defaultRole: "member", adminRoles: ["admin"] }),
+    // papéis do produto: admin e member (member = permissões de "user" do plugin)
+    admin({
+      roles: { admin: adminAc, member: userAc },
+      defaultRole: "member",
+      adminRoles: ["admin"],
+    }),
     // ADR-009: tokens MCP, 60 req/min por token
     apiKey({
       defaultPrefix: "itct_",
