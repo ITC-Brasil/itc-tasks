@@ -1049,3 +1049,32 @@ ponto de fundo; o nome da etiqueta usa a cor de texto normal.
 **Consequences**
 `cycles`, `milestones` e `templates` ficam vazias até os Módulos 09 e 10; o seletor de template
 da criação rápida só aparece quando houver templates.
+
+---
+
+## ADR-043 — Responsável padrão e Unidade Móvel do cliente aplicados no service
+
+**Status:** Accepted
+**Date:** 2026-10-17
+**Module:** 04 — Tarefas: núcleo (ajuste da M-022)
+
+**Context**
+No Módulo 04 só a criação rápida preenchia o responsável padrão do projeto e filtrava as UMs pelo
+cliente. Tarefas criadas pelo MCP (Módulo 07) ou por automações (Módulo 09) escapariam das duas
+regras. Decisão do Matheus na M-022.
+
+**Decision**
+- `createTask`: `assigneeId` **omitido** recebe `projects.default_assignee_id`; `null` explícito
+  cria sem responsável.
+- UM com `project_id` só vale para tarefas desse Projeto/Cliente; UM sem cliente vale para qualquer
+  projeto. Fora disso, `TaskError("VALIDATION", "A Unidade Móvel <código> pertence a outro
+  Projeto/Cliente")`. Em `update`, a regra é conferida com o projeto e a UM resultantes: trocar o
+  projeto mantendo uma UM incompatível também é recusado.
+
+**Alternatives considered**
+- Manter as regras só na tela — o MCP e as automações gravariam combinações que a tela não permite.
+- Limpar a UM incompatível em silêncio ao trocar o projeto — perde dado sem o usuário perceber.
+
+**Consequences**
+A criação rápida continua preenchendo o responsável para mostrar o valor antes de criar; o service
+garante a regra para os outros caminhos.
