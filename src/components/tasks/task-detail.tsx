@@ -24,19 +24,11 @@ import { type PickItem, Pick, PickMany, optionItems } from "./fields";
 
 type Task = NonNullable<Awaited<ReturnType<typeof getTaskByNumber>>>;
 type Patch = Partial<
-  Pick<
-    Task,
-    | "title"
-    | "statusId"
-    | "priority"
-    | "assigneeId"
-    | "projectId"
-    | "mobileUnitId"
-    | "glpiTicket"
-    | "dueDate"
-  >
+  Pick<Task, "title" | "statusId" | "priority" | "assigneeId" | "glpiTicket" | "dueDate">
 > & {
   labelIds?: string[];
+  projectIds?: string[];
+  mobileUnitIds?: string[];
   check?: { id: string; done: boolean };
 };
 
@@ -62,7 +54,12 @@ export function TaskDetail({
   const [, startTransition] = useTransition();
   // UI.md §4: atualização otimista; erro desfaz (fim da transição) e mostra toast
   const [view, apply] = useOptimistic(
-    { ...task, labelIds: task.labels.map((l) => l.id) },
+    {
+      ...task,
+      labelIds: task.labels.map((l) => l.id),
+      projectIds: task.projects.map((p) => p.id),
+      mobileUnitIds: task.units.map((u) => u.id),
+    },
     (t, { check, ...patch }: Patch) => ({
       ...t,
       ...patch,
@@ -92,8 +89,12 @@ export function TaskDetail({
         <header className="flex flex-col gap-3">
           <InlineTitle value={view.title} onSave={(title) => save({ title })} />
           <div className="flex flex-wrap gap-1.5">
-            <ProjectChip code={task.projectCode} name={task.projectName} />
-            {task.unitCode && <UnitChip code={task.unitCode} />}
+            {task.projects.map((p) => (
+              <ProjectChip key={p.id} code={p.code} name={p.name} />
+            ))}
+            {task.units.map((u) => (
+              <UnitChip key={u.id} code={u.code} />
+            ))}
             {view.glpiTicket && (
               <GlpiChip ticket={view.glpiTicket} href={glpiUrl(glpiBaseUrl, view.glpiTicket)} />
             )}
@@ -192,23 +193,25 @@ export function TaskDetail({
           />
         </Prop>
         <Prop label="Projeto/Cliente">
-          <Pick
+          <PickMany
             label="Projeto/Cliente"
-            items={withCurrent(
+            items={task.projects.reduce(
+              (acc, p) => withCurrent(acc, p.id, `${p.code} · ${p.name}`),
               items.projects,
-              task.projectId,
-              `${task.projectCode} · ${task.projectName}`,
             )}
-            value={view.projectId}
-            onChange={(projectId) => save({ projectId })}
+            value={view.projectIds}
+            onChange={(projectIds) => projectIds.length && save({ projectIds })}
           />
         </Prop>
         <Prop label="Unidade Móvel">
-          <Pick
+          <PickMany
             label="Unidade Móvel"
-            items={withCurrent(items.units(view.projectId), task.mobileUnitId, task.unitCode)}
-            value={view.mobileUnitId ?? ""}
-            onChange={(v) => save({ mobileUnitId: v || null })}
+            items={task.units.reduce(
+              (acc, u) => withCurrent(acc, u.id, u.code),
+              items.units(view.projectIds),
+            )}
+            value={view.mobileUnitIds}
+            onChange={(mobileUnitIds) => save({ mobileUnitIds })}
           />
         </Prop>
         <Prop label="Chamado GLPI">

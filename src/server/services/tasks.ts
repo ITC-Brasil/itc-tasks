@@ -10,6 +10,8 @@ import {
   taskEvents,
   templates,
   taskLabels,
+  taskMobileUnits,
+  taskProjects,
   taskLinks,
   tasks,
   user,
@@ -50,7 +52,9 @@ type EventType =
   | "labels_changed"
   | "checklist_changed"
   | "link_added"
-  | "link_removed";
+  | "link_removed"
+  | "projects_changed"
+  | "mobile_units_changed";
 
 function actorColumns(actor: Actor) {
   switch (actor.kind) {
@@ -115,29 +119,80 @@ async function activeRow<T extends { archivedAt: Date | null }>(
   return row;
 }
 
-const assertProject = (tx: Tx, id: string) =>
-  activeRow(tx.select().from(projects).where(eq(projects.id, id)), "Projeto/Cliente");
+/** Só os acrescentados precisam estar ativos: o que já estava pode ter sido arquivado depois. */
+async function assertActive(
+  tx: Tx,
+  table: typeof projects | typeof mobileUnits,
+  ids: string[],
+  what: string,
+) {
+  if (ids.length === 0) return;
+  const rows = await tx
+    .select({ archivedAt: table.archivedAt })
+    .from(table)
+    .where(inArray(table.id, ids));
+  if (rows.length !== ids.length) throw new TaskError("NOT_FOUND", `${what} não encontrado`);
+  if (rows.some((r) => r.archivedAt))
+    throw new TaskError("ARCHIVED_REFERENCE", `${what} arquivado`);
+}
 
-const assertUnit = (tx: Tx, id: string) =>
-  activeRow(
-    tx
-      .select({ archivedAt: mobileUnits.archivedAt })
-      .from(mobileUnits)
-      .where(eq(mobileUnits.id, id)),
-    "Unidade Móvel",
-  );
-
-/** ADR-043: UM com cliente só vale para tarefas desse Projeto/Cliente. */
-async function assertUnitFits(tx: Tx, unitId: string, projectId: string) {
-  const [unit] = await tx
-    .select({ code: mobileUnits.code, projectId: mobileUnits.projectId })
+/** ADR-045: cada UM com cliente pertence a um dos projetos da tarefa. */
+async function assertUnitsFit(tx: Tx, unitIds: string[], projectIds: string[], removed: string[]) {
+  if (unitIds.length === 0) return;
+  const rows = await tx
+    .select({
+      code: mobileUnits.code,
+      projectId: mobileUnits.projectId,
+      projectCode: projects.code,
+    })
     .from(mobileUnits)
-    .where(eq(mobileUnits.id, unitId));
-  if (unit?.projectId && unit.projectId !== projectId)
+    .leftJoin(projects, eq(projects.id, mobileUnits.projectId))
+    .where(inArray(mobileUnits.id, unitIds));
+  for (const u of rows) {
+    if (!u.projectId || projectIds.includes(u.projectId)) continue;
     throw new TaskError(
       "VALIDATION",
-      `A Unidade Móvel ${unit.code} pertence a outro Projeto/Cliente`,
+      removed.includes(u.projectId)
+        ? `Remova antes a UM ${u.code}: ela é do Projeto/Cliente ${u.projectCode}`
+        : `A Unidade Móvel ${u.code} pertence a outro Projeto/Cliente`,
     );
+  }
+}
+
+const sameSet = (a: string[], b: string[]) =>
+  a.length === b.length && a.every((id) => b.includes(id));
+
+async function linkedIds(tx: Tx, taskId: string) {
+  const [p, u] = await Promise.all([
+    tx
+      .select({ id: taskProjects.projectId })
+      .from(taskProjects)
+      .where(eq(taskProjects.taskId, taskId)),
+    tx
+      .select({ id: taskMobileUnits.mobileUnitId })
+      .from(taskMobileUnits)
+      .where(eq(taskMobileUnits.taskId, taskId)),
+  ]);
+  return { projectIds: p.map((r) => r.id), unitIds: u.map((r) => r.id) };
+}
+
+async function writeLinks(
+  tx: Tx,
+  taskId: string,
+  projectIds: string[] | null,
+  unitIds: string[] | null,
+) {
+  if (projectIds) {
+    await tx.delete(taskProjects).where(eq(taskProjects.taskId, taskId));
+    await tx.insert(taskProjects).values(projectIds.map((projectId) => ({ taskId, projectId })));
+  }
+  if (unitIds) {
+    await tx.delete(taskMobileUnits).where(eq(taskMobileUnits.taskId, taskId));
+    if (unitIds.length)
+      await tx
+        .insert(taskMobileUnits)
+        .values(unitIds.map((mobileUnitId) => ({ taskId, mobileUnitId })));
+  }
 }
 
 const assertStatus = (tx: Tx, id: string) =>
@@ -202,11 +257,9 @@ async function lockTask(tx: Tx, id: string) {
 export async function createTask(actor: Actor, input: CreateTaskInput) {
   const data = createTaskSchema.parse(input);
   return db.transaction(async (tx) => {
-    await assertProject(tx, data.projectId);
-    if (data.mobileUnitId) {
-      await assertUnit(tx, data.mobileUnitId);
-      await assertUnitFits(tx, data.mobileUnitId, data.projectId);
-    }
+    await assertActive(tx, projects, data.projectIds, "Projeto/Cliente");
+    await assertActive(tx, mobileUnits, data.mobileUnitIds, "Unidade Móvel");
+    await assertUnitsFit(tx, data.mobileUnitIds, data.projectIds, []);
     // ADR-045: sem responsável automático; omitido = sem responsável
     const assigneeId = data.assigneeId ?? null;
     if (assigneeId) await assertAssignee(tx, assigneeId);
@@ -219,11 +272,11 @@ export async function createTask(actor: Actor, input: CreateTaskInput) {
       .insert(tasks)
       .values({
         title: data.title,
-        projectId: data.projectId,
+        projectId: data.projectIds[0], // principal (ADR-045)
         statusId: status.id,
         priority: data.priority,
         assigneeId,
-        mobileUnitId: data.mobileUnitId,
+        mobileUnitId: data.mobileUnitIds[0] ?? null,
         glpiTicket: data.glpiTicket,
         dueDate: data.dueDate,
         descriptionJson: data.descriptionJson,
@@ -235,6 +288,7 @@ export async function createTask(actor: Actor, input: CreateTaskInput) {
       })
       .returning();
 
+    await writeLinks(tx, task.id, data.projectIds, data.mobileUnitIds);
     if (data.labelIds.length)
       await tx
         .insert(taskLabels)
@@ -249,7 +303,7 @@ export async function createTask(actor: Actor, input: CreateTaskInput) {
   });
 }
 
-const FIELDS = ["title", "priority", "projectId", "mobileUnitId", "glpiTicket", "dueDate"] as const;
+const FIELDS = ["title", "priority", "glpiTicket", "dueDate"] as const;
 
 /** Aplica a mudança já validada dentro da transação; devolve a tarefa nova. */
 async function applyUpdate(
@@ -258,17 +312,21 @@ async function applyUpdate(
   current: Task,
   data: ReturnType<typeof updateTaskSchema.parse>,
 ) {
-  if ("projectId" in data && data.projectId !== current.projectId) {
-    if (!data.projectId) throw new TaskError("VALIDATION", "Projeto/Cliente é obrigatório");
-    await assertProject(tx, data.projectId);
+  // ADR-045: confere a combinação resultante de projetos e UMs
+  const linked = await linkedIds(tx, current.id);
+  const projectsAfter = data.projectIds ?? linked.projectIds;
+  const unitsAfter = data.mobileUnitIds ?? linked.unitIds;
+  const added = (after: string[], before: string[]) => after.filter((id) => !before.includes(id));
+  if (data.projectIds || data.mobileUnitIds) {
+    await assertActive(tx, projects, added(projectsAfter, linked.projectIds), "Projeto/Cliente");
+    await assertActive(tx, mobileUnits, added(unitsAfter, linked.unitIds), "Unidade Móvel");
+    await assertUnitsFit(
+      tx,
+      unitsAfter,
+      projectsAfter,
+      linked.projectIds.filter((id) => !projectsAfter.includes(id)),
+    );
   }
-  if (data.mobileUnitId && data.mobileUnitId !== current.mobileUnitId)
-    await assertUnit(tx, data.mobileUnitId);
-  // confere a combinação resultante: trocar só o projeto também pode quebrar a regra
-  const unitId = "mobileUnitId" in data ? data.mobileUnitId : current.mobileUnitId;
-  const projectId = data.projectId ?? current.projectId;
-  if (unitId && (unitId !== current.mobileUnitId || projectId !== current.projectId))
-    await assertUnitFits(tx, unitId, projectId);
   if (data.assigneeId && data.assigneeId !== current.assigneeId)
     await assertAssignee(tx, data.assigneeId);
 
@@ -284,6 +342,26 @@ async function applyUpdate(
     Object.assign(set, { [field]: to });
     events.push({ type: "field_changed", payload: { field, from, to } });
   }
+  const projectsChanged = !sameSet(projectsAfter, linked.projectIds);
+  const unitsChanged = !sameSet(unitsAfter, linked.unitIds);
+  if (projectsChanged)
+    events.push({
+      type: "projects_changed",
+      payload: { from: linked.projectIds, to: projectsAfter },
+    });
+  if (unitsChanged)
+    events.push({
+      type: "mobile_units_changed",
+      payload: { from: linked.unitIds, to: unitsAfter },
+    });
+  await writeLinks(
+    tx,
+    current.id,
+    projectsChanged ? projectsAfter : null,
+    unitsChanged ? unitsAfter : null,
+  );
+  if (projectsAfter[0] !== current.projectId) set.projectId = projectsAfter[0];
+  if ((unitsAfter[0] ?? null) !== current.mobileUnitId) set.mobileUnitId = unitsAfter[0] ?? null;
   if ("assigneeId" in data && data.assigneeId !== current.assigneeId) {
     set.assigneeId = data.assigneeId;
     events.push({ type: "assigned", payload: { from: current.assigneeId, to: data.assigneeId } });
@@ -523,7 +601,7 @@ const assignee = alias(user, "assignee");
 export async function getTaskByNumber(_actor: Actor, number: number) {
   const [task] = await db.select().from(tasks).where(eq(tasks.number, number));
   if (!task) return null;
-  const [labelRows, checklist, linkRows, [refs]] = await Promise.all([
+  const [labelRows, checklist, linkRows, [refs], projectRows, unitRows] = await Promise.all([
     db
       .select({ id: labels.id, name: labels.name, colorToken: labels.colorToken })
       .from(taskLabels)
@@ -553,21 +631,29 @@ export async function getTaskByNumber(_actor: Actor, number: number) {
     // nomes atuais mesmo de cadastro arquivado ou pessoa desativada (não aparecem nos seletores)
     db
       .select({
-        projectCode: projects.code,
-        projectName: projects.name,
-        unitCode: mobileUnits.code,
         statusName: workflowStatuses.name,
         category: workflowStatuses.category,
         creatorName: user.name,
         assigneeName: assignee.name,
       })
       .from(tasks)
-      .innerJoin(projects, eq(projects.id, tasks.projectId))
       .innerJoin(workflowStatuses, eq(workflowStatuses.id, tasks.statusId))
       .innerJoin(user, eq(user.id, tasks.creatorId))
-      .leftJoin(mobileUnits, eq(mobileUnits.id, tasks.mobileUnitId))
       .leftJoin(assignee, eq(assignee.id, tasks.assigneeId))
       .where(eq(tasks.id, task.id)),
+    // ADR-045: o principal primeiro
+    db
+      .select({ id: projects.id, code: projects.code, name: projects.name })
+      .from(taskProjects)
+      .innerJoin(projects, eq(projects.id, taskProjects.projectId))
+      .where(eq(taskProjects.taskId, task.id))
+      .orderBy(sql`${projects.id} = ${task.projectId} DESC`, asc(projects.code)),
+    db
+      .select({ id: mobileUnits.id, code: mobileUnits.code, projectId: mobileUnits.projectId })
+      .from(taskMobileUnits)
+      .innerJoin(mobileUnits, eq(mobileUnits.id, taskMobileUnits.mobileUnitId))
+      .where(eq(taskMobileUnits.taskId, task.id))
+      .orderBy(asc(mobileUnits.code)),
   ]);
   const links = linkRows.map(({ fromTaskId, kind, ...other }) => ({
     ...other,
@@ -578,7 +664,15 @@ export async function getTaskByNumber(_actor: Actor, number: number) {
           ? ("blocks" as const)
           : ("blocked_by" as const),
   }));
-  return { ...task, ...refs, labels: labelRows, checklist, links };
+  return {
+    ...task,
+    ...refs,
+    labels: labelRows,
+    projects: projectRows,
+    units: unitRows,
+    checklist,
+    links,
+  };
 }
 
 /** Pessoas ativas para os seletores de responsável. */

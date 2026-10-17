@@ -50,6 +50,13 @@
       "when": 1792260255719,
       "tag": "0006_project_kind",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792260572907,
+      "tag": "0007_task_projects_units",
+      "breakpoints": true
     }
   ]
 }

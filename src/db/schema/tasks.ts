@@ -100,6 +100,39 @@ export const taskLinks = pgTable(
   (t) => [primaryKey({ columns: [t.fromTaskId, t.toTaskId, t.kind] })],
 );
 
+// ADR-045: todos os Projetos/Clientes e UMs da tarefa; tasks.project_id é o principal
+export const taskProjects = pgTable(
+  "task_projects",
+  {
+    taskId: uuid("task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id),
+  },
+  (t) => [
+    primaryKey({ columns: [t.taskId, t.projectId] }),
+    index("task_projects_project_idx").on(t.projectId),
+  ],
+);
+
+export const taskMobileUnits = pgTable(
+  "task_mobile_units",
+  {
+    taskId: uuid("task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    mobileUnitId: uuid("mobile_unit_id")
+      .notNull()
+      .references(() => mobileUnits.id),
+  },
+  (t) => [
+    primaryKey({ columns: [t.taskId, t.mobileUnitId] }),
+    index("task_mobile_units_unit_idx").on(t.mobileUnitId),
+  ],
+);
+
 export const taskLabels = pgTable(
   "task_labels",
   {

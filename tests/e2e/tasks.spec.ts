@@ -35,8 +35,16 @@ test("criação rápida exige Projeto/Cliente e abre o detalhe da tarefa", async
     "Escolha um Projeto/Cliente para criar a tarefa.",
   );
 
+  // ADR-045: dois Projetos/Clientes e uma UM de cada
   await dialog.getByLabel("Projeto/Cliente").click();
-  await page.getByRole("option").first().click();
+  await page.getByRole("option", { name: "BSBIA · BSBIA" }).click();
+  await page.getByRole("option", { name: "SEDET · SEDET" }).click();
+  await page.keyboard.press("Escape"); // fecha só a lista (seleção múltipla)
+  await dialog.getByLabel("Unidade Móvel").click();
+  await expect(page.getByRole("option", { name: "QDFM01" })).toHaveCount(0);
+  await page.getByRole("option", { name: "BSBIA01" }).click();
+  await page.getByRole("option", { name: "SPV01" }).click();
+  await page.keyboard.press("Escape");
   await dialog.getByLabel("Chamado GLPI").fill("48213");
   await dialog.getByLabel("Título").press("Control+Enter");
   await expect(dialog).toBeHidden();
@@ -50,6 +58,8 @@ test("criação rápida exige Projeto/Cliente e abre o detalhe da tarefa", async
 
   await expect(page.getByRole("heading", { name: `TI-${number}`, level: 1 })).toBeVisible();
   await expect(page.getByRole("button", { name: title })).toBeVisible();
+  for (const chip of ["BSBIA", "SEDET", "BSBIA01", "SPV01"])
+    await expect(page.getByTitle(chip, { exact: true }).first()).toBeVisible();
   await expect(page.getByRole("link", { name: "#48213" })).toHaveAttribute(
     "href",
     /\/front\/ticket\.form\.php\?id=48213$/,
