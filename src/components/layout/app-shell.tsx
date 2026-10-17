@@ -19,6 +19,7 @@ import { UserMenu } from "./user-menu";
 export type ShellProfile = {
   name: string;
   initials: string;
+  id: string;
   role: "admin" | "member";
   theme: "light" | "dark";
   sidebarCollapsed: boolean;
@@ -251,7 +252,7 @@ export function AppShell({
       <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
       <QuickCreate />
       <CommandPalette isAdmin={profile.role === "admin"} />
-      <LiveRefresh />
+      <LiveRefresh userId={profile.id} />
     </div>
   );
 }
