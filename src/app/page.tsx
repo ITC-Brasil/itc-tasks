@@ -10,7 +10,8 @@ export default function Home() {
     <main className="flex max-w-xl flex-col gap-5 p-6">
       <h1 className="text-h1">ITC Tasks</h1>
       <p className="text-muted">
-        <span className="tech">TI-142</span> · <span className="text-accent-text">Em andamento</span>
+        <span className="tech">TI-142</span> ·{" "}
+        <span className="text-accent-text">Em andamento</span>
       </p>
       <div className="flex flex-wrap gap-2">
         <Button>
@@ -22,7 +23,8 @@ export default function Home() {
       </div>
       <Input placeholder="Título da tarefa" />
       <div className="flex items-center gap-4">
-        <Checkbox defaultChecked /> <Switch defaultChecked />
+        <Checkbox defaultChecked aria-label="Concluída" />
+        <Switch defaultChecked aria-label="Notificações" />
       </div>
       <div className="rounded-xl bg-surface p-5 shadow-1">bg-surface</div>
     </main>
