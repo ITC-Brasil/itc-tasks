@@ -16,14 +16,16 @@ const optionalId = z
 
 export const catalogIdSchema = z.uuid();
 
+export const PROJECT_KINDS = ["project", "client", "internal"] as const;
+
 export const projectSchema = z.object({
   code: z
     .string()
     .trim()
     .toUpperCase()
-    .regex(/^[A-Z]{2,4}$/, "A sigla tem de 2 a 4 letras"),
+    .regex(/^[A-Z0-9]{2,12}$/, "A sigla tem de 2 a 12 letras ou números"), // ADR-044
   name: z.string().trim().min(2, "Informe o nome").max(80),
-  kind: z.enum(["client", "internal"]),
+  kind: z.enum(PROJECT_KINDS),
   defaultAssigneeId: z
     .string()
     .nullish()
@@ -37,7 +39,7 @@ export const mobileUnitSchema = z.object({
   model: optionalText(80),
   plate: optionalText(10),
   base: optionalText(80),
-  projectId: optionalId,
+  projectId: z.uuid("Escolha o Projeto/Cliente da Unidade Móvel"), // ADR-044
 });
 export type MobileUnitInput = z.input<typeof mobileUnitSchema>;
 

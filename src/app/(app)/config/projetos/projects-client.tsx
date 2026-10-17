@@ -10,7 +10,7 @@ type Project = {
   id: string;
   code: string;
   name: string;
-  kind: "client" | "internal";
+  kind: "project" | "client" | "internal";
   defaultAssigneeId: string | null;
   glpiEntity: string | null;
   archivedAt: Date | null;
@@ -18,8 +18,9 @@ type Project = {
 type Option = { value: string; label: string };
 
 const KINDS = [
+  { value: "project", label: "Projeto" },
   { value: "client", label: "Cliente" },
-  { value: "internal", label: "Projeto interno" },
+  { value: "internal", label: "Interno" },
 ];
 
 export function ProjectDialog({ project, people }: { project?: Project; people: Option[] }) {
@@ -44,18 +45,23 @@ export function ProjectDialog({ project, people }: { project?: Project; people: 
       <FieldLabel label="Nome">
         <Input name="name" required minLength={2} defaultValue={project?.name} autoComplete="off" />
       </FieldLabel>
-      <FieldLabel label="Sigla (2 a 4 letras)">
+      <FieldLabel label="Sigla (2 a 12 letras ou números)">
         <Input
           name="code"
           required
-          pattern="[A-Za-z]{2,4}"
-          maxLength={4}
+          pattern="[A-Za-z0-9]{2,12}"
+          maxLength={12}
           className="uppercase tabular-nums"
           defaultValue={project?.code}
           autoComplete="off"
         />
       </FieldLabel>
-      <FormSelect name="kind" label="Tipo" items={KINDS} defaultValue={project?.kind ?? "client"} />
+      <FormSelect
+        name="kind"
+        label="Tipo"
+        items={KINDS}
+        defaultValue={project?.kind ?? "project"}
+      />
       <FormSelect
         name="defaultAssigneeId"
         label="Responsável padrão"
@@ -99,7 +105,7 @@ export function ProjectsTable({
             <tr key={p.id} className="border-t border-border">
               <td className="px-4 py-3 font-medium tabular-nums">{p.code}</td>
               <td className="px-4 py-3 font-medium">{p.name}</td>
-              <td className="px-4 py-3">{p.kind === "client" ? "Cliente" : "Projeto interno"}</td>
+              <td className="px-4 py-3">{KINDS.find((k) => k.value === p.kind)?.label}</td>
               <td className="px-4 py-3 text-muted">
                 {p.defaultAssigneeId ? names[p.defaultAssigneeId] : "—"}
               </td>

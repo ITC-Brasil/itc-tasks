@@ -90,7 +90,7 @@ it("Projeto/Cliente, UM e etiqueta arquivados são recusados", async () => {
     "Projeto/Cliente arquivado",
   );
 
-  const um = await createMobileUnit(system, { code: `UM-${run}` });
+  const um = await createMobileUnit(system, { code: `UM-${run}`, projectId });
   await setMobileUnitArchived(system, um.id, true);
   await expect(createTask(actor, { title: "x", projectId, mobileUnitId: um.id })).rejects.toThrow(
     "Unidade Móvel arquivado",
@@ -258,15 +258,15 @@ it("responsável padrão: omitido recebe o do projeto; null explícito fica sem 
   expect(none.assigneeId).toBeNull();
 });
 
-it("UM de outro cliente é recusada na criação e ao trocar o projeto (ADR-043)", async () => {
+it("UM de outro projeto é recusada na criação e ao trocar o projeto (ADR-043/044)", async () => {
   const other = await createProject(system, { code: letters(), name: "Outro", kind: "client" });
   const own = await createMobileUnit(system, { code: `UM-O-${run}`, projectId: other.id });
-  const free = await createMobileUnit(system, { code: `UM-L-${run}` });
   await expect(createTask(actor, { title: "x", projectId, mobileUnitId: own.id })).rejects.toThrow(
     `A Unidade Móvel UM-O-${run} pertence a outro Projeto/Cliente`,
   );
-  const t = await createTask(actor, { title: "UM livre", projectId, mobileUnitId: free.id });
-  expect(t.mobileUnitId).toBe(free.id);
+  await expect(createMobileUnit(system, { code: `UM-L-${run}` } as never)).rejects.toThrow(
+    "Escolha o Projeto/Cliente da Unidade Móvel", // ADR-044
+  );
   const t2 = await createTask(actor, {
     title: "UM do outro",
     projectId: other.id,

@@ -70,8 +70,8 @@ export function MobileUnitDialog({ unit, clients }: { unit?: MobileUnit; clients
       </FieldLabel>
       <FormSelect
         name="projectId"
-        label="Cliente"
-        items={[{ value: "", label: "Nenhum" }, ...options]}
+        label="Projeto/Cliente"
+        items={options}
         defaultValue={unit?.projectId ?? ""}
       />
     </FormDialog>
