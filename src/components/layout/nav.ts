@@ -1,4 +1,12 @@
-import { Bot, Columns3, House, Settings, type LucideIcon } from "lucide-react";
+import {
+  Bell,
+  Bot,
+  Columns3,
+  House,
+  Settings,
+  SlidersHorizontal,
+  type LucideIcon,
+} from "lucide-react";
 
 export type NavItem = {
   href: string;
@@ -18,6 +26,7 @@ export const NAV: NavGroup[] = [
     items: [
       { href: "/", label: "Minhas tarefas", icon: House },
       { href: "/tarefas", label: "Tarefas", icon: Columns3 },
+      { href: "/notificacoes", label: "Notificações", icon: Bell },
     ],
   },
   {
@@ -31,6 +40,12 @@ export const NAV: NavGroup[] = [
         adminOnly: true,
       },
       { href: "/config/agentes", label: "Agentes e MCP", icon: Bot, memberOnly: true },
+      {
+        href: "/config/preferencias",
+        label: "Minhas preferências",
+        icon: SlidersHorizontal,
+        memberOnly: true,
+      },
     ],
   },
 ];

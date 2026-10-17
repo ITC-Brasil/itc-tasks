@@ -29,9 +29,12 @@ const WIDE = "(min-width: 1024px)";
 
 export function AppShell({
   profile,
+  unread,
   children,
 }: {
   profile: ShellProfile;
+  /** não lidas da central (ADR-050) */
+  unread: number;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -133,7 +136,7 @@ export function AppShell({
                   aria-label={expanded ? undefined : item.label}
                   title={expanded ? undefined : item.label}
                   className={cn(
-                    "flex h-[34px] items-center gap-2.5 rounded-md px-2 text-sm hover:bg-muted",
+                    "relative flex h-[34px] items-center gap-2.5 rounded-md px-2 text-sm hover:bg-muted",
                     !expanded && "h-10 w-11 justify-center px-0",
                     active &&
                       "bg-accent-light font-semibold text-accent-text hover:bg-accent-light",
@@ -144,6 +147,17 @@ export function AppShell({
                     className={cn("size-4", active ? "text-accent-text" : "text-muted")}
                   />
                   {expanded && item.label}
+                  {item.href === "/notificacoes" && unread > 0 && (
+                    <span
+                      className={cn(
+                        "rounded-full bg-accent-solid px-1.5 text-[11px] leading-[18px] font-semibold text-on-accent tabular-nums",
+                        expanded ? "ml-auto" : "absolute translate-x-2.5 -translate-y-2.5",
+                      )}
+                    >
+                      {unread > 99 ? "99+" : unread}
+                      <span className="sr-only"> não lidas</span>
+                    </span>
+                  )}
                 </Link>
               );
             })}

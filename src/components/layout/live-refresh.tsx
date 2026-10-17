@@ -32,11 +32,16 @@ export function LiveRefresh({ userId }: { userId: string }) {
       if (busy(pointerDown)) timer = setTimeout(refresh, RETRY_MS);
       else router.refresh();
     };
-    source.addEventListener("task.changed", (e) => {
-      if ((JSON.parse(e.data) as { by: string | null }).by === userId) return;
+    const schedule = () => {
       clearTimeout(timer);
       timer = setTimeout(refresh, 500);
+    };
+    source.addEventListener("task.changed", (e) => {
+      if ((JSON.parse(e.data) as { by: string | null }).by === userId) return;
+      schedule();
     });
+    // ADR-050: aviso novo → atualiza o contador do sino e a central
+    source.addEventListener("notification.created", schedule);
     window.addEventListener("pointerdown", down, true);
     window.addEventListener("pointerup", up, true);
     return () => {

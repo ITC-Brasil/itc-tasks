@@ -31,6 +31,7 @@ const TABS = [
   { href: "/config/etiquetas", label: "Etiquetas" },
   { href: "/config/membros", label: "Membros" },
   { href: "/config/agentes", label: "Agentes e MCP" },
+  { href: "/config/preferencias", label: "Minhas preferências" },
 ];
 
 export function ConfigTabs() {

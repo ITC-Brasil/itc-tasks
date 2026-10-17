@@ -2,10 +2,13 @@ import { Client } from "pg";
 import { env } from "@/lib/env";
 
 // ADR-048: um LISTEN por processo, repassado a todas as abas conectadas em /api/events
-export type RealtimeEvent = { event: "task.changed"; data: string };
+export type RealtimeEvent = { event: "task.changed" | "notification.created"; data: string };
 type Listener = (e: RealtimeEvent) => void;
 
-const CHANNELS = new Map([["task_changed", "task.changed" as const]]);
+const CHANNELS = new Map<string, RealtimeEvent["event"]>([
+  ["task_changed", "task.changed"],
+  ["notification_created", "notification.created"], // ADR-050
+]);
 const RETRY_MS = 5000;
 
 // globalThis: o HMR do dev recarrega o módulo sem fechar a conexão antiga
