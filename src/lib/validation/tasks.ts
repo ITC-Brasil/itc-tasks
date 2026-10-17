@@ -8,7 +8,7 @@ export const PROJECT_REQUIRED = "Escolha um Projeto/Cliente para criar a tarefa.
 const uuid = z.uuid();
 // campo opcional de formulário: vazio vira null
 const optional = <T extends z.ZodType>(schema: T) =>
-  z.preprocess((v) => (v === "" || v === undefined ? null : v), schema.nullable());
+  z.preprocess((v) => (v === "" ? null : v), schema.nullable()).optional();
 
 const title = z.string().trim().min(1, "Informe o título").max(200, "Até 200 caracteres");
 const projectId = z.uuid(PROJECT_REQUIRED);

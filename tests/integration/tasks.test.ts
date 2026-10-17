@@ -33,12 +33,12 @@ let actor: Actor;
 let projectId: string;
 const status: Record<"backlog" | "todo" | "in_progress" | "done", string> = {} as never;
 const run = Date.now();
-// sigla de 4 letras a partir do relógio (como em catalog.test.ts), com prefixo distinto
-const code =
-  "T" +
-  Array.from(run.toString(26).slice(-3), (c) =>
-    String.fromCharCode(65 + (parseInt(c, 26) % 26)),
+// siglas aleatórias de 4 letras: o banco de teste acumula execuções
+const letters = () =>
+  Array.from(crypto.getRandomValues(new Uint8Array(4)), (b) =>
+    String.fromCharCode(65 + (b % 26)),
   ).join("");
+const code = letters();
 
 beforeAll(async () => {
   const u = await createMember(system, {
@@ -81,7 +81,7 @@ it("sem Projeto/Cliente é recusado e nada é gravado", async () => {
 
 it("Projeto/Cliente, UM e etiqueta arquivados são recusados", async () => {
   const p = await createProject(system, {
-    code: code.slice(0, 3) + "Z",
+    code: letters(),
     name: "Arquivado",
     kind: "client",
   });
