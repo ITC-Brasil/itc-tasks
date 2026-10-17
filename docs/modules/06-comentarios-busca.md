@@ -1,6 +1,6 @@
 # Módulo 06 — Comentários, histórico, anexos e busca
 
-**Status:** pronto para revisão (17/10/2026), na `develop`. ADR-048 escrito antes do código.
+**Status:** aprovado com ajustes na M-039; ajustes feitos em 17/10/2026, na `develop`. ADR-048 escrito antes do código.
 
 PRD T1 (anexos), T5 (comentários com @menção e histórico), V1 (aba Menções) e V6 (busca ⌘K), mais o tempo real do ADR-020.
 
@@ -14,7 +14,7 @@ Sem migração: `comments` e `attachments` já existiam desde `drizzle/0005_task
 - `src/server/services/activity.ts` — `listActivity(taskId)`: `task_events` + nome do ator + nome do token (agente); `describe()` formata o payload do ADR-042 com os nomes atuais ("mudou o status de A fazer para Em andamento", "definiu o prazo para 20/10/2026", "etiquetas: adicionou X; removeu Y"). `commented`/`comment_edited` não viram linha: o comentário aparece no lugar. Ator `automation` → "Automação", `system` → "Sistema".
 - `src/server/services/attachments.ts` — `addAttachment`, `getAttachment`, `listAttachments`, `cleanFileName`, `mimeFor`. `MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024`. O tipo vem da extensão (21 extensões: imagens, PDF, txt/log/csv, json/xml, zip/7z, Office e ODF), nunca do navegador. Grava em `UPLOADS_DIR/<uuid>` antes da transação e apaga o arquivo se a transação falhar.
 - `src/server/services/tasks.ts`:
-  - `record()` agora faz `pg_notify('task_changed', { id, number, fields, by })` (`by` = `userId` do ator, ou `null`) na mesma transação — o Postgres só entrega no commit.
+  - `record()` agora faz `pg_notify('task_changed', { id, number, fields, by })` (`by` = `userId` só quando o ator é `user`; agente, automação e sistema mandam `null`, para a tela do dono do token atualizar com o que o agente dele faz — M-039) na mesma transação — o Postgres só entrega no commit.
   - Tipos novos de `task_events`: `commented`, `comment_edited`, `attachment_added` (payloads `{ commentId }` e `{ attachmentId, fileName }`).
   - `TaskErrorCode` ganhou `TOO_LARGE` e `UNSUPPORTED_TYPE`.
   - `listTasks` aceita `scope.mentionedUserId` (`comments.mentions @> ARRAY[id]`).
@@ -23,7 +23,7 @@ Sem migração: `comments` e `attachments` já existiam desde `drizzle/0005_task
 - `src/server/actor.ts` — `sessionActor()`: para rotas de API, devolve o `Actor` ou `null` (401), sem redirecionar.
 
 ### Rotas e actions
-- `POST /api/attachments` (`src/app/api/attachments/route.ts`) — 401 sem sessão; 413 pelo `Content-Length` (> 25 MB + 64 KB) antes de ler o corpo, ou pelo tamanho do arquivo; 415 tipo fora da lista; 400 tarefa inválida; 201 `{ id, fileName, sizeBytes }`.
+- `POST /api/attachments` (`src/app/api/attachments/route.ts`) — 401 sem sessão; 411 sem `Content-Length` numérico (envio chunked seria lido inteiro na memória pelo `formData()`) e 413 acima de 25 MB + 64 KB, as duas checagens antes de ler o corpo (`declaredSizeStatus` em `src/server/services/attachments.ts`, M-039); ou pelo tamanho do arquivo; 415 tipo fora da lista; 400 tarefa inválida; 201 `{ id, fileName, sizeBytes }`.
 - `GET /api/attachments/[id]` — stream do arquivo com `Content-Disposition: attachment; filename*=UTF-8''…`, `X-Content-Type-Options: nosniff`, `Cache-Control: private, no-store`; 404 se a linha ou o arquivo não existir.
 - `GET /api/events` (`src/app/api/events/route.ts`) — `text/event-stream`, `retry: 5000`, `event: task.changed`, `event: ping` a cada 25 s, `X-Accel-Buffering: no`; limpa a assinatura no `abort`.
 - `src/server/actions/tasks.ts`: `addCommentAction`, `editCommentAction`, `searchTasksAction`.
@@ -53,9 +53,12 @@ Sem migração: `comments` e `attachments` já existiam desde `drizzle/0005_task
 | SSE na aba recebe `task.changed` do anexo | idem | ✅ |
 | ⌘K: "visao" acha "visão"; "TI-161" + Enter abre a tarefa | idem | ✅ |
 | ⌘K → detalhe → comentário com @menção → aba Menções; axe claro e escuro no detalhe | `tests/e2e/activity.spec.ts` | ✅ |
-| Suíte | `npm test` | ✅ Vitest 61 (14 arquivos) |
+| Suíte | `npm test` | ✅ Vitest 61 (14 arquivos); após a M-039, 63 |
 | E2E | `npx playwright test --workers=1` | ✅ 20 passaram, 12 pulados (mobile) |
-| E2E em paralelo (padrão) | `npx playwright test --project=desktop`, 3 rodadas com e 3 sem o SSE | ⚠️ intermitente: o arrasto de `views.spec.ts` falha em ~1 de 3 rodadas **também sem o SSE**; ver Pontos de atenção |
+| `declaredSizeStatus`: sem/inválido → 411; 26 MB → 413; 1 KB → segue | `tests/integration/attachments.test.ts` | ✅ |
+| Escrita da pessoa chega com `by = userId`; a do agente dela, com `by: null` | `tests/integration/realtime.test.ts` | ✅ |
+| Arrasto do `views.spec.ts` em paralelo, depois de centralizar a alça | `npx playwright test --project=desktop`, 5 + 3 rodadas | ✅ passou em todas |
+| E2E em paralelo (padrão), suíte inteira | idem | ⚠️ `tasks.spec.ts` (1 de 8) e `activity.spec.ts` (1 de 8) falharam com a tela do detalhe em branco; ver Pontos de atenção |
 | `npm run lint` / `npx tsc --noEmit` | — | ✅ 0 erros (1 aviso antigo em `tasks.test.ts`) |
 
 ## Commits
@@ -70,6 +73,17 @@ fdbcb1f feat(realtime): add server-sent events
 74a3c37 fix(tasks): send plain json comment bodies to the server action
 1cff6b7 fix(realtime): skip own changes and defer refresh while the user interacts
 35a946f test(e2e): cover search, comments and mentions (inclui o aria-label do comentário só leitura)
+6f5fa26 docs: document module 06 comments, history, attachments and search
+24b8d08 style: format app layout
+851ef33 test: write test attachments to a temp dir
+```
+
+Revisão (M-039):
+
+```
+d272d39 security(attachments): reject uploads without content-length
+d9f152c fix(realtime): keep refreshing the owner's tab for agent writes
+24ecc1b test(e2e): center the drag handle before dragging on the board
 ```
 
 ## Ficou de fora
@@ -88,4 +102,5 @@ fdbcb1f feat(realtime): add server-sent events
 - **`router.refresh()` a cada mudança** de qualquer tarefa (ADR-048). Barato com 4 pessoas; se pesar, filtrar pelo `id` da tarefa aberta.
 - **Um LISTEN por processo:** o cliente fica em `globalThis.__realtime`; não abrir `LISTEN` por requisição.
 - **Backup:** anexos ficam no volume `itc-tasks-uploads`; sem backup definido (`docs/INFRA.md` §9).
-- **E2E em paralelo:** `activity.spec.ts` usa o projeto BSBIA porque `views.spec.ts` move as tarefas "E2E" do QMPR em massa, e espera o detalhe por até 20 s (primeira compilação no `next dev`). O arrasto com mouse de `views.spec.ts` ficou intermitente com os workers em paralelo, com ou sem SSE; com `--workers=1` tudo passa. O E2E está fora do CI até o Módulo 11 (M-007).
+- **E2E em paralelo — arrasto (resolvido na M-039):** o trace mostrou `mouse.down` em y=20 e o movimento em y=8. O `scrollIntoViewIfNeeded` deixava a alça colada no topo da janela; o arrasto “na mesma altura” passava pelo cabeçalho da coluna “A fazer”, fora da lista onde se solta, e o dnd-kit não disparava o `onDragEnd` (nenhum POST depois do drop). Dependia de onde o card caía na coluna, por isso variava com os dados das outras specs. Agora a alça é centralizada (`scrollIntoView({ block: "center" })`).
+- **E2E em paralelo — detalhe em branco (aberto):** em `tasks.spec.ts` e `activity.spec.ts`, a URL muda para `/tarefas/N`, a resposta RSC chega com 200, mas o conteúdo não renderiza e o anúncio de rota continua em “Minhas tarefas”. No trace, o console mostra “[Fast Refresh] rebuilding” a cada 1–3 s durante a suíte, sem nenhum arquivo de código mudando (só `.next/dev/cache` e `test-results`): o `next dev` compila rotas sob demanda e avisa todas as abas, e a hipótese é que um desses rebuilds no meio da navegação a descarte. **Não confirmado:** a mesma corrida (`refresh()` seguido de `push()`) não reproduz no navegador, a página leva ~300 ms sozinha, e a comparação com `next start` não roda porque o login de produção exige https. Por isso não marquei essas specs como seriais nem mexi no app. `activity.spec.ts` usa o projeto BSBIA (o `views.spec.ts` move as tarefas “E2E” do QMPR em massa) e espera o detalhe por até 20 s. O E2E está fora do CI até o Módulo 11 (M-007).

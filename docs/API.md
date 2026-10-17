@@ -145,7 +145,7 @@ Handler: `src/app/api/auth/[...all]/route.ts`.
 ### GET /api/events
 Auth: sessão ativa.
 Response 200: `text/event-stream`. Eventos:
-- `task.changed` — `{ id, number, fields: string[], by: string | null }` (`fields` = tipos de `task_events` da escrita; `by` = pessoa que escreveu). Implementado no Módulo 06 (`src/app/api/events/route.ts`); `notification.created` entra no Módulo 08.
+- `task.changed` — `{ id, number, fields: string[], by: string | null }` (`fields` = tipos de `task_events` da escrita; `by` = pessoa que escreveu, só para ator `user`; agente/automação/sistema → `null`). Implementado no Módulo 06 (`src/app/api/events/route.ts`); `notification.created` entra no Módulo 08.
 - `notification.created` — `{ id, event, unreadCount }`
 - `ping` — a cada 25 s (heartbeat por causa do túnel, ADR-020)
 
@@ -170,7 +170,7 @@ Auth: sessão ativa. Envia uma notificação de teste para as assinaturas do usu
 
 ### POST /api/attachments
 Auth: sessão ativa. Body: `multipart/form-data` com `taskId` e `file` (≤ 25 MB).
-Response 201: `{ id, fileName, sizeBytes }` · 413: acima de 25 MB · 415: tipo não permitido.
+Response 201: `{ id, fileName, sizeBytes }` · 411: sem `Content-Length` · 413: acima de 25 MB · 415: tipo não permitido.
 
 ### GET /api/attachments/[id]
 Auth: sessão ativa. Response 200: o arquivo com `Content-Disposition: attachment` · 404.
