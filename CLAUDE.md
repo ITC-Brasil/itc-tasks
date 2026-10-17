@@ -4,7 +4,7 @@ ITC Tasks é o gestor de tarefas do dia a dia do time de TI do Grupo ITC Brasil 
 substituto do Windshift. Toda tarefa tem Projeto/Cliente (obrigatório), Unidade Móvel e
 Chamado GLPI (opcionais), e agentes operam o app por um servidor MCP embutido em `/mcp`.
 
-**Estado:** Módulo 03 pronto para revisão em 17/10/2026 (Módulos 00 a 02 na `main`). Próximo: Módulo 04, após a aprovação.
+**Estado:** Módulo 04 pronto para revisão em 17/10/2026 (Módulos 00 a 02 na `main`, 03 no PR #3). Próximo: Módulo 05, após a aprovação.
 
 ## Stack (versões exatas — após o scaffold, a fonte é o `package.json`)
 

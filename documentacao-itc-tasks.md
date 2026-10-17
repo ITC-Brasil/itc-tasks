@@ -256,15 +256,17 @@ action; checagens no cliente são só de interface.
 
 **Módulo 03 — Cadastros (17/10/2026).** `src/db/schema/catalog.ts` cria `projects`, `mobile_units`, `workflow_statuses` e `labels` (migração `0003_catalog`); o seed grava os quatro status padrão (só com a tabela vazia), quatro etiquetas e o projeto `ACL` "A classificar". `src/server/services/catalog.ts` concentra a escrita (só admin) e a leitura (`list*` sem arquivados por padrão); sigla e código de UM são gravados em maiúsculas, a categoria do status não muda depois de criada e cada categoria mantém um status ativo (ADR-040). As telas `/config/projetos`, `/config/unidades`, `/config/workflow` e `/config/etiquetas` compartilham `AdminConfigPage` e as abas de Configurações. Details: docs/modules/03-cadastros.md
 
+**Módulo 04 — Tarefas: núcleo (17/10/2026).** ADR-042 antes do código. `src/db/schema/tasks.ts` e `planning.ts` (migração `0005_tasks`) criam as tabelas de tarefa e, sem tela, `cycles`, `milestones` e `templates`; `position` usa `COLLATE "C"` para o índice fracionário do `fractional-indexing` 4.0.0. `src/server/services/tasks.ts` faz create/update/move/complete/bulk, subtarefas e vínculos em transação, recusa Projeto/Cliente ausente (`PROJECT_REQUIRED`) e referências arquivadas (`ARCHIVED_REFERENCE`), controla `completedAt` pela categoria `done` e grava um `task_events` por mudança. A criação rápida (`C`, "Criar outra", template) fica em `src/components/tasks/quick-create.tsx`; o detalhe `/tarefas/<n>` tem edição inline, descrição em Tiptap, subtarefas, vínculos e link do GLPI. Details: docs/modules/04-tarefas.md
+
 Plano de módulos (`PROMPT_CLAUDE_CODE.md`):
 
 | Nº | Módulo | Status |
 |---|---|---|
 | 00 | Fundação (scaffold, Docker, DB, tokens, CI) | Concluído (17/10/2026) |
 | 01 | Autenticação e membros | Concluído (17/10/2026) |
-| 02 | Layout, navegação e tema | Em revisão (17/10/2026) |
-| 03 | Cadastros (Projetos/Clientes, UMs, workflow, etiquetas) | Planejado |
-| 04 | Tarefas: núcleo, detalhe e criação rápida | Planejado |
+| 02 | Layout, navegação e tema | Concluído (17/10/2026) |
+| 03 | Cadastros (Projetos/Clientes, UMs, workflow, etiquetas) | Concluído (17/10/2026) |
+| 04 | Tarefas: núcleo, detalhe e criação rápida | Em revisão (17/10/2026) |
 | 05 | Visões: Kanban, Lista, Calendário, Minhas tarefas, filtros | Planejado |
 | 06 | Comentários, histórico, anexos e busca ⌘K | Planejado |
 | 07 | Servidor MCP e tokens de agentes | Planejado |
