@@ -1,10 +1,11 @@
 "use client";
 
-import { Ellipsis, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Ellipsis, PanelLeftClose, PanelLeftOpen, Plus } from "lucide-react";
 import { useTheme } from "next-themes";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { QuickCreate, openQuickCreate } from "@/components/tasks/quick-create";
 import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { setSidebarCollapsedAction } from "@/server/actions/preferences";
@@ -206,7 +207,7 @@ export function AppShell({
 
       <div className="flex min-w-0 flex-1 flex-col pb-16 md:pb-0">{children}</div>
 
-      {/* < 768 px: barra inferior; Tarefas, Criar e Ciclo entram com os Módulos 04, 05 e 10 */}
+      {/* < 768 px: barra inferior; Tarefas e Ciclo entram com os Módulos 05 e 10 */}
       <nav
         aria-label="Navegação"
         className="fixed inset-x-0 bottom-0 z-30 flex h-16 items-center justify-around border-t bg-surface pb-[env(safe-area-inset-bottom)] md:hidden"
@@ -222,6 +223,14 @@ export function AppShell({
           <home.icon className="size-[22px]" aria-hidden="true" />
           Minhas
         </Link>
+        <button
+          type="button"
+          onClick={openQuickCreate}
+          className="flex min-h-11 min-w-14 flex-col items-center justify-center gap-0.5 text-[11px] font-medium text-muted"
+        >
+          <Plus className="size-[22px]" aria-hidden="true" />
+          Criar
+        </button>
         <UserMenu
           side="top"
           onShowShortcuts={showShortcuts}
@@ -238,6 +247,7 @@ export function AppShell({
       </nav>
 
       <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+      <QuickCreate />
     </div>
   );
 }

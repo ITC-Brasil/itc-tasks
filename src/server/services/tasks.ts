@@ -1,4 +1,5 @@
-import { and, asc, eq, gt, inArray, isNull, max, min, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNull, max, min, ne, or, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { generateKeyBetween } from "fractional-indexing";
 import { db } from "@/db";
 import {
@@ -7,6 +8,7 @@ import {
   mobileUnits,
   projects,
   taskEvents,
+  templates,
   taskLabels,
   taskLinks,
   tasks,
@@ -22,6 +24,7 @@ import {
   createTaskSchema,
   linkSchema,
   moveTaskSchema,
+  taskTemplatePayloadSchema,
   updateTaskSchema,
 } from "@/lib/validation/tasks";
 import type { Actor } from "@/server/actor";
@@ -475,12 +478,19 @@ export async function removeLink(
 
 // ── Leitura ─────────────────────────────────────────────────────────
 
+const assignee = alias(user, "assignee");
+
 /** Detalhe da tarefa pelo número visível (ADR-021). */
 export async function getTaskByNumber(_actor: Actor, number: number) {
   const [task] = await db.select().from(tasks).where(eq(tasks.number, number));
   if (!task) return null;
-  const [labelRows, checklist, linkRows] = await Promise.all([
-    db.select({ id: taskLabels.labelId }).from(taskLabels).where(eq(taskLabels.taskId, task.id)),
+  const [labelRows, checklist, linkRows, [refs]] = await Promise.all([
+    db
+      .select({ id: labels.id, name: labels.name, colorToken: labels.colorToken })
+      .from(taskLabels)
+      .innerJoin(labels, eq(labels.id, taskLabels.labelId))
+      .where(eq(taskLabels.taskId, task.id))
+      .orderBy(asc(labels.name)),
     db
       .select()
       .from(checklistItems)
@@ -501,6 +511,24 @@ export async function getTaskByNumber(_actor: Actor, number: number) {
       )
       .where(or(eq(taskLinks.fromTaskId, task.id), eq(taskLinks.toTaskId, task.id)))
       .orderBy(asc(tasks.number)),
+    // nomes atuais mesmo de cadastro arquivado ou pessoa desativada (não aparecem nos seletores)
+    db
+      .select({
+        projectCode: projects.code,
+        projectName: projects.name,
+        unitCode: mobileUnits.code,
+        statusName: workflowStatuses.name,
+        category: workflowStatuses.category,
+        creatorName: user.name,
+        assigneeName: assignee.name,
+      })
+      .from(tasks)
+      .innerJoin(projects, eq(projects.id, tasks.projectId))
+      .innerJoin(workflowStatuses, eq(workflowStatuses.id, tasks.statusId))
+      .innerJoin(user, eq(user.id, tasks.creatorId))
+      .leftJoin(mobileUnits, eq(mobileUnits.id, tasks.mobileUnitId))
+      .leftJoin(assignee, eq(assignee.id, tasks.assigneeId))
+      .where(eq(tasks.id, task.id)),
   ]);
   const links = linkRows.map(({ fromTaskId, kind, ...other }) => ({
     ...other,
@@ -511,7 +539,7 @@ export async function getTaskByNumber(_actor: Actor, number: number) {
           ? ("blocks" as const)
           : ("blocked_by" as const),
   }));
-  return { ...task, labelIds: labelRows.map((r) => r.id), checklist, links };
+  return { ...task, ...refs, labels: labelRows, checklist, links };
 }
 
 /** Pessoas ativas para os seletores de responsável. */
@@ -521,4 +549,17 @@ export async function listAssignees() {
     .from(user)
     .where(or(isNull(user.banned), eq(user.banned, false)))
     .orderBy(asc(user.name));
+}
+
+/** Templates de tarefa válidos, os mais usados primeiro (tela no Módulo 09). */
+export async function listTaskTemplates() {
+  const rows = await db
+    .select({ id: templates.id, name: templates.name, payload: templates.payload })
+    .from(templates)
+    .where(eq(templates.kind, "task"))
+    .orderBy(desc(templates.usageCount));
+  return rows.flatMap((t) => {
+    const payload = taskTemplatePayloadSchema.safeParse(t.payload);
+    return payload.success ? [{ id: t.id, name: t.name, payload: payload.data }] : [];
+  });
 }
