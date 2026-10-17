@@ -4,7 +4,7 @@ ITC Tasks é o gestor de tarefas do dia a dia do time de TI do Grupo ITC Brasil 
 substituto do Windshift. Toda tarefa tem Projeto/Cliente (obrigatório), Unidade Móvel e
 Chamado GLPI (opcionais), e agentes operam o app por um servidor MCP embutido em `/mcp`.
 
-**Estado:** Módulo 01 aprovado com ajustes (M-007) em 17/10/2026. Próximo: Módulo 02 em `PROMPT_CLAUDE_CODE.md`, após o "pode iniciar".
+**Estado:** Módulo 02 pronto para revisão em 17/10/2026 (Módulos 00 e 01 na `main`). Próximo: Módulo 03, após a aprovação.
 
 ## Stack (versões exatas — após o scaffold, a fonte é o `package.json`)
 
@@ -39,7 +39,7 @@ Chamado GLPI (opcionais), e agentes operam o app por um servidor MCP embutido em
 ## Identidade visual
 
 - Tokens em `src/styles/globals.css` (`@theme`); claro em `:root, [data-theme="light"]`, escuro em `[data-theme="dark"]`. **Nunca hex em componente.**
-- Principais: `--bg-base #F5F0E8`, `--bg-surface #FDFBF7`, `--accent #008F95` (escuro `#30A5AB`), `--accent-text #006C72`, `--accent-solid #007A80` (fundo com `on-accent`, ADR-035), `--text-base #1A2020`. Funcionais (`ok`, `warn`, `err`, `info`, `sev-medium`) **só em estado**.
+- Principais: `--bg-base #F5F0E8`, `--bg-surface #FDFBF7`, `--accent #008F95` (escuro `#30A5AB`), `--accent-text #006C72`, `--accent-solid #007A80` (fundo com `on-accent`, ADR-035), `on-err` sobre `err` (ADR-039), `--text-base #1A2020`. Funcionais (`ok`, `warn`, `err`, `info`, `sev-medium`) **só em estado**.
 - Texto/ícone em ciano → `accent-text`. `warn` e `sev-medium` nunca como texto no claro.
 - Inter em toda a UI (`tabular-nums` em IDs, datas, números); Archivo só no lockup.
 - Tema **só claro e escuro**, sem "sistema", salvo em `user.theme` (ADR-013).
