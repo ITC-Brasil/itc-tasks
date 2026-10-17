@@ -1,0 +1,41 @@
+# Dependências
+node_modules/
+
+# Next.js
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# Build
+dist/
+build/
+
+# Testes
+coverage/
+playwright-report/
+test-results/
+
+# Ambiente (só o .env.example vai para o Git)
+.env
+.env.*
+!.env.example
+
+# PWA gerado pelo Serwist
+public/sw.js
+public/sw.js.map
+public/swe-worker-*.js
+
+# Sistema e editores
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Conversa Claude Code ↔ Cowork (ADR-030) — nunca vai para o GitHub
+.conversa/

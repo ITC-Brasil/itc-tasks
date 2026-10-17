@@ -1,0 +1,425 @@
+# ITC Tasks — Infraestrutura, servidor e deploy
+
+> **Estado:** planejado (17/10/2026). Nada do ITC Tasks está no servidor ainda.
+> Este documento reúne o que já existe no `glpi-srv` e como o ITC NoteScan é publicado lá,
+> para que o ITC Tasks siga o mesmo padrão. Fontes: documentos do projeto *Infraestrutura - ITCBR*
+> (`guia-servidor-glpi-srv.md` v2.0, `contexto-glpi-srv.md` v2.0, `licoes-aprendidas-glpi-srv.md`,
+> `novo-container-glpi-srv.md`, todos de 16/07/2026) e do projeto *ITC NoteScan*
+> (`ARCHITECTURE.md`, `documentacao-notescan.md`, `DECISIONS.md`, instruções do projeto).
+> Credenciais **não** estão aqui: ficam em `credenciais-glpi-srv.md` / Vaultwarden.
+>
+> Decisões relacionadas: ADR-011 (substituída), ADR-026, ADR-027, ADR-028, ADR-029.
+
+---
+
+## 1. Resumo em uma tela
+
+| Item | Valor |
+|---|---|
+| Servidor | `glpi-srv` — Dell PowerEdge R250 (Xeon E-2324G, 16 GB RAM, 2× SSD 480 GB RAID) |
+| SO / Docker | Ubuntu 24.04.4 LTS / Docker 29.8.1, Compose 5.5.1, cloudflared 2026.6.0 (conferido em 17/10/2026) |
+| Pasta do app | `/home/glpissh/docker/itc-tasks` (padrão `~/docker/<nome>`), **dona `github-deploy`** como a do NoteScan |
+| Containers | `itc-tasks`, `itc-tasks-worker`, `itc-tasks-db` |
+| Porta no host | `127.0.0.1:3021` → container `3000` (confirmada livre em 17/10/2026) |
+| Publicação | Túnel `itcbr-tunnel` (cloudflared no host) → `https://tasks.itcbr.xyz` |
+| Deploy | Merge na `main` → GitHub Actions → SSH como `github-deploy` → `scripts/deploy.sh` |
+| Registry de imagens | Nenhum — build no próprio servidor (ADR-027) |
+| Banco | PostgreSQL 18.6 exclusivo, sem porta no host |
+| Monitoramento | Uptime Kuma (`monitor.itcbr.xyz`), Homepage (`dash.itcbr.xyz`), Grafana/cAdvisor |
+
+---
+
+## 2. O servidor `glpi-srv`
+
+### 2.1 Rede
+
+O R250 tem duas interfaces independentes. O ITC Tasks usa só a `eno8403`.
+
+| Interface | Endereço | Ligada a | Serve |
+|---|---|---|---|
+| `eno8303` | `192.168.88.224/24` (DHCP reservado) | MikroTik RB1100 — Vivo, IP fixo | GLPI, RustDesk, SSH externo (porta 2222) — **nunca alterar** |
+| `eno8403` | `10.10.10.10/24` | MikroTik RB750r2 — Claro 1 Gbps (failover link Estádio) | Serviços Docker via Cloudflare Tunnel |
+
+```
+Internet
+  ├─ Vivo (IP fixo) → RB1100 (192.168.88.1) → eno8303 → GLPI :8888, RustDesk, SSH :2222→22
+  └─ Claro (1 Gbps) → RB750r2 (10.10.10.1) → eno8403 (10.10.10.10) → cloudflared → *.itcbr.xyz
+```
+
+**Consequência para o ITC Tasks:** se a `eno8403` cair, `tasks.itcbr.xyz` fica fora do ar
+(como todos os `*.itcbr.xyz`). GLPI e RustDesk continuam funcionando. Netplan só se altera com
+acesso físico ou pelo iDRAC.
+
+### 2.2 Acesso
+
+| Acesso | Host | Porta | Uso |
+|---|---|---|---|
+| SSH externo | `glpi.grupoitcbrasil.com.br` | `2222` | Port forward no RB1100 → 22. É por aqui que o GitHub Actions entra |
+| SSH via Tailscale | `100.68.161.44` | `22` | Acesso do time (tailnet ITC). **Não** usar 2222 pela Tailscale |
+| iDRAC | `192.168.88.225` | — | Console de emergência |
+
+### 2.3 Usuários
+
+| Usuário | Papel |
+|---|---|
+| `glpissh` | Usuário de SSH e dono de `~/docker/` — onde ficam todos os containers |
+| `glpi` | Dono dos processos GLPI e RustDesk; sem SSH |
+| `github-deploy` | Usado pelo GitHub Actions (2 chaves ed25519 em `authorized_keys`); grupos `github-deploy` e `docker`; **sem sudo**. É o dono das pastas de projetos com deploy automático (`notescan`; `sentinel` também está no `safe.directory` dele) |
+
+### 2.4 O que já roda e não pode ser afetado
+
+- **GLPI** e **RustDesk**: 600+ notebooks e todos os clientes apontam para eles. Não mexer. Em 17/10/2026 o GLPI aparece como container (`glpi` em `192.168.88.224:80` e `0.0.0.0:8889`, mais `glpi-db`) — o guia do servidor ainda o descreve fora do Docker; o endereço `http://glpi.grupoitcbrasil.com.br:8888` continua o mesmo (port forward do RB1100). Backup do GLPI: `/usr/local/bin/glpi-backup`, crontab do root às 05:00.
+- **Ollama** no host (porta 11434), Watchtower, Uptime Kuma, Grafana + Prometheus + Node Exporter + cAdvisor, Homepage, n8n, Vaultwarden, ITC NoteScan e outros em `~/docker/`.
+- **Windshift** (`~/docker/windshift`, container em `127.0.0.1:3020`): é o sistema que o ITC Tasks substitui. Só desligar depois do go-live (Módulo 12, `docs/PRD.md` §7).
+
+> O guia do servidor está desatualizado em relação ao `ls ~/docker` de 17/10/2026, que já mostra
+> `authelia`, `beszel`, `dozzle`, `mcp-brasil`, `nocodb`, `outline`, `routemap`, `scriberr`,
+> `sentinel`, `smartnx-proxy`, `stirling-pdf`, `tecnico-assistente`, `waha`, `wikijs` e `windshift`.
+> Por isso **portas e nomes sempre se conferem no próprio host**, nunca só pelo guia.
+
+---
+
+## 3. Padrões do servidor que o ITC Tasks segue
+
+Baseados em `novo-container-glpi-srv.md`:
+
+| Padrão | No ITC Tasks |
+|---|---|
+| Pasta `~/docker/<nome>/` | `/home/glpissh/docker/itc-tasks` |
+| `container_name` explícito | `itc-tasks`, `itc-tasks-worker`, `itc-tasks-db` |
+| `restart: always` | Nos três |
+| `TZ=America/Sao_Paulo` | Nos três (e `APP_TIMEZONE` no app) |
+| Banco próprio por stack (como `n8n-db`, `evogo-db`, `notescan-db`) | `itc-tasks-db`, sem porta no host |
+| Label do Watchtower | **Não usar** (exceção deliberada): `itc-tasks` e `itc-tasks-worker` são construídos localmente — não há imagem para puxar; o Postgres é atualizado à mão para evitar troca de versão sem controle |
+| Porta conferida antes de usar | `sudo ss -tlnp \| grep :3021` |
+| Porta no UFW | **Não precisa**: o app escuta só em `127.0.0.1`, e o túnel acessa por `localhost` |
+| Portas só em `127.0.0.1` | **Obrigatório no ITC Tasks.** Portas publicadas pelo Docker em `0.0.0.0` passam por fora do UFW (o Docker cria regras próprias no iptables), então ficam acessíveis nas redes do RB1100 e do RB750r2 mesmo sem regra no UFW. Hoje vários containers estão assim, inclusive o `notescan-db` em `0.0.0.0:5433`. `routemap-app`, `tecnico-api` e `windshift` já usam `127.0.0.1` |
+| Monitor no Uptime Kuma | HTTP(s) em `https://tasks.itcbr.xyz/api/health` |
+| Registro na documentação do servidor | Guia (nova seção 3.x), contexto (serviços, portas, contador) e credenciais |
+| Senhas | Únicas, só no `.env` da pasta, nunca no `docker-compose.yml` nem no repositório |
+
+---
+
+## 4. Publicação pelo Cloudflare Tunnel
+
+O `cloudflared` roda **no host** como serviço systemd, com o túnel `itcbr-tunnel`. Não existe
+container de túnel no ITC Tasks (ADR-028).
+
+| Arquivo | Uso |
+|---|---|
+| `~/.cloudflared/config.yml` | Arquivo que se edita |
+| `/etc/cloudflared/config.yml` | Arquivo que o serviço lê — sempre copiar depois de editar |
+
+### Passo a passo
+
+```bash
+# 1. DNS do subdomínio no túnel
+cloudflared tunnel route dns itcbr-tunnel tasks.itcbr.xyz
+
+# 2. Rota no config.yml, ANTES do catch-all (- service: http_status:404)
+nano ~/.cloudflared/config.yml
+#   # ITC Tasks
+#   - hostname: tasks.itcbr.xyz
+#     service: http://localhost:3021
+
+# 3. Aplicar
+sudo cp ~/.cloudflared/config.yml /etc/cloudflared/config.yml
+sudo systemctl restart cloudflared
+```
+
+### Cuidados (lições do servidor)
+
+- **Nunca** instalar ou reinstalar o cloudflared com `service install TOKEN`: esse modo ignora o `config.yml` (lição 6).
+- O cloudflared foi instalado por `.deb` do GitHub (o APT da Cloudflare falha no Ubuntu 24.04); **não atualiza com `apt upgrade`** (lição 1).
+- O locale precisa ser `pt_BR.UTF-8`: com POSIX, acentos no `config.yml` corrompem o arquivo (`invalid trailing UTF-8 octet`) (lição 5). Preferir comentários sem acento.
+- **Limites do túnel que moldam o app:** ~100 s de timeout por requisição, uploads até 100 MB (o Pingvin Share usa chunks de 90 MB pelo mesmo motivo), conexões ociosas podem cair. No ITC Tasks: jobs fora da requisição, anexos ≤ 25 MB, SSE com heartbeat de 25 s.
+- `/mcp` precisa ser acessível por agentes sem login no navegador. Se um dia o subdomínio ficar atrás de Cloudflare Access (há uma avaliação pendente para o Homepage), liberar `/mcp` com service token ou regra de bypass.
+
+---
+
+## 5. Como o ITC NoteScan é publicado (referência)
+
+| Item | NoteScan |
+|---|---|
+| Pasta | `/home/glpissh/docker/notescan` |
+| Containers | `notescan-app` (Next.js standalone, porta 3010) e `notescan-db` (PostgreSQL 16, rede interna `notescan_default`) |
+| Túnel | `notescan.itcbr.xyz` → `http://localhost:3010` |
+| Branches | `feat/…` → `develop` → PR → `main` (protegida, 1 aprovação, push direto bloqueado) |
+| CI | "Quality Check": `npm ci`, `prisma generate`, type-check, lint (com `eslint-plugin-security`), `prisma migrate deploy` no Postgres de serviço, testes com cobertura, `npm audit --audit-level=high` |
+| Segurança no GitHub | Dependabot (minor/patch, máx. 5 PRs), Secret Scanning. **CodeQL removido**: o GitHub Advanced Security não está disponível no plano gratuito para repositório privado da org ITC-Brasil |
+| CD | Merge na `main` → `deploy.yml` com `appleboy/ssh-action@v1` (por tag, não SHA), `port: 2222` fixo, `command_timeout: 20m`; script: `cd /home/glpissh/docker/notescan && git pull origin main && docker compose up -d --build && docker image prune -f`. Sem health check depois do deploy |
+| Secrets do CD | `DEPLOY_HOST` (sem porta), `DEPLOY_PORT` (`2222`), `DEPLOY_USER` (`github-deploy`), `DEPLOY_SSH_KEY` |
+| Migrações | `scripts/docker-entrypoint.sh` roda as migrações antes de iniciar o Next |
+| Deploy manual | A pasta é do `github-deploy` (`755`), então o `git pull` precisa rodar como ele: `sudo -u github-deploy git -C ~/docker/notescan pull origin main` e depois `docker compose up -d --build` |
+| Porta | `notescan-app` em `0.0.0.0:3010` e `notescan-db` em `0.0.0.0:5433`, ambos publicados para fora |
+| Nginx | **Não há.** O Next standalone escuta direto na 3000 do container (`EXPOSE 3000`, `CMD ["./docker-entrypoint.sh"]`, imagem `node:20-alpine`). A menção a "Docker + Nginx" nos documentos do NoteScan está desatualizada |
+| Autenticação do servidor no GitHub | `git remote` em HTTPS com token embutido na URL (fica em `.git/config`, legível por outros usuários do servidor) |
+
+### Lições do NoteScan que valem para o ITC Tasks
+
+| Problema no NoteScan | Causa | O que fazemos no ITC Tasks |
+|---|---|---|
+| `sh: prisma: not found` no container | O output standalone não copia os links de `node_modules/.bin` | Migrações chamadas por `node` direto (migrator do `drizzle-orm` compilado em `dist/migrate.js`), sem depender de `.bin` |
+| `Cannot find module 'effect'` | Dependência transitiva não incluída pelo standalone | Testar o container do zero no Módulo 00; se faltar módulo, copiar só o necessário e registrar em ADR |
+| `datasource.url property is required` | Arquivo de config do ORM fora do estágio final da imagem | Conferir que tudo o que o entrypoint lê está no estágio `runner` do Dockerfile |
+| `UntrustedHost` no Auth.js em produção | Host de produção não declarado como confiável | `BETTER_AUTH_URL=https://tasks.itcbr.xyz` e `trustedOrigins` no Better Auth desde o Módulo 01 |
+| `git pull: Permission denied` | Dono da pasta e usuário que faz o `pull` diferentes | Mesmo modelo que o NoteScan usa hoje: pasta criada e mantida pelo `github-deploy`; manutenção manual com `sudo -u github-deploy`. Não alternar o dono entre `glpissh` e `github-deploy` |
+| Token do GitHub legível no servidor | Remote HTTPS com token na URL | Deploy key **só-leitura** do repositório `itc-tasks`, na `~/.ssh` do `github-deploy` (modo 600); remote `git@github.com:ITC-Brasil/itc-tasks.git` |
+| Build frio estoura o tempo do Actions | `ssh-action` tem padrão de 10 min | Timeout do passo de 20 min, como no NoteScan |
+| Banco exposto | `notescan-db` publicado em `0.0.0.0:5433` | `itc-tasks-db` sem `ports:` |
+| CD ficou pendente por um tempo | Porta 2222 não estava configurada | Porta 2222 desde o primeiro workflow (o NoteScan hoje a fixa no YAML; no ITC Tasks fica no secret `DEPLOY_PORT`) |
+| Postgres locais em conflito no Windows | Dois projetos na mesma porta do host | Dev do ITC Tasks em `5435` (NoteScan usa `5434`) |
+
+---
+
+## 6. ITC Tasks em produção (planejado)
+
+### 6.1 Estrutura da pasta
+
+```
+/home/glpissh/docker/itc-tasks/      ← clone de ITC-Brasil/itc-tasks (branch main), dono github-deploy, 755
+├── docker-compose.yml               ← versionado
+├── .env                             ← NÃO versionado; dono github-deploy, modo 600
+├── Dockerfile
+├── scripts/deploy.sh
+├── scripts/docker-entrypoint.sh
+└── ...
+```
+
+### 6.2 `docker-compose.yml` (rascunho para o Módulo 00)
+
+```yaml
+services:
+  itc-tasks:
+    build: .
+    image: itc-tasks:local
+    container_name: itc-tasks
+    restart: always
+    ports:
+      - 127.0.0.1:3021:3000
+    env_file: .env
+    environment:
+      - TZ=America/Sao_Paulo
+    volumes:
+      - itc-tasks-uploads:/data/uploads
+    depends_on:
+      itc-tasks-db:
+        condition: service_healthy
+
+  itc-tasks-worker:
+    image: itc-tasks:local
+    container_name: itc-tasks-worker
+    restart: always
+    command: ["node", "worker/index.js"]
+    env_file: .env
+    environment:
+      - TZ=America/Sao_Paulo
+    volumes:
+      - itc-tasks-uploads:/data/uploads
+    depends_on:
+      itc-tasks-db:
+        condition: service_healthy
+
+  itc-tasks-db:
+    image: postgres:18.6-alpine
+    container_name: itc-tasks-db
+    restart: always
+    environment:
+      - TZ=America/Sao_Paulo
+      - POSTGRES_DB=itc_tasks
+      - POSTGRES_USER=itc_tasks
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - itc-tasks-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U itc_tasks -d itc_tasks"]
+      interval: 10s
+      retries: 5
+
+volumes:
+  itc-tasks-uploads:
+  itc-tasks-db-data:
+```
+
+Sem label do Watchtower (§3). Sem porta do Postgres no host.
+
+### 6.3 `.env` de produção (nomes; valores no Vaultwarden)
+
+```
+POSTGRES_PASSWORD=
+DATABASE_URL=postgresql://itc_tasks:<senha>@itc-tasks-db:5432/itc_tasks
+BETTER_AUTH_SECRET=                 # openssl rand -base64 32
+BETTER_AUTH_URL=https://tasks.itcbr.xyz
+GLPI_BASE_URL=http://glpi.grupoitcbrasil.com.br:8888
+SMTP_HOST=smtp.titan.email
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=tasks@itcbr.xyz
+SMTP_PASSWORD=                      # senha de aplicativo do Titan se houver 2FA
+MAIL_FROM="ITC Tasks <tasks@itcbr.xyz>"
+VAPID_PUBLIC_KEY=                   # npx web-push generate-vapid-keys
+VAPID_PRIVATE_KEY=
+VAPID_SUBJECT=mailto:tasks@itcbr.xyz
+UPLOADS_DIR=/data/uploads
+APP_TIMEZONE=America/Sao_Paulo
+```
+
+Trocar as chaves VAPID depois do go-live invalida todas as assinaturas de push (mesmo aviso do NoteScan).
+
+---
+
+## 7. Deploy
+
+### 7.1 Fluxo
+
+```
+feat/… ──PR──▶ develop ──PR (CI verde + 1 aprovação)──▶ main
+                                                         │
+                                       GitHub Actions: deploy.yml
+                                                         │  ssh -p 2222 github-deploy@glpi.grupoitcbrasil.com.br
+                                                         ▼
+                              /home/glpissh/docker/itc-tasks/scripts/deploy.sh
+                              git pull --ff-only → docker compose up -d --build
+                              → entrypoint aplica migrações → /api/health OK
+```
+
+### 7.2 `.github/workflows/deploy.yml` (rascunho)
+
+Sem ação de terceiros para SSH (menos uma dependência para fixar por SHA):
+
+```yaml
+name: Deploy
+on:
+  push:
+    branches: [main]
+concurrency: deploy-production
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy no glpi-srv
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          install -m 600 /dev/null key && printf '%s\n' "$KEY" > key
+          ssh -i key -p "$PORT" -o StrictHostKeyChecking=accept-new "$USER@$HOST" \
+            'bash /home/glpissh/docker/itc-tasks/scripts/deploy.sh'
+```
+
+Secrets no repositório `itc-brasil/itc-tasks`: `DEPLOY_HOST=glpi.grupoitcbrasil.com.br`,
+`DEPLOY_PORT=2222`, `DEPLOY_USER=github-deploy`, `DEPLOY_SSH_KEY` (a mesma chave do NoteScan ou uma
+nova — obter direto no servidor, nunca colar em conversa).
+
+### 7.3 `scripts/deploy.sh` (rascunho)
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+cd /home/glpissh/docker/itc-tasks
+
+git pull --ff-only origin main
+docker compose up -d --build
+
+for i in $(seq 1 30); do
+  if curl -fsS http://127.0.0.1:3021/api/health > /dev/null; then
+    echo "ITC Tasks no ar: $(git rev-parse --short HEAD)"
+    docker image prune -f > /dev/null
+    exit 0
+  fi
+  sleep 5
+done
+
+echo "Health check falhou após 150 s" >&2
+docker compose logs --tail 50 itc-tasks >&2
+exit 1
+```
+
+### 7.4 Migrações
+
+`scripts/docker-entrypoint.sh` roda `node dist/migrate.js` (migrator do `drizzle-orm`) e só então
+`node server.js`. Migrações já aplicadas nunca são editadas; mudança de schema é sempre migração nova.
+
+### 7.5 Deploy manual e rollback
+
+```bash
+ssh glpissh@100.68.161.44                  # Tailscale (porta 22)
+sudo -u github-deploy bash ~/docker/itc-tasks/scripts/deploy.sh   # deploy manual (mesmo script do CD)
+
+# rollback: voltar a um commit anterior (sempre como github-deploy, dono da pasta)
+sudo -u github-deploy git -C ~/docker/itc-tasks log --oneline -5
+sudo -u github-deploy git -C ~/docker/itc-tasks checkout <hash>
+cd ~/docker/itc-tasks && docker compose up -d --build
+sudo -u github-deploy git -C ~/docker/itc-tasks checkout main   # depois de corrigir
+```
+
+Rollback de código **não** desfaz migração, e não há backup definido (§9): por isso as migrações
+ficam só aditivas, compatíveis com a versão anterior do código.
+
+---
+
+## 8. Monitoramento e logs
+
+| Ferramenta | O que configurar |
+|---|---|
+| Uptime Kuma (`monitor.itcbr.xyz`) | Monitor HTTP(s) em `https://tasks.itcbr.xyz/api/health` |
+| Homepage (`dash.itcbr.xyz`) | Item no grupo "Sistemas" com `siteMonitor` |
+| Grafana + cAdvisor | Os três containers aparecem automaticamente no dashboard 14282 |
+| Logs | `docker logs itc-tasks --tail 50` / `-f`; o servidor também tem `~/docker/dozzle` |
+| Alertas técnicos | ntfy, tópico `itc-infra` (opcional: avisar falha de deploy) |
+
+---
+
+## 9. Backup — não definido
+
+**Decisão de 17/10/2026 (Matheus Nobre): o ITC Tasks entra em produção sem backup definido.**
+O tema será retomado depois.
+
+Contexto registrado para quando for retomado:
+
+- O servidor tem um único volume (`/dev/sda2`, 438 GB, RAID por hardware de 2× SSD 480 GB, 194 GB
+  livres em 17/10/2026) e nenhum destino externo (NFS, CIFS, rclone, restic ou borg) — nem para o GLPI.
+- O que precisaria de backup: o banco (`itc-tasks-db`, volume `itc-tasks-db-data`) e os anexos
+  (volume `itc-tasks-uploads`). O resto é reconstruível a partir do repositório.
+
+**Consequências enquanto não houver backup:**
+
+- Uma falha do disco/RAID ou um erro humano no volume perde tarefas, histórico e anexos.
+- Migrações de banco devem ser **só aditivas** (criar tabela/coluna, nunca remover ou reescrever
+  dados) — rollback de código não desfaz migração, e não há backup para restaurar.
+- Antes de qualquer operação arriscada manual, um dump pontual:
+  `docker exec itc-tasks-db pg_dump -U itc_tasks -Fc itc_tasks > ~/itc-tasks-$(date +%F).dump`.
+
+---
+
+## 10. Checklist da primeira implantação
+
+1. Confirmar a porta: `sudo ss -tlnp | grep :3021` (vazio = livre).
+2. Gerar a deploy key só-leitura para o `github-deploy` e cadastrar no repositório; clonar como ele: `sudo -u github-deploy git clone git@github.com:ITC-Brasil/itc-tasks.git /home/glpissh/docker/itc-tasks` (o `glpissh` tem sudo; a home dele é `755`, então o `github-deploy` atravessa até `~/docker`). Criar a pasta antes, se o clone não puder criá-la: `sudo install -d -o github-deploy -g github-deploy -m 755 /home/glpissh/docker/itc-tasks`.
+3. Criar o `.env` (§6.3) como `github-deploy`, modo 600, com senhas novas; guardar no Vaultwarden.
+4. Primeiro build: `sudo -u github-deploy bash -c "cd ~glpissh/docker/itc-tasks && docker compose up -d --build"` e `docker compose ps`.
+5. Seed do primeiro admin: `docker compose exec itc-tasks node dist/seed.js`.
+6. Rota no túnel (§4) e teste em `https://tasks.itcbr.xyz`.
+7. Secrets do GitHub (§7.2) e um deploy de teste por merge na `main`.
+8. Monitor no Uptime Kuma e item no Homepage (§8).
+9. Backup: não definido (§9) — nenhum passo nesta implantação.
+10. Criar a caixa `tasks@itcbr.xyz` no Titan; conferir SPF/DKIM/DMARC do `itcbr.xyz`; enviar e-mail de teste.
+11. Registrar no projeto *Infraestrutura - ITCBR*: guia (seção 3.x), contexto (serviço, porta 3021, contador) e credenciais.
+12. Depois do go-live e da migração: desligar o Windshift (`~/docker/windshift`) e liberar a porta/rota dele.
+
+---
+
+## 11. A confirmar
+
+| Item | Situação |
+|---|---|
+| Backup | Não definido por decisão de 17/10/2026 (§9); retomar depois |
+| Se outros projetos devem trocar o token do remote por deploy key | Sugestão; fora do escopo do ITC Tasks |
+| Se os containers em `0.0.0.0` (ex.: `notescan-db:5433`) devem passar para `127.0.0.1` | Sugestão de segurança para o servidor; fora do escopo do ITC Tasks |
+| Atualizar o guia do servidor | GLPI agora em container, cloudflared 2026.6.0, serviços e portas novos |
+
+Resolvidos em 17/10/2026 (saídas de comandos no `glpi-srv`): mecanismo de deploy do NoteScan (pasta
+dona `github-deploy`, sem sudo, grupo `docker`), ausência de Nginx, versões do Docker/Compose/cloudflared,
+portas 3021/3022 livres, inexistência de destino externo de backup.

@@ -1,0 +1,129 @@
+# ITC Tasks — Guia de entrega de UI
+
+> Complementa as telas e o Design System; cobre só o que as telas não mostram.
+> - Telas: https://claude.ai/artifact/QeYVvyV9Ri2rAK3AydBap9
+> - Design System: https://claude.ai/artifact/YP2eURsV28zVRjGcxAL495 (ler `README.md` e `tokens.json`)
+> - Marca: https://claude.ai/artifact/RqMzGQZjWNoxSUmRkpMqfs · arquivos em `public/brand/` e `docs/brand/`
+
+## 1. Tokens no código
+
+- Todos os tokens do Design System vão para `src/styles/globals.css` em `@theme` (Tailwind 4.3),
+  claro em `:root, [data-theme="light"]` e escuro em `[data-theme="dark"]`.
+- Mapear para as variáveis do shadcn (`--background`, `--primary` etc.) como no README do Design System.
+- **Nunca hex solto em componente.** Use `bg-surface`, `text-muted`, `border`, `accent`, `accent-text`.
+- Texto e ícones em ciano usam `accent-text`; `accent` é para fundos, anel de foco e item ativo.
+- `warn` e `sev-medium` nunca carregam texto no tema claro: só ícone/barra, rótulo em `text-base`.
+
+## 2. Componentes
+
+Os 18 componentes do Design System viram arquivos em `src/components/` (os genéricos em
+`ui/`, gerados pelo shadcn com Base UI e restilizados; os de domínio em `tasks/`, `board/`,
+`layout/`). Ícones: `lucide-react` 1.58.0, `strokeWidth={1.75}`, 16 px; status e prioridade
+são componentes próprios (`StatusIcon`, `PriorityIcon`).
+
+| Ícone de domínio | lucide |
+|---|---|
+| Projeto/Cliente | `Folder` |
+| Unidade Móvel | `Truck` |
+| Chamado GLPI | `Ticket` |
+| Prazo | `Calendar` |
+| Ciclo | `RefreshCw` |
+| Marco | `Flag` |
+| Automação | `Zap` |
+| Notificações | `Bell` |
+| Subtarefas | `ListChecks` |
+
+## 3. Estados de cada tela
+
+| Estado | Regra |
+|---|---|
+| Carregando (1ª carga) | Skeleton na forma do conteúdo (cards, linhas). Nunca spinner de página |
+| Atualizando | Sem indicador; dados otimistas |
+| Vazio | Empty state do DS: ícone em `accent-light`, título, uma frase do que aparece ali e um CTA |
+| Filtro sem resultado | "Nenhuma tarefa com esses filtros" + botão "Limpar filtros" |
+| Erro de rede em ação | Rollback otimista + toast de erro com "Tentar de novo" |
+| Erro de carregamento | Card no lugar do conteúdo com a causa e "Recarregar" |
+| Sem permissão | Página "Você não tem acesso a esta área" + link para Minhas tarefas |
+| Offline (PWA) | Faixa no topo "Sem conexão — mostrando a última versão salva"; ações de escrita desabilitadas com dica |
+
+Empty states com texto definido:
+
+| Tela | Título | Frase | CTA |
+|---|---|---|---|
+| Minhas tarefas | Nada pendente por aqui | Você não tem tarefas abertas neste ciclo. Crie uma ou puxe algo do backlog. | Criar tarefa |
+| Kanban (coluna) | — | (coluna vazia mostra só "Nova tarefa") | — |
+| Notificações | Tudo em dia | Avisos de atribuições, menções e prazos aparecem aqui. | Preferências |
+| Automações | Nenhuma automação | Regras "quando isto, faça aquilo" economizam cliques repetidos. | Nova automação |
+| Agentes | Nenhum agente conectado | Crie um token para que um agente opere o ITC Tasks pelo MCP. | Novo token |
+
+## 4. Interações
+
+- **Atualização otimista** em: mover card, reordenar, marcar subtarefa, concluir, mudar prioridade/responsável/prazo, marcar notificação como lida.
+- **Desfazer** (toast com "Desfazer", 5 s) em: concluir, arquivar, mover em massa. Exclusões não existem para cadastros (ADR-018).
+- **Arrastar no Kanban:** card ganha `shadow-2` e 1,5° de rotação; colunas destino destacam a borda em `accent`; teclado: espaço pega, setas movem, espaço solta (dnd-kit).
+- **Criação rápida:** abre focada no título; `⌘↵` cria; "Criar outra" mantém Projeto/Cliente, UM e ciclo.
+- **Edição inline** no detalhe: clicar no título edita; propriedades abrem seletores com busca.
+- **Confirmação** só para ações destrutivas ou em massa, sempre dentro da tela (nunca `confirm()` do navegador).
+- **Transições** 120–150 ms; respeitar `prefers-reduced-motion`.
+
+## 5. Atalhos de teclado
+
+| Atalho | Ação |
+|---|---|
+| `⌘K` / `Ctrl K` | Busca e comandos |
+| `C` | Criar tarefa |
+| `[` | Recolher/expandir sidebar |
+| `G` `M` | Ir para Minhas tarefas |
+| `G` `T` | Ir para Tarefas |
+| `G` `C` | Ir para o ciclo atual |
+| `G` `N` | Ir para Notificações |
+| `V` `K` / `V` `L` / `V` `C` | Visão Kanban / Lista / Calendário |
+| `J` / `K` | Próxima / anterior na lista |
+| `Enter` | Abrir selecionada |
+| `X` | Selecionar na lista |
+| `⌘↵` | Enviar (criar, comentar) |
+| `Esc` | Fechar modal/painel |
+| `?` | Mostrar atalhos |
+
+Atalhos de uma tecla não disparam com foco em campo de texto.
+
+## 6. Layout e responsivo
+
+| Faixa | Comportamento |
+|---|---|
+| ≥ 1280 px | Sidebar 236 px expandida (ou 64 px se o usuário recolheu) |
+| 1024–1279 px | Igual, Kanban com rolagem horizontal |
+| 768–1023 px | Sidebar começa recolhida; ao expandir, fica sobreposta ao conteúdo |
+| < 768 px | Sem sidebar; barra inferior (Minhas, Tarefas, Criar, Ciclo, Mais); Kanban uma coluna por vez com snap; criação em painel inferior; detalhe em tela cheia |
+
+- Estado da sidebar salvo em `user.sidebarCollapsed`.
+- Alvos de toque ≥ 44 px no mobile; campos com fonte 16 px para o iOS não dar zoom.
+- Tabelas largas rolam dentro do próprio contêiner, nunca a página.
+
+## 7. Tema
+
+- Só claro e escuro (ADR-013). Seletor em Configurações › Minhas preferências, no menu do usuário e no ⌘K ("Alternar tema").
+- A marca dentro do app troca entre `itc-tasks-simbolo-principal.svg` e `-escuro.svg` pelo `data-theme`; os `-auto` são para contextos fora do app (e-mail, README).
+- Telas de referência no escuro: Kanban, Detalhe, Painel, Mobile Minhas.
+
+## 8. Acessibilidade
+
+- WCAG 2.2 AA, verificado por `@axe-core/playwright` em Minhas tarefas, Kanban, Lista, Detalhe, Criação rápida e Configurações.
+- Status e prioridade nunca só por cor: ícone com forma própria + texto (ou `title`/`aria-label` no card).
+- Foco visível: anel de 3 px em `accent-light` + borda `accent` nos campos; `outline` 2 px `accent` nos demais.
+- Contrastes conhecidos abaixo de 4,5:1 (valores da marca, mantidos): branco sobre `#008F95` (3,9:1) — rótulos curtos, peso 600; `warn` e `sev-medium` como texto no claro — evitar.
+- Rótulos visíveis em todos os campos; erros dizem como corrigir.
+
+## 9. Textos da interface
+
+- Português do Brasil, caixa de frase, sem emoji, sem exclamação.
+- Botões começam com verbo: "Criar tarefa", "Concluir", "Arquivar projeto".
+- Toasts no passado: "TI-142 concluída".
+- Vocabulário fixo: Tarefa, Subtarefa, Projeto/Cliente, Unidade Móvel (UM), Chamado GLPI, Ciclo, Marco, Etiqueta, Automação, Agente.
+- Datas: "Hoje", "Amanhã", "Sex, 17 out", "14 out"; histórico relativo ("há 2 h"); formato numérico `dd/mm/aaaa`.
+
+## 10. PWA
+
+- Manifest e ícones do pacote de identidade (`docs/brand/manifest.webmanifest` → `src/app/manifest.ts`; ícones em `public/icons/`); `theme_color` `#F5F0E8` (claro) e `#141918` (escuro) via meta.
+- Splash iOS: tags de `docs/brand/head.html` no `<head>` do layout raiz.
+- Prompt de instalação: banner discreto na primeira visita pelo celular; no iOS, instrução "Compartilhar › Adicionar à Tela de Início".
