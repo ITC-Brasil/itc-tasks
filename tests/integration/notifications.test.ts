@@ -1,7 +1,7 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { beforeAll, expect, it, vi } from "vitest";
 import { db } from "@/db";
-import { notifications, taskEvents, user } from "@/db/schema";
+import { notifications, pushSubscriptions, taskEvents, user } from "@/db/schema";
 import { todayISO, addDays } from "@/lib/dates";
 import type { Actor } from "@/server/actor";
 import { createAgentKey } from "@/server/services/agents";
@@ -15,16 +15,32 @@ import {
   listNotifications,
   markRead,
   pushNotification,
+  sendTestPush,
   setChannel,
+  subscribePush,
   unreadCount,
 } from "@/server/services/notifications";
 import { createTask, updateTask } from "@/server/services/tasks";
 
 // o CI não tem SMTP: o env é lido no import, antes do mock do nodemailer valer
 vi.hoisted(() => {
-  process.env.SMTP_HOST ??= "localhost";
-  process.env.MAIL_FROM ??= "ITC Tasks <tasks@t.test>";
+  process.env.SMTP_HOST ||= "localhost";
+  process.env.MAIL_FROM ||= "ITC Tasks <tasks@t.test>";
+  process.env.VAPID_PUBLIC_KEY ||= "test-public";
+  process.env.VAPID_PRIVATE_KEY ||= "test-private";
+  process.env.VAPID_SUBJECT ||= "mailto:tasks@t.test";
 });
+const pushed: string[] = [];
+vi.mock("web-push", () => ({
+  default: {
+    setVapidDetails: () => {},
+    sendNotification: async (sub: { endpoint: string }) => {
+      if (sub.endpoint.includes("gone"))
+        throw Object.assign(new Error("Gone"), { statusCode: 410 });
+      pushed.push(sub.endpoint);
+    },
+  },
+}));
 const sent: { to: string; subject: string; text: string }[] = [];
 vi.mock("nodemailer", () => ({
   default: {
@@ -266,4 +282,18 @@ it("08:00: prazo hoje e vencida uma vez só, e resumo por e-mail sem reenviar", 
   expect(mine).toHaveLength(1);
   expect(mine[0].text).toContain(`TI-${hoje.number} Vence hoje`);
   expect(mine[0].text).toContain(`TI-${ontem.number} Venceu ontem`);
+});
+
+it("push: assinatura validada, teste entregue e assinatura expirada (410) apagada", async () => {
+  const keys = { p256dh: "k", auth: "a" };
+  await expect(subscribePush(caio, { endpoint: "http://inseguro", keys })).rejects.toThrow();
+  await subscribePush(caio, { endpoint: `https://push.test/ok-${run}`, keys });
+  await subscribePush(caio, { endpoint: `https://push.test/gone-${run}`, keys });
+  expect(await sendTestPush(caio)).toBe(1);
+  expect(pushed).toContain(`https://push.test/ok-${run}`);
+  const left = await db
+    .select({ endpoint: pushSubscriptions.endpoint })
+    .from(pushSubscriptions)
+    .where(eq(pushSubscriptions.userId, caio.userId));
+  expect(left.map((r) => r.endpoint)).toEqual([`https://push.test/ok-${run}`]);
 });

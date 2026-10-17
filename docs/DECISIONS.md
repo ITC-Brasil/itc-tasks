@@ -1370,7 +1370,7 @@ TypeScript roda em produção.
 - **Push:** job `notification.push` por notificação (falha de push não repete o fanout). Só dentro do
   expediente da pessoa (`quietHoursStart` ≤ agora < `quietHoursEnd`, fuso `APP_TIMEZONE`); fora dele,
   não envia (fica só no app). Resposta 404/410 → apaga a assinatura. Até o Serwist (Módulo 11),
-  `public/sw.js` mínimo trata `push` e `notificationclick`.
+  `public/push-sw.js` mínimo trata `push` e `notificationclick` (`sw.js` fica para o Serwist).
 - **E-mail:** só o resumo diário. Job `daily.morning` às 08:00 (`APP_TIMEZONE`): primeiro os lembretes
   de prazo (sem duplicar no mesmo dia), depois um e-mail por pessoa com `emailDigest` ligado e
   notificações `email` sem `emailed_at`, que então são marcadas. Repetir o job não reenvia.
