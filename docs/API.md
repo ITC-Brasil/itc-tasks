@@ -19,7 +19,7 @@ Response 401: token ausente, inválido, expirado ou revogado.
 Response 429: mais de 60 requisições/min no mesmo token (`Retry-After: 60`).
 Token: `permissions = { tasks: ["read"] }` ou `{ tasks: ["read", "write"] }`; revogar = `enabled = false`.
 
-**Diferenças da implementação (Módulo 07):** `cycle` em `list_tasks`, `create_task` e `update_task` ainda não existe (Módulo 10); `query` de `list_tasks` procura no título e no `#GLPI`; erro inesperado sai como `code: "INTERNAL"`; `update_task` aceita `checklist` (acrescenta itens).
+**Diferenças da implementação (Módulo 07):** `cycle` em `list_tasks`, `create_task` e `update_task` é aceito no schema mas responde `VALIDATION` ("Ciclo ainda não suportado") até o Módulo 10 (M-044); o `tools/list` de um token só-leitura traz só as ferramentas de leitura (chamar uma de escrita → `FORBIDDEN`); `query` de `list_tasks` procura no título e no `#GLPI`; erro inesperado sai como `code: "INTERNAL"`; `update_task` aceita `checklist` (acrescenta itens).
 
 **Regras comuns a todas as ferramentas**
 - O agente age **em nome do dono do token**; histórico registra `actorKind = 'agent'` e `apiKeyId`.
@@ -109,7 +109,7 @@ input: { id: string | number } & Partial<Omit<CreateTaskInput, never>> & {
 }
 output: TaskSummary
 ```
-Só os campos enviados mudam. `projectIds: []` é recusado (`VALIDATION`); UM de projeto que não está na tarefa e remoção de projeto que ainda tem UM sua na tarefa também (ADR-045).
+Só os campos enviados mudam. Tudo é validado antes da primeira escrita: erro em qualquer parte → nada gravado. `checklist` acrescenta itens no fim; `checklistToggle.index` conta sobre o checklist **antes** desta chamada (0 = primeiro item atual). `projectIds: []` é recusado (`VALIDATION`); UM de projeto que não está na tarefa e remoção de projeto que ainda tem UM sua na tarefa também (ADR-045).
 
 #### `complete_task`
 `input: { id, comment?: string }` → move para o primeiro status de categoria `done`; idempotente.

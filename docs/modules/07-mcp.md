@@ -1,6 +1,6 @@
 # Módulo 07 — Servidor MCP
 
-**Status:** pronto para revisão em 17/10/2026, na `develop`. ADR-049 escrito antes do código.
+**Status:** aprovado com ajustes na M-044; ajustes feitos em 17/10/2026, na `develop`. ADR-049 escrito antes do código.
 
 PRD M1 (servidor `/mcp` com as ferramentas de `docs/API.md`), M2 (tokens com nome, dono e permissões, exibidos uma vez, revogáveis) e M3 (ações de agente no histórico com o token — o selo "via MCP" já existia desde o Módulo 06).
 
@@ -19,7 +19,7 @@ Sem migração. A tabela `apikey` do plugin `@better-auth/api-key` existe desde 
 
 ### Rotas e actions
 - `src/app/mcp/route.ts` — `POST`: Bearer → `agentFromKey` → `createMcpServer` + `WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true })`; 401 sem token ou inválido; 429 com `Retry-After: 60`. `GET`/`DELETE` → 405. Sem `export const dynamic` (incompatível com `cacheComponents`, ADR-036).
-- `src/server/mcp.ts` — `createMcpServer(actor, access)`: 9 ferramentas (`list_tasks`, `get_task`, `list_projects`, `list_mobile_units`, `list_cycles`, `create_task`, `update_task`, `complete_task`, `add_comment`), `serverInfo { name: "itc-tasks", version: "1.0.0" }`, `annotations.readOnlyHint`. Sem a permissão → `FORBIDDEN`. `TaskError` → seu `code` (`TOO_LARGE`/`UNSUPPORTED_TYPE` → `VALIDATION`); `ZodError` → `VALIDATION`; `ForbiddenError` → `FORBIDDEN`. O `createToolError` interno do SDK é trocado (`Reflect.set`) para a falha de schema também sair como `{ code: "VALIDATION" }`; erro inesperado → `INTERNAL`.
+- `src/server/mcp.ts` — `createMcpServer(actor, access)`: 9 ferramentas (`list_tasks`, `get_task`, `list_projects`, `list_mobile_units`, `list_cycles`, `create_task`, `update_task`, `complete_task`, `add_comment`), `serverInfo { name: "itc-tasks", version: "1.0.0" }`, `annotations.readOnlyHint`. Ferramenta sem a permissão do token é registrada e desativada (`registered.disable()`): some do `tools/list` e, se chamada, o SDK diz "disabled" e o `createToolError` trocado responde `FORBIDDEN`; a checagem dentro do handler continua como defesa. `TaskError` → seu `code` (`TOO_LARGE`/`UNSUPPORTED_TYPE` → `VALIDATION`); `ZodError` → `VALIDATION`; `ForbiddenError` → `FORBIDDEN`. O `createToolError` interno do SDK é trocado (`Reflect.set`) para a falha de schema também sair como `{ code: "VALIDATION" }`; erro inesperado → `INTERNAL`.
 - `src/server/actions/agents.ts` — `createApiKeyAction(form)` (devolve `key`) e `revokeApiKeyAction(keyId)`; revalidam `/config/agentes`.
 - `src/proxy.ts` já excluía `/mcp` do redirecionamento para `/login`.
 
@@ -42,7 +42,10 @@ Sem migração. A tabela `apikey` do plugin `@better-auth/api-key` existe desde 
 | Membro cria token para outra pessoa / revoga o de outra | idem | ✅ recusado |
 | 61 chamadas em 1 min no mesmo token | idem | ✅ 60 × 200, a 61ª 429 |
 | Tela: criar só-leitura, segredo uma vez, `/mcp` 200, revogar, `/mcp` 401, axe, sem erro de hidratação | `tests/e2e/agents.spec.ts` (desktop), contra `next dev` e contra `next build` + `next start` | ✅ |
-| Suíte | `npm test` | ✅ 15 arquivos, 72 testes |
+| `update_task` com `checklistToggle` de índice inexistente junto com `priority` e `checklist` (M-044) | `tests/integration/mcp.test.ts` | ✅ `NOT_FOUND`, nenhum `task_event` novo, prioridade e checklist intactos |
+| `cycle` em `create_task` e `list_tasks` (M-044) | idem | ✅ `VALIDATION` |
+| `tools/list` por permissão (M-044) | idem | ✅ só-leitura lista 5 ferramentas de leitura; escrita inclui `create_task` |
+| Suíte | `npm test` | ✅ 15 arquivos, 75 testes |
 | Lint e tipos | `npm run lint`, `npm run typecheck` | ✅ 0 erros (2 avisos antigos em `tests/`) |
 
 ## Commits
@@ -53,14 +56,20 @@ ec74e9f feat(mcp): add mcp server and task tools
 1ca69a4 fix(mcp): drop dynamic segment config incompatible with cache components
 d9c7647 feat(settings): add agents screen
 8ed5f81 test(mcp): cover permissions and validation
+d0f48d2 docs: document module 07 mcp
+3566e9b fix(mcp): validate update_task before writing and hide forbidden tools
+f62f4ca fix(mcp): reject cycle with validation until module 10
+43c8d9c test(mcp): cover atomic update_task, cycle and tools/list by permission
 ```
+
+Ajustes da M-044: os itens 1 (atomicidade) e 3 (`tools/list`) mexem no mesmo arquivo (`src/server/mcp.ts`) e saíram num só commit.
 
 As duas primeiras tarefas do módulo (servidor e ferramentas) saíram num só commit: a rota não tem o que servir sem as ferramentas.
 
 ## Ficou de fora
-- `cycle` em `create_task`/`update_task` e no filtro de `list_tasks` — com o service de ciclos (Módulo 10). `list_cycles` já funciona.
+- `cycle` em `create_task`/`update_task` e no filtro de `list_tasks` — com o service de ciclos (Módulo 10). Até lá, enviar `cycle` responde `VALIDATION` em vez de ser ignorado (M-044). `list_cycles` já funciona.
 - `list_tasks.query` procura no título e no `#GLPI`, não na descrição (ADR-049).
-- `update_task` grava campos, itens novos de checklist e toggles em transações separadas (cada uma com seu evento).
+- `update_task` grava campos, itens novos de checklist e toggles em transações separadas (cada uma com seu evento), mas resolve e valida tudo antes da primeira escrita (M-044): referências, IDs dos toggles (sobre o checklist de antes da chamada) e textos do checklist pelo schema. Uma falha no meio da gravação (ex.: banco caindo) ainda pode deixar parte gravada.
 
 ## Pontos de atenção
 - **`createToolError` do SDK:** detalhe privado do `@modelcontextprotocol/sdk` 1.32.1. O teste "erro de schema do SDK também volta como VALIDATION" quebra se uma atualização mudar isso.
