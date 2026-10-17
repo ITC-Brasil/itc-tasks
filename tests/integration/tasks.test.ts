@@ -336,3 +336,20 @@ it("reordenar no mesmo status atualiza o updatedAt", async () => {
   const moved = await moveTask(actor, b.id, { statusId: status.backlog, afterTaskId: null });
   expect(moved.updatedAt.getTime()).toBeGreaterThan(b.updatedAt.getTime());
 });
+
+it("update sem projectIds/mobileUnitIds mantém o principal (M-029)", async () => {
+  const other = await createProject(system, { code: letters(), name: "Segundo", kind: "client" });
+  const u1 = await createMobileUnit(system, { code: `UM-A-${run}`, projectId });
+  const u2 = await createMobileUnit(system, { code: `UM-B-${run}`, projectId: other.id });
+  const t = await createTask(actor, {
+    title: "Principal",
+    projectIds: [other.id, projectId],
+    mobileUnitIds: [u2.id, u1.id],
+  });
+  const titled = await updateTask(actor, t.id, { title: "Principal 2" });
+  expect(titled.projectId).toBe(other.id);
+  expect(titled.mobileUnitId).toBe(u2.id);
+  const units = await updateTask(actor, t.id, { mobileUnitIds: [u1.id, u2.id] });
+  expect(units.projectId).toBe(other.id);
+  expect(units.mobileUnitId).toBe(u1.id); // a lista enviada define a UM principal
+});

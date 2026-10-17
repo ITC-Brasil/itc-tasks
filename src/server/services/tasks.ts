@@ -360,8 +360,10 @@ async function applyUpdate(
     projectsChanged ? projectsAfter : null,
     unitsChanged ? unitsAfter : null,
   );
-  if (projectsAfter[0] !== current.projectId) set.projectId = projectsAfter[0];
-  if ((unitsAfter[0] ?? null) !== current.mobileUnitId) set.mobileUnitId = unitsAfter[0] ?? null;
+  // principal só muda quando a lista vem no patch; linkedIds() não tem ordem (M-029)
+  if (data.projectIds && projectsAfter[0] !== current.projectId) set.projectId = projectsAfter[0];
+  if (data.mobileUnitIds && (unitsAfter[0] ?? null) !== current.mobileUnitId)
+    set.mobileUnitId = unitsAfter[0] ?? null;
   if ("assigneeId" in data && data.assigneeId !== current.assigneeId) {
     set.assigneeId = data.assigneeId;
     events.push({ type: "assigned", payload: { from: current.assigneeId, to: data.assigneeId } });
