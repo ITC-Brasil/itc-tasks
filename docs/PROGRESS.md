@@ -4,7 +4,7 @@
 
 > Sobrescrito a cada passagem de sessão. Não é registro permanente.
 
-- **Fase:** Módulo 03 — Cadastros pronto para revisão em 17/10/2026, na `develop`. Módulo 02 no PR #2; Módulos 00 e 01 na `main` (PR #1).
+- **Fase:** Módulo 03 — Cadastros pronto para revisão em 17/10/2026, na `develop`. Módulos 00 a 02 na `main` (PRs #1 e #2).
 - **Próximo passo:** revisão do Cowork; depois, Módulo 04 — Tarefas: núcleo.
 - **Prontos:** Next 16.4.2 standalone, tokens do Design System, 10 componentes base em Base UI, Drizzle com a migração base, env tipado, Vitest/Playwright/ESLint/Prettier, CI (Quality Check + Gitleaks) verde no GitHub, Dockerfile e `docker-compose.yml` de produção, `/api/health`; Better Auth com Argon2id, tela Entrar, `requireActor()`, seed do admin (`npm run db:seed`), Configurações › Membros; shell com sidebar/trilho/barra inferior, tema claro/escuro salvo no usuário, atalhos `[` e `?`, estados vazio/carregando/erro; cadastros (Projetos/Clientes, UMs, Workflow, Etiquetas) com arquivamento.
 - **Proteção da `main`:** por disciplina e hook local (ADR-034); depois de clonar, `git config core.hooksPath .githooks`.
