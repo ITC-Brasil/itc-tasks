@@ -1,6 +1,6 @@
 # Módulo 01 — Autenticação e membros
 
-**Concluído em:** 2026-10-17 · **Branch:** `develop` · **Status:** aguardando revisão do Cowork
+**Concluído em:** 2026-10-17 · **Branch:** `develop` · **Status:** aprovado pelo Cowork (M-007) com os ajustes abaixo aplicados
 
 ## O que foi implementado
 
@@ -92,6 +92,23 @@
   "Papel alterado", "Membro desativado"). A própria linha fica sem ações.
 - `src/components/ui/dialog.tsx` — "Close" → "Fechar".
 
+### Ajustes da revisão (M-007)
+
+- **Redefinir senha** — `resetMemberPassword(actor, userId, password)` em
+  `src/server/services/members.ts`: `assertAdmin`, `assertNotSelf`, `passwordSchema` (12–128,
+  `src/lib/validation/members.ts`), hash por `(await auth.$context).password.hash` (o mesmo Argon2id
+  do `auth.ts`) gravado na conta `credential` e sessões apagadas, tudo numa transação. O
+  `auth.api.setUserPassword` sugerido exige sessão HTTP de admin (`adminMiddleware`) e o service só
+  recebe o `Actor`, por isso o `$context`. Action `resetMemberPasswordAction`; na tela, botão
+  "Redefinir senha" abre um diálogo; toast "Senha redefinida".
+- **Alvo inexistente** — `setMemberRole`, `setMemberActive` e `resetMemberPassword` usam
+  `.returning({ id })` e lançam `MemberError("Membro não encontrado")` quando nada muda.
+- **Corrida no e-mail** — se o `auth.api.createUser` falhar, o service consulta o e-mail de novo;
+  se já existir, lança o mesmo `MemberError("Já existe um membro com esse e-mail")`.
+- **IP do cliente** — `advanced.ipAddress.ipAddressHeaders: ["cf-connecting-ip", "x-forwarded-for"]`
+  em `src/server/auth.ts`; rate limit do Better Auth no padrão (só com `NODE_ENV=production`, que o
+  `Dockerfile` define), em memória. Ver `docs/INFRA.md` §4.
+
 ## Verificação realizada
 
 | Cenário | Como | Resultado |
@@ -104,12 +121,17 @@
 | Admin altera a própria conta | integração | ✅ `MemberError` |
 | E-mail duplicado | integração | ✅ `MemberError` |
 | Rota protegida sem sessão | E2E (desktop e mobile) e `curl /` | ✅ 307 → `/login`, axe sem violações |
+| Redefinir senha: member recusado, admin na própria conta recusado | integração | ✅ `ForbiddenError` / `MemberError` |
+| Senha nova entra, antiga falha, sessões zeradas | integração | ✅ 200 / 401 / 0 sessões |
+| Alvo inexistente (papel, ativação, senha) | integração | ✅ "Membro não encontrado" |
+| Dois `createMember` simultâneos com o mesmo e-mail | integração (`Promise.allSettled`) | ✅ 1 criado, 1 `MemberError` |
+| Redefinir senha pela tela | navegador (preview) | ✅ diálogo fecha, toast "Senha redefinida" |
 | Admin entra e abre Membros | E2E com `SEED_ADMIN_*` | ✅ axe sem violações |
 | Contraste `on-accent` × `accent-solid-pressed` | E2E `tokens.spec.ts` | ✅ ≥ 4,5 |
 | Seed idempotente | `npm run db:seed` duas vezes | ✅ "criado" e depois "já existe" |
 | Criar membro, trocar papel, reativar | navegador (preview) | ✅ diálogo fecha, tabela atualiza |
 | Build | `npm run build` | ✅ `/` parcial (◐), `/login` estático, Proxy ativo |
-| Lint, tipos, formatação, Vitest | `npm run lint`, `typecheck`, `format:check`, `npm test` | ✅ 11 testes |
+| Lint, tipos, formatação, Vitest | `npm run lint`, `typecheck`, `format:check`, `npm test` | ✅ 16 testes (3 unit, 13 integração) |
 | Argon2 na imagem `node:24-alpine` (ADR-008) | `docker build -t itc-tasks:m01 .` + `node -e` com `hash` no container | ✅ `$argon2id$v=19$m=19456,t=2,p=1` (binário musl do `@node-rs`) |
 | Seed dentro da imagem | `node dist/seed.mjs` no container contra o Postgres de dev | ✅ "Admin admin@itcbr.test já existe." |
 
@@ -153,4 +175,7 @@
 a76b39a feat(db): seed first admin
 d251df6 feat(settings): add members management
 9ba3797 test(auth): cover login and permissions
+5763cef docs: document module 01 auth and members
+a5a7bb1 security(auth): read client ip behind cloudflare tunnel
+3f7fb81 feat(settings): add member password reset and guard missing or duplicate members
 ```
