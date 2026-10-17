@@ -230,7 +230,7 @@ services:
       - POSTGRES_USER=itc_tasks
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     volumes:
-      - itc-tasks-db-data:/var/lib/postgresql/data
+      - itc-tasks-db-data:/var/lib/postgresql   # Postgres 18: PGDATA em /var/lib/postgresql/18/docker
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U itc_tasks -d itc_tasks"]
       interval: 10s
@@ -241,7 +241,7 @@ volumes:
   itc-tasks-db-data:
 ```
 
-Sem label do Watchtower (§3). Sem porta do Postgres no host.
+Sem label do Watchtower (§3). Sem porta do Postgres no host. Versão implementada: `docker-compose.yml` na raiz do repositório (Módulo 00), com o `itc-tasks-worker` no perfil `worker` até o Módulo 08.
 
 ### 6.3 `.env` de produção (nomes; valores no Vaultwarden)
 

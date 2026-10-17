@@ -179,6 +179,7 @@ Auth: sessão ativa. Response 200: o arquivo com `Content-Disposition: attachmen
 
 ### GET /api/health
 Auth: pública. Response 200: `{ db: "ok", queue: "ok", version }` · 503 se o banco ou a fila falharem.
+Implementado no Módulo 00 (`src/app/api/health/route.ts`) sem `queue`: 200 `{ db: "ok", version }`, 503 `{ db: "down", version }`. `queue` entra com o pg-boss no Módulo 08.
 
 ---
 
