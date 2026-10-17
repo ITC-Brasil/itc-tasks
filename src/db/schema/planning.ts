@@ -24,7 +24,11 @@ export const cycles = pgTable(
     state: cycleState("state").notNull().default("planned"),
     closedAt: timestamp("closed_at", { withTimezone: true }),
   },
-  (t) => [uniqueIndex("cycles_one_active_uq").on(t.state).where(sql`state = 'active'`)],
+  (t) => [
+    uniqueIndex("cycles_one_active_uq")
+      .on(t.state)
+      .where(sql`state = 'active'`),
+  ],
 );
 
 export const milestones = pgTable("milestones", {
