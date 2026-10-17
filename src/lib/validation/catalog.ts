@@ -1,0 +1,61 @@
+import { z } from "zod";
+
+// campo opcional de formulário: vazio vira null
+const optionalText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .nullish()
+    .transform((v) => v || null);
+
+const optionalId = z
+  .union([z.uuid(), z.literal("")])
+  .nullish()
+  .transform((v) => v || null);
+
+export const catalogIdSchema = z.uuid();
+
+export const projectSchema = z.object({
+  code: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z]{2,4}$/, "A sigla tem de 2 a 4 letras"),
+  name: z.string().trim().min(2, "Informe o nome").max(80),
+  kind: z.enum(["client", "internal"]),
+  defaultAssigneeId: z
+    .string()
+    .nullish()
+    .transform((v) => v || null),
+  glpiEntity: optionalText(80),
+});
+export type ProjectInput = z.input<typeof projectSchema>;
+
+export const mobileUnitSchema = z.object({
+  code: z.string().trim().toUpperCase().min(1, "Informe o código").max(20),
+  model: optionalText(80),
+  plate: optionalText(10),
+  base: optionalText(80),
+  projectId: optionalId,
+});
+export type MobileUnitInput = z.input<typeof mobileUnitSchema>;
+
+// tokens funcionais e da marca; o banco guarda o nome, nunca hex
+export const LABEL_COLORS = ["info", "sev-medium", "bordo", "accent", "ok", "warn"] as const;
+
+export const labelSchema = z.object({
+  name: z.string().trim().toLowerCase().min(1, "Informe o nome").max(30),
+  colorToken: z.enum(LABEL_COLORS, "Escolha uma cor"),
+});
+export type LabelInput = z.input<typeof labelSchema>;
+
+export const STATUS_CATEGORIES = ["backlog", "todo", "in_progress", "done"] as const;
+
+export const statusNameSchema = z.string().trim().min(1, "Informe o nome").max(40);
+
+export const statusSchema = z.object({
+  name: statusNameSchema,
+  category: z.enum(STATUS_CATEGORIES),
+});
+export type StatusInput = z.input<typeof statusSchema>;
