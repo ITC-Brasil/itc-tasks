@@ -9,11 +9,6 @@ const optionalText = (max: number) =>
     .nullish()
     .transform((v) => v || null);
 
-const optionalId = z
-  .union([z.uuid(), z.literal("")])
-  .nullish()
-  .transform((v) => v || null);
-
 export const catalogIdSchema = z.uuid();
 
 export const PROJECT_KINDS = ["project", "client", "internal"] as const;
@@ -26,10 +21,7 @@ export const projectSchema = z.object({
     .regex(/^[A-Z0-9]{2,12}$/, "A sigla tem de 2 a 12 letras ou números"), // ADR-044
   name: z.string().trim().min(2, "Informe o nome").max(80),
   kind: z.enum(PROJECT_KINDS),
-  defaultAssigneeId: z
-    .string()
-    .nullish()
-    .transform((v) => v || null),
+  // default_assignee_id fica no banco sem uso (ADR-045)
   glpiEntity: optionalText(80),
 });
 export type ProjectInput = z.input<typeof projectSchema>;

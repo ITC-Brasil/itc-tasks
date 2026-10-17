@@ -152,12 +152,6 @@ async function assertLabels(tx: Tx, ids: string[]) {
     throw new TaskError("ARCHIVED_REFERENCE", "Etiqueta arquivada");
 }
 
-async function isActiveUser(tx: Tx, id: string | null) {
-  if (!id) return false;
-  const [row] = await tx.select({ banned: user.banned }).from(user).where(eq(user.id, id));
-  return !!row && !row.banned;
-}
-
 async function assertAssignee(tx: Tx, id: string) {
   const [row] = await tx.select({ banned: user.banned }).from(user).where(eq(user.id, id));
   if (!row) throw new TaskError("NOT_FOUND", "Responsável não encontrado");
@@ -184,9 +178,9 @@ async function lastPosition(tx: Tx, statusId: string, exceptId?: string) {
   return generateKeyBetween(row?.p ?? null, null);
 }
 
-async function creatorFor(tx: Tx, actor: Actor, defaultAssigneeId: string | null) {
+/** user/agent: a própria pessoa; automação/sistema: o primeiro admin ativo (ADR-045). */
+async function creatorFor(tx: Tx, actor: Actor) {
   if (actor.kind === "user" || actor.kind === "agent") return actor.userId;
-  if (await isActiveUser(tx, defaultAssigneeId)) return defaultAssigneeId!;
   const [admin] = await tx
     .select({ id: user.id })
     .from(user)
@@ -208,18 +202,14 @@ async function lockTask(tx: Tx, id: string) {
 export async function createTask(actor: Actor, input: CreateTaskInput) {
   const data = createTaskSchema.parse(input);
   return db.transaction(async (tx) => {
-    const project = await assertProject(tx, data.projectId);
+    await assertProject(tx, data.projectId);
     if (data.mobileUnitId) {
       await assertUnit(tx, data.mobileUnitId);
       await assertUnitFits(tx, data.mobileUnitId, data.projectId);
     }
-    // ADR-043: omitido → responsável padrão do projeto (se ativo); null explícito → ninguém
-    let assigneeId = data.assigneeId;
-    if (assigneeId === undefined)
-      assigneeId = (await isActiveUser(tx, project.defaultAssigneeId))
-        ? project.defaultAssigneeId
-        : null;
-    else if (assigneeId) await assertAssignee(tx, assigneeId);
+    // ADR-045: sem responsável automático; omitido = sem responsável
+    const assigneeId = data.assigneeId ?? null;
+    if (assigneeId) await assertAssignee(tx, assigneeId);
     await assertLabels(tx, data.labelIds);
     const status = data.statusId
       ? await assertStatus(tx, data.statusId)
@@ -238,7 +228,7 @@ export async function createTask(actor: Actor, input: CreateTaskInput) {
         dueDate: data.dueDate,
         descriptionJson: data.descriptionJson,
         descriptionText: docText(data.descriptionJson),
-        creatorId: await creatorFor(tx, actor, project.defaultAssigneeId),
+        creatorId: await creatorFor(tx, actor),
         createdVia: actor.kind,
         position: await lastPosition(tx, status.id),
         completedAt: status.category === "done" ? new Date() : null,

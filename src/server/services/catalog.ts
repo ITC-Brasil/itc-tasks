@@ -1,6 +1,6 @@
 import { and, asc, eq, isNull, max } from "drizzle-orm";
 import { db } from "@/db";
-import { labels, mobileUnits, projects, user, workflowStatuses } from "@/db/schema";
+import { labels, mobileUnits, projects, workflowStatuses } from "@/db/schema";
 import {
   type LabelInput,
   type MobileUnitInput,
@@ -47,18 +47,11 @@ export async function listProjects(_actor: Actor, { includeArchived }: ListOptio
     .orderBy(asc(projects.name));
 }
 
-async function assertAssignee(id: string | null) {
-  if (!id) return;
-  const [row] = await db.select({ banned: user.banned }).from(user).where(eq(user.id, id));
-  if (!row || row.banned) throw new CatalogError("Responsável padrão inválido");
-}
-
 const duplicateCode = (code: string) => `Já existe um Projeto/Cliente com a sigla ${code}`;
 
 export async function createProject(actor: Actor, input: ProjectInput) {
   assertAdmin(actor);
   const data = projectSchema.parse(input);
-  await assertAssignee(data.defaultAssigneeId);
   const [row] = await unique(
     () => db.insert(projects).values(data).returning(),
     duplicateCode(data.code),
@@ -69,7 +62,6 @@ export async function createProject(actor: Actor, input: ProjectInput) {
 export async function updateProject(actor: Actor, id: string, input: ProjectInput) {
   assertAdmin(actor);
   const data = projectSchema.parse(input);
-  await assertAssignee(data.defaultAssigneeId);
   const [row] = await unique(
     () => db.update(projects).set(data).where(eq(projects.id, id)).returning(),
     duplicateCode(data.code),

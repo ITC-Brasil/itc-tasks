@@ -1,7 +1,7 @@
 import { asc, eq } from "drizzle-orm";
 import { beforeAll, expect, it } from "vitest";
 import { db } from "@/db";
-import { taskEvents, tasks, workflowStatuses } from "@/db/schema";
+import { taskEvents, tasks, user, workflowStatuses } from "@/db/schema";
 import { PROJECT_REQUIRED } from "@/lib/validation/tasks";
 import type { Actor } from "@/server/actor";
 import {
@@ -211,17 +211,18 @@ it("checklist e vínculos (bloqueia ↔ bloqueada por)", async () => {
   ]);
 });
 
-it("tarefa criada pelo sistema: ator system, criador = responsável padrão", async () => {
-  const userId = (actor as { userId: string }).userId;
-  const p = await createProject(system, {
-    code: letters(),
-    name: "Com responsável",
-    kind: "client",
-    defaultAssigneeId: userId,
+it("tarefa criada pelo sistema: ator system, criador = primeiro admin ativo (ADR-045)", async () => {
+  await createMember(system, {
+    name: "Admin teste",
+    email: `tasks-admin-${run}@t.test`,
+    password: "senha-de-teste-123",
+    role: "admin",
   });
-  const t = await createTask(system, { title: "Pelo sistema", projectId: p.id });
+  const t = await createTask(system, { title: "Pelo sistema", projectId });
   expect(t.createdVia).toBe("system");
-  expect(t.creatorId).toBe(userId);
+  const [creator] = await db.select().from(user).where(eq(user.id, t.creatorId));
+  expect(creator.role).toBe("admin");
+  expect(creator.banned).not.toBe(true);
   const [e] = await events(t.id);
   expect(e.kind).toBe("system");
 });
@@ -244,18 +245,9 @@ it("docText junta parágrafos", () => {
   ).toBe("ab\nc");
 });
 
-it("responsável padrão: omitido recebe o do projeto; null explícito fica sem (ADR-043)", async () => {
-  const userId = (actor as { userId: string }).userId;
-  const p = await createProject(system, {
-    code: letters(),
-    name: "Padrão",
-    kind: "client",
-    defaultAssigneeId: userId,
-  });
-  const omitted = await createTask(actor, { title: "Omitido", projectId: p.id });
-  expect(omitted.assigneeId).toBe(userId);
-  const none = await createTask(actor, { title: "Ninguém", projectId: p.id, assigneeId: null });
-  expect(none.assigneeId).toBeNull();
+it("sem responsável automático: omitido fica sem responsável (ADR-045)", async () => {
+  const t = await createTask(actor, { title: "Omitido", projectId });
+  expect(t.assigneeId).toBeNull();
 });
 
 it("UM de outro projeto é recusada na criação e ao trocar o projeto (ADR-043/044)", async () => {

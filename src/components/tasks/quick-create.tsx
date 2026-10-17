@@ -81,8 +81,6 @@ export function QuickCreate() {
   function chooseProject(id: string) {
     setProjectId(id);
     setError(null);
-    const p = options?.projects.find((x) => x.id === id);
-    if (p?.defaultAssigneeId && !form.assigneeId) set("assigneeId", p.defaultAssigneeId);
     const unit = options?.units.find((u) => u.id === mobileUnitId);
     if (unit?.projectId && unit.projectId !== id) setMobileUnitId("");
   }
