@@ -1,0 +1,180 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* Design System ITC Tasks — valores de project/tokens.json. Nunca hex em componente. */
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+  --bg-base: #f5f0e8;
+  --bg-surface: #fdfbf7;
+  --bg-muted: #ebe4d8;
+  --border: #d8dede;
+  --text-base: #1a2020;
+  --text-muted: #697272;
+  --accent: #008f95;
+  --accent-hover: #007a80;
+  --accent-pressed: #006c72;
+  --accent-light: #e0f4f5;
+  --accent-dark: #003c3f;
+  --accent-text: var(--accent-pressed);
+  --on-accent: #ffffff;
+  --bordo: #491027;
+  --ok: #1a7f3c;
+  --warn: #cc7a00;
+  --err: #c0392b;
+  --info: #1565c0;
+  --sev-medium: #c9a227;
+  --shadow-1: 0 1px 2px rgba(26, 32, 32, 0.06);
+  --shadow-2: 0 10px 34px rgba(26, 32, 32, 0.09);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg-base: #141918;
+  --bg-surface: #1e2422;
+  --bg-muted: #2a302e;
+  --border: #333b39;
+  --text-base: #f4f6f6;
+  --text-muted: #8e9a98;
+  --accent: #30a5ab;
+  --accent-hover: #46b5ba;
+  --accent-pressed: #268a8f;
+  --accent-light: rgba(48, 165, 171, 0.16);
+  --accent-dark: #0c2c2e;
+  --accent-text: var(--accent);
+  --on-accent: #08201f;
+  --bordo: #7a2a45;
+  --ok: #3da35d;
+  --warn: #d98e2b;
+  --err: #d75a4a;
+  --info: #4b93db;
+  --sev-medium: #c9a227;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-2: 0 12px 42px rgba(0, 0, 0, 0.5);
+}
+
+@theme inline {
+  /* bg-base, bg-surface, bg-muted e text-base, text-muted: namespaces separados */
+  --background-color-base: var(--bg-base);
+  --background-color-surface: var(--bg-surface);
+  --background-color-muted: var(--bg-muted);
+  --text-color-base: var(--text-base);
+  --text-color-muted: var(--text-muted);
+
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-pressed: var(--accent-pressed);
+  --color-accent-light: var(--accent-light);
+  --color-accent-dark: var(--accent-dark);
+  --color-accent-text: var(--accent-text);
+  --color-on-accent: var(--on-accent);
+  --color-bordo: var(--bordo);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-err: var(--err);
+  --color-info: var(--info);
+  --color-sev-medium: var(--sev-medium);
+
+  /* Variáveis do shadcn (o "accent" do shadcn não é mapeado: aqui accent é o ciano) */
+  --color-background: var(--bg-base);
+  --color-foreground: var(--text-base);
+  --color-card: var(--bg-surface);
+  --color-card-foreground: var(--text-base);
+  --color-popover: var(--bg-surface);
+  --color-popover-foreground: var(--text-base);
+  --color-primary: var(--accent);
+  --color-primary-foreground: var(--on-accent);
+  --color-secondary: var(--bg-surface);
+  --color-secondary-foreground: var(--text-base);
+  --color-muted: var(--bg-muted);
+  --color-muted-foreground: var(--text-muted);
+  --color-destructive: var(--err);
+  --color-input: var(--border);
+  --color-ring: var(--accent);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-brand: var(--font-archivo), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  /* Tipografia: text-base é a cor do texto, não um tamanho */
+  --text-base: initial;
+  --text-display: 48px;
+  --text-display--line-height: 1.05;
+  --text-display--font-weight: 800;
+  --text-display--letter-spacing: -0.02em;
+  --text-h1: 32px;
+  --text-h1--line-height: 1.15;
+  --text-h1--font-weight: 700;
+  --text-h1--letter-spacing: -0.02em;
+  --text-h2: 24px;
+  --text-h2--line-height: 1.2;
+  --text-h2--font-weight: 700;
+  --text-h2--letter-spacing: -0.01em;
+  --text-h3: 18px;
+  --text-h3--line-height: 1.3;
+  --text-h3--font-weight: 600;
+  --text-body: 15px;
+  --text-body--line-height: 1.5;
+  --text-task-title: 14px;
+  --text-task-title--line-height: 1.4;
+  --text-task-title--font-weight: 500;
+  --text-small: 13px;
+  --text-small--line-height: 1.45;
+  --text-caption: 11px;
+  --text-caption--line-height: 1.3;
+  --text-caption--font-weight: 600;
+  --text-caption--letter-spacing: 0.06em;
+  --text-tech: 13px;
+  --text-tech--line-height: 1.4;
+  --text-tech--font-weight: 500;
+  --text-tech--letter-spacing: 0.01em;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-control: 9px;
+  --radius-xl: 12px;
+  --radius-dialog: 13px;
+
+  --shadow-1: var(--shadow-1);
+  --shadow-2: var(--shadow-2);
+
+  --spacing-control-sm: 30px;
+  --spacing-control-md: 38px;
+  --spacing-control-lg: 44px;
+  --spacing-row-height: 52px;
+  --spacing-sidebar-width: 236px;
+  --spacing-sidebar-collapsed: 64px;
+  --spacing-topbar-height: 60px;
+  --spacing-column-width: 300px;
+}
+
+@utility tech {
+  font-size: 13px;
+  line-height: 1.4;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-base text-base font-sans text-body antialiased;
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-accent;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
