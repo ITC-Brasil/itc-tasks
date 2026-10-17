@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { beforeAll, expect, it } from "vitest";
 import { db } from "@/db";
-import { comments, taskEvents } from "@/db/schema";
+import { comments, taskEvents, tasks } from "@/db/schema";
 import { PROJECT_REQUIRED } from "@/lib/validation/tasks";
 import type { Actor } from "@/server/actor";
 import { POST } from "@/app/mcp/route";
@@ -179,4 +179,69 @@ it("mais de 60 requisições por minuto no mesmo token → 429", async () => {
   for (let i = 0; i < 61; i++) statuses.push((await call(key.key, "list_projects")).status);
   expect(statuses.slice(0, 60).every((s) => s === 200)).toBe(true);
   expect(statuses[60]).toBe(429);
+});
+
+it("update_task com índice de checklist inválido não grava nada (M-044)", async () => {
+  const created = await call(writeKey, "create_task", {
+    title: `Atômica ${run}`,
+    projectIds: [code],
+    checklist: ["Único"],
+  });
+  const id = created.structuredContent.id as string;
+  const [{ taskId }] = await db
+    .select({ taskId: taskEvents.taskId })
+    .from(taskEvents)
+    .innerJoin(tasks, eq(tasks.id, taskEvents.taskId))
+    .where(eq(tasks.number, Number(id.replace("TI-", ""))));
+  const before = await db.select().from(taskEvents).where(eq(taskEvents.taskId, taskId));
+  const res = await call(writeKey, "update_task", {
+    id,
+    priority: "urgent",
+    checklist: ["Novo"],
+    checklistToggle: [{ index: 1, done: true }], // índice sobre o checklist de antes: só 0 existe
+  });
+  expect(res.structuredContent).toMatchObject({ code: "NOT_FOUND" });
+  const after = await db.select().from(taskEvents).where(eq(taskEvents.taskId, taskId));
+  expect(after).toHaveLength(before.length);
+  const detail = await call(readKey, "get_task", { id });
+  expect(detail.structuredContent).toMatchObject({
+    priority: "none",
+    checklist: [{ text: "Único" }],
+  });
+});
+
+it("cycle ainda não suportado → VALIDATION, sem gravar (M-044)", async () => {
+  for (const [name, args] of [
+    ["create_task", { title: "Com ciclo", projectIds: [code], cycle: "current" }],
+    ["list_tasks", { cycle: 3 }],
+  ] as const) {
+    const res = await call(writeKey, name, args);
+    expect(res.structuredContent, name).toMatchObject({ code: "VALIDATION" });
+  }
+});
+
+it("token só-leitura não lista ferramentas de escrita (M-044)", async () => {
+  const list = async (key: string) => {
+    const res = await POST(
+      new Request("http://localhost/mcp", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          accept: "application/json, text/event-stream",
+          authorization: `Bearer ${key}`,
+        },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
+      }),
+    );
+    const body = (await res.json()) as { result: { tools: { name: string }[] } };
+    return body.result.tools.map((t) => t.name).sort();
+  };
+  expect(await list(readKey)).toEqual([
+    "get_task",
+    "list_cycles",
+    "list_mobile_units",
+    "list_projects",
+    "list_tasks",
+  ]);
+  expect(await list(writeKey)).toContain("create_task");
 });
