@@ -113,9 +113,13 @@ export function CommentEditor({
   const submit = async () => {
     if (!editor || editor.isEmpty || pending) return;
     setPending(true);
-    const ok = await onSubmit(editor.getJSON() as Doc);
-    setPending(false);
-    if (ok && !onCancel) editor.commands.clearContent();
+    // JSON puro: attrs do Tiptap não são objetos simples e a Server Action os recusaria
+    try {
+      const ok = await onSubmit(JSON.parse(JSON.stringify(editor.getJSON())) as Doc);
+      if (ok && !onCancel) editor.commands.clearContent();
+    } finally {
+      setPending(false); // erro inesperado não trava o botão
+    }
   };
   useEffect(() => {
     submitRef.current = submit;
