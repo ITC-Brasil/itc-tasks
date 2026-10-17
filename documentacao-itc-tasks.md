@@ -353,7 +353,7 @@ Detalhes do servidor, túnel, deploy e checklist de implantação: `docs/INFRA.m
 
 ## 11. Git e versionamento
 
-- Mesmo fluxo do NoteScan: `feat/…` → PR para `develop` → PR `develop → main` com CI verde e 1 aprovação; push direto na `main` bloqueado. Merge na `main` dispara o deploy (ADR-029).
+- Mesmo fluxo do NoteScan: `feat/…` → PR para `develop` → PR `develop → main` com CI verde e 1 aprovação; push direto na `main` bloqueado por disciplina e pelo hook `.githooks/pre-push` (ADR-034). Merge na `main` dispara o deploy (ADR-029).
 - Conventional Commits: `type(scope): descrição` (tabela em `CLAUDE.md`).
 - Hooks de pre-commit (planejado): lint + typecheck dos arquivos alterados.
 

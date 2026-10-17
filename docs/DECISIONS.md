@@ -610,7 +610,7 @@ Adotar no ITC Tasks o mesmo fluxo: branches `feat/…` → `develop` → `main` 
 **Consequences**
 O time usa um só modelo mental para os dois apps. Análise estática fica limitada ao ESLint security plugin.
 
-> Alterado pelo ADR-033 (audit só de produção; Gitleaks por imagem). O Postgres local de desenvolvimento usa a porta `5435` (o NoteScan local usa `5434`).
+> Alterado pelo ADR-033 (audit só de produção; Gitleaks por imagem) e pelo ADR-034 (`main` protegida por disciplina e hook local, sem branch protection do GitHub). O Postgres local de desenvolvimento usa a porta `5435` (o NoteScan local usa `5434`).
 
 ---
 
@@ -748,3 +748,31 @@ Altera o ADR-029 em dois pontos:
 **Consequences**
 Falhas em ferramentas de dev não bloqueiam o CI; voltar ao audit completo quando sair a correção do
 `braces`. O Gitleaks é atualizado trocando o digest à mão (o Dependabot não acompanha a imagem).
+
+---
+
+## ADR-034 — Proteção da main por disciplina
+
+**Status:** Accepted
+**Date:** 2026-10-17
+**Module:** 00 — Fundação
+
+**Context**
+O ADR-029 previa a `main` protegida (PR, 1 aprovação, CI obrigatório). A API do GitHub devolve
+HTTP 403 ("Upgrade to GitHub Pro or make this repository public") para branch protection e rulesets
+em repositório privado da org ITC-Brasil no plano gratuito.
+
+**Decision**
+Merge na `main` só por PR `develop → main` com CI verde, garantido por disciplina:
+hook `.githooks/pre-push` que recusa push para `refs/heads/main` (passa só com `ALLOW_MAIN_PUSH=1`,
+para emergência), ativado com `git config core.hooksPath .githooks` logo depois de clonar, e a regra
+escrita no `CLAUDE.md`.
+
+**Alternatives considered**
+- GitHub Team — resolve, mas tem custo por usuário.
+- Repositório público — liberaria a proteção, mas expõe `docs/INFRA.md` (servidor, portas, usuários).
+
+**Consequences**
+O hook não impede push pela interface web, nem de uma máquina onde o `core.hooksPath` não foi
+configurado, nem com `--no-verify`. O CI continua rodando no PR, mas não bloqueia o merge.
+Altera o ADR-029 no ponto "main protegida".

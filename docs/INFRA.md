@@ -145,7 +145,7 @@ sudo systemctl restart cloudflared
 | Pasta | `/home/glpissh/docker/notescan` |
 | Containers | `notescan-app` (Next.js standalone, porta 3010) e `notescan-db` (PostgreSQL 16, rede interna `notescan_default`) |
 | Túnel | `notescan.itcbr.xyz` → `http://localhost:3010` |
-| Branches | `feat/…` → `develop` → PR → `main` (protegida, 1 aprovação, push direto bloqueado) |
+| Branches | `feat/…` → `develop` → PR → `main` (protegida, 1 aprovação, push direto bloqueado). No ITC Tasks a proteção é por disciplina e hook local (ADR-034) |
 | CI | "Quality Check": `npm ci`, `prisma generate`, type-check, lint (com `eslint-plugin-security`), `prisma migrate deploy` no Postgres de serviço, testes com cobertura, `npm audit --audit-level=high` |
 | Segurança no GitHub | Dependabot (minor/patch, máx. 5 PRs), Secret Scanning. **CodeQL removido**: o GitHub Advanced Security não está disponível no plano gratuito para repositório privado da org ITC-Brasil |
 | CD | Merge na `main` → `deploy.yml` com `appleboy/ssh-action@v1` (por tag, não SHA), `port: 2222` fixo, `command_timeout: 20m`; script: `cd /home/glpissh/docker/notescan && git pull origin main && docker compose up -d --build && docker image prune -f`. Sem health check depois do deploy |
@@ -274,7 +274,7 @@ Trocar as chaves VAPID depois do go-live invalida todas as assinaturas de push (
 ### 7.1 Fluxo
 
 ```
-feat/… ──PR──▶ develop ──PR (CI verde + 1 aprovação)──▶ main
+feat/… ──PR──▶ develop ──PR (CI verde + 1 aprovação; ADR-034)──▶ main
                                                          │
                                        GitHub Actions: deploy.yml
                                                          │  ssh -p 2222 github-deploy@glpi.grupoitcbrasil.com.br

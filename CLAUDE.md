@@ -75,7 +75,7 @@ Não criar variantes paralelas desses componentes.
 ## Modo de execução
 
 - Seguir os módulos de `PROMPT_CLAUDE_CODE.md` em ordem; um módulo por vez.
-- Um commit por tarefa, na branch `develop` (ou `feat/…` → `develop`); `main` só por PR com CI verde (ADR-029). Ao fim do módulo, atualizar `docs/` e **parar para aprovação**.
+- Um commit por tarefa, na branch `develop` (ou `feat/…` → `develop`); `main` só por PR `develop → main` com CI verde, nunca push direto (ADR-029, ADR-034). Ao fim do módulo, atualizar `docs/` e **parar para aprovação**.
 - Na dúvida sobre produto, perguntar — não decidir em silêncio.
 - Nunca `git add -A`; adicionar arquivo por arquivo e conferir `git status --short`.
 
@@ -105,6 +105,7 @@ Ex.: `feat(mcp): add create_task tool` · `docs: document module 07 mcp`.
 ## Comandos (planejados — confirmar no Módulo 00)
 
 ```bash
+git config core.hooksPath .githooks             # obrigatório após clonar: bloqueia push na main (ADR-034)
 docker compose -f docker-compose.dev.yml up -d   # Postgres 18.6 + Mailpit
 npm run dev              # app em http://localhost:3000
 npm run worker:dev       # pg-boss
