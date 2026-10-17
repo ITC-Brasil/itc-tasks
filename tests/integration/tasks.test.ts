@@ -243,3 +243,17 @@ it("docText junta parágrafos", () => {
     }),
   ).toBe("ab\nc");
 });
+
+it("responsável padrão: omitido recebe o do projeto; null explícito fica sem (ADR-043)", async () => {
+  const userId = (actor as { userId: string }).userId;
+  const p = await createProject(system, {
+    code: letters(),
+    name: "Padrão",
+    kind: "client",
+    defaultAssigneeId: userId,
+  });
+  const omitted = await createTask(actor, { title: "Omitido", projectId: p.id });
+  expect(omitted.assigneeId).toBe(userId);
+  const none = await createTask(actor, { title: "Ninguém", projectId: p.id, assigneeId: null });
+  expect(none.assigneeId).toBeNull();
+});

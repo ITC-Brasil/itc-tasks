@@ -130,6 +130,12 @@ async function assertLabels(tx: Tx, ids: string[]) {
     throw new TaskError("ARCHIVED_REFERENCE", "Etiqueta arquivada");
 }
 
+async function isActiveUser(tx: Tx, id: string | null) {
+  if (!id) return false;
+  const [row] = await tx.select({ banned: user.banned }).from(user).where(eq(user.id, id));
+  return !!row && !row.banned;
+}
+
 async function assertAssignee(tx: Tx, id: string) {
   const [row] = await tx.select({ banned: user.banned }).from(user).where(eq(user.id, id));
   if (!row) throw new TaskError("NOT_FOUND", "Responsável não encontrado");
@@ -182,7 +188,13 @@ export async function createTask(actor: Actor, input: CreateTaskInput) {
   return db.transaction(async (tx) => {
     const project = await assertProject(tx, data.projectId);
     if (data.mobileUnitId) await assertUnit(tx, data.mobileUnitId);
-    if (data.assigneeId) await assertAssignee(tx, data.assigneeId);
+    // ADR-043: omitido → responsável padrão do projeto (se ativo); null explícito → ninguém
+    let assigneeId = data.assigneeId;
+    if (assigneeId === undefined)
+      assigneeId = (await isActiveUser(tx, project.defaultAssigneeId))
+        ? project.defaultAssigneeId
+        : null;
+    else if (assigneeId) await assertAssignee(tx, assigneeId);
     await assertLabels(tx, data.labelIds);
     const status = data.statusId
       ? await assertStatus(tx, data.statusId)
@@ -195,7 +207,7 @@ export async function createTask(actor: Actor, input: CreateTaskInput) {
         projectId: data.projectId,
         statusId: status.id,
         priority: data.priority,
-        assigneeId: data.assigneeId,
+        assigneeId,
         mobileUnitId: data.mobileUnitId,
         glpiTicket: data.glpiTicket,
         dueDate: data.dueDate,
