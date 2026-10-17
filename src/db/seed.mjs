@@ -37,7 +37,7 @@ try {
       [randomUUID(), userId, password],
     );
   }
-  // status só na primeira vez: depois o workflow é do admin (renomear, arquivar, reordenar)
+  // status e etiquetas só na primeira vez: depois são do admin (renomear, arquivar, reordenar)
   await client.query(
     `INSERT INTO workflow_statuses (name, category, position)
      SELECT * FROM (VALUES ('Backlog', 'backlog'::status_category, 1), ('A fazer', 'todo', 2),
@@ -48,7 +48,7 @@ try {
     `INSERT INTO labels (name, color_token)
      SELECT * FROM (VALUES ('rede', 'label-blue'), ('hardware', 'label-plum'),
        ('segurança', 'label-rose'), ('campo', 'label-teal')) v
-     ON CONFLICT (name) DO NOTHING`,
+     WHERE NOT EXISTS (SELECT 1 FROM labels)`,
   );
   // destino das tarefas do Windshift sem projeto identificável (PRD §9)
   await client.query(
