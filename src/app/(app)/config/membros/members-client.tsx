@@ -161,7 +161,9 @@ export function MembersTable({ members, selfId }: { members: Member[]; selfId: s
             <th className="px-4 py-3 font-medium">E-mail</th>
             <th className="px-4 py-3 font-medium">Papel</th>
             <th className="px-4 py-3 font-medium">Situação</th>
-            <th className="px-4 py-3" />
+            <th className="px-4 py-3">
+              <span className="sr-only">Ações</span>
+            </th>
           </tr>
         </thead>
         <tbody>

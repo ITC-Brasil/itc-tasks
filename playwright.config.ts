@@ -1,5 +1,11 @@
 import { defineConfig, devices } from "@playwright/test";
 
+try {
+  process.loadEnvFile(); // SEED_ADMIN_* para o teste de login
+} catch {
+  // sem .env: o teste de login é pulado
+}
+
 export default defineConfig({
   testDir: "tests/e2e",
   use: { baseURL: "http://localhost:3000", trace: "on-first-retry" },
