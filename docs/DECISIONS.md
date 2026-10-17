@@ -964,3 +964,45 @@ o código (deveria ter vindo antes; registrado no PROGRESS).
 A ordem muda por troca com o vizinho (subir/descer); arrastar fica para o Kanban (Módulo 05). A
 posição de um status novo é `max + 1` sem trava: dois admins criando ao mesmo tempo podem empatar a
 posição, o que só afeta a ordem.
+
+## ADR-041 — Paleta própria das etiquetas
+
+**Status:** Accepted
+**Date:** 2026-10-17
+**Module:** 03 — Cadastros (ajuste da M-018)
+
+**Context**
+As etiquetas usavam `info`, `ok`, `warn`, `sev-medium`, `bordo` e `accent`. As quatro primeiras são
+cores funcionais que o `CLAUDE.md` reserva para estado: uma etiqueta "rede" em `info` se confunde
+com um aviso. Decisão do Matheus na M-018.
+
+**Decision**
+- Sete tokens `--label-*` em `src/styles/globals.css`, distintos das cores funcionais. Contraste do
+  ponto contra `--bg-surface` (mínimo 3:1, WCAG 1.4.11):
+
+| Token | Claro | vs `#FDFBF7` | Escuro | vs `#1E2422` |
+|---|---|---|---|---|
+| `label-teal` | `#1F7F6B` | 4,72:1 | `#4FB89E` | 6,52:1 |
+| `label-blue` | `#3D5BD9` | 5,50:1 | `#7F96F2` | 5,67:1 |
+| `label-plum` | `#8A3F8F` | 6,37:1 | `#C483C9` | 5,59:1 |
+| `label-rose` | `#C02A5E` | 5,44:1 | `#EC7099` | 5,52:1 |
+| `label-olive` | `#6A7A1C` | 4,60:1 | `#A9BA4C` | 7,38:1 |
+| `label-brown` | `#9A5A2C` | 5,25:1 | `#D18D5C` | 5,77:1 |
+| `label-slate` | `#5B6B7B` | 5,30:1 | `#9AA9B8` | 6,57:1 |
+
+- `labels.color_token` guarda o nome sem o prefixo de CSS (`label-blue`); `LABEL_COLORS` só aceita
+  esses sete.
+- Migração `0004_label_palette`: `UPDATE` que só renomeia o token (`info`→`label-blue`,
+  `sev-medium`→`label-plum`, `bordo`→`label-rose`, `accent`→`label-teal`, `ok`→`label-olive`,
+  `warn`→`label-brown`). Não é reescrita de dado de negócio: o nome, o arquivamento e os vínculos
+  da etiqueta não mudam; muda só a referência de cor, que é apresentação. Exceção registrada à regra
+  "migrações só aditivas".
+- Seed: rede `label-blue`, hardware `label-plum`, segurança `label-rose`, campo `label-teal`.
+
+**Alternatives considered**
+- Manter os tokens funcionais — mistura etiqueta com estado.
+- Hex livre por etiqueta — contra o princípio do Design System (nunca hex no dado).
+
+**Consequences**
+O Design System no Claude Design recebe os sete tokens (o Cowork atualiza). A cor continua só como
+ponto de fundo; o nome da etiqueta usa a cor de texto normal.
