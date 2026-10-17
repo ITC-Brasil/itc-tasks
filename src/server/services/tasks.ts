@@ -177,11 +177,11 @@ async function lastPosition(tx: Tx, statusId: string, exceptId?: string) {
 
 async function creatorFor(tx: Tx, actor: Actor, defaultAssigneeId: string | null) {
   if (actor.kind === "user" || actor.kind === "agent") return actor.userId;
-  if (defaultAssigneeId) return defaultAssigneeId;
+  if (await isActiveUser(tx, defaultAssigneeId)) return defaultAssigneeId!;
   const [admin] = await tx
     .select({ id: user.id })
     .from(user)
-    .where(eq(user.role, "admin"))
+    .where(and(eq(user.role, "admin"), or(isNull(user.banned), eq(user.banned, false))))
     .orderBy(asc(user.createdAt))
     .limit(1);
   if (!admin) throw new TaskError("NOT_FOUND", "Nenhum admin para registrar como criador");
