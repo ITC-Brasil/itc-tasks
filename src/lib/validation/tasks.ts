@@ -163,3 +163,7 @@ export const savedFilterSchema = z.object({
   view: z.enum(VIEWS),
   filters: taskFiltersSchema,
 });
+
+// ── Comentários (ADR-048) ───────────────────────────────────────────
+export const commentBodySchema = descriptionJson;
+export type CommentBody = z.infer<typeof commentBodySchema>;

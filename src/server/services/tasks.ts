@@ -18,6 +18,7 @@ import { generateKeyBetween } from "fractional-indexing";
 import { db } from "@/db";
 import {
   checklistItems,
+  comments,
   labels,
   mobileUnits,
   projects,
@@ -58,7 +59,7 @@ export class TaskError extends Error {
   }
 }
 
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type Task = typeof tasks.$inferSelect;
 type EventType =
   | "created"
@@ -70,7 +71,10 @@ type EventType =
   | "link_added"
   | "link_removed"
   | "projects_changed"
-  | "mobile_units_changed";
+  | "mobile_units_changed"
+  | "commented"
+  | "comment_edited"
+  | "attachment_added";
 
 function actorColumns(actor: Actor) {
   switch (actor.kind) {
@@ -85,7 +89,7 @@ function actorColumns(actor: Actor) {
   }
 }
 
-async function record(
+export async function record(
   tx: Tx,
   actor: Actor,
   taskId: string,
@@ -114,8 +118,10 @@ export function stable(value: unknown): string {
 /** Texto puro do documento Tiptap, para a busca (ADR-042). */
 export function docText(node: unknown): string {
   if (!node || typeof node !== "object") return "";
-  const n = node as { text?: unknown; content?: unknown };
+  const n = node as { type?: unknown; text?: unknown; content?: unknown; attrs?: unknown };
   if (typeof n.text === "string") return n.text;
+  const label = (n.attrs as { label?: unknown } | undefined)?.label;
+  if (n.type === "mention" && typeof label === "string") return `@${label}`;
   if (!Array.isArray(n.content)) return "";
   return n.content
     .map(docText)
@@ -262,7 +268,7 @@ async function creatorFor(tx: Tx, actor: Actor) {
   return admin.id;
 }
 
-async function lockTask(tx: Tx, id: string) {
+export async function lockTask(tx: Tx, id: string) {
   const [row] = await tx.select().from(tasks).where(eq(tasks.id, id)).for("update");
   if (!row) throw new TaskError("NOT_FOUND", "Tarefa não encontrada");
   return row;
@@ -731,6 +737,7 @@ export async function listTasks(
   scope: {
     assigneeId?: string;
     creatorId?: string;
+    mentionedUserId?: string;
     openOnly?: boolean;
     recentDone?: boolean;
     doneLimit?: number;
@@ -796,6 +803,15 @@ export async function listTasks(
           ),
           scope.assigneeId ? eq(tasks.assigneeId, scope.assigneeId) : undefined,
           scope.creatorId ? eq(tasks.creatorId, scope.creatorId) : undefined,
+          scope.mentionedUserId
+            ? inArray(
+                tasks.id,
+                db
+                  .select({ id: comments.taskId })
+                  .from(comments)
+                  .where(sql`${comments.mentions} @> ARRAY[${scope.mentionedUserId}]::text[]`),
+              )
+            : undefined,
           extra,
         ),
       );

@@ -7,6 +7,7 @@ import { env } from "@/lib/env";
 import { taskNumberSchema } from "@/lib/validation/tasks";
 import { requireActor } from "@/server/actor";
 import { getTaskFormOptionsAction } from "@/server/actions/tasks";
+import { listComments } from "@/server/services/comments";
 import { getTaskByNumber } from "@/server/services/tasks";
 
 export async function generateMetadata({
@@ -24,10 +25,16 @@ async function Detail({ params }: { params: PageProps<"/tarefas/[number]">["para
     getTaskFormOptionsAction(),
   ]);
   if (!task) notFound();
+  const comments = await listComments(task.id);
   return (
     <>
       <Topbar title={`TI-${task.number}`} />
-      <TaskDetail task={task} options={options} glpiBaseUrl={env.GLPI_BASE_URL} />
+      <TaskDetail
+        task={task}
+        comments={comments}
+        options={options}
+        glpiBaseUrl={env.GLPI_BASE_URL}
+      />
     </>
   );
 }
