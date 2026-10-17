@@ -899,3 +899,32 @@ escrever `data-theme` no `<html>` torna a rota inteira dinâmica e quebra o buil
 No primeiro acesso de um aparelho novo (ou depois de limpar os dados do navegador) o tema claro pode
 aparecer por um instante antes de o shell aplicar o escuro salvo. Telas fora do `(app)` (Entrar)
 usam o último tema do aparelho. O ADR-013 segue valendo; este ADR só troca o "aplicado no servidor".
+
+---
+
+## ADR-039 — Ajuste de contraste do tema escuro
+
+**Status:** Accepted
+**Date:** 2026-10-17
+**Module:** 02 — Layout, navegação e tema
+
+**Context**
+O Módulo 02 liga o tema escuro, e o axe (`color-contrast`, ligado pelo ADR-035) acusou dois pares
+abaixo de 4,5:1 no escuro: `accent-text` (`#30A5AB`) sobre o item ativo da navegação
+(`accent-light` sobre `bg-surface`, ≈ `#213938`): 4,15:1; e o botão destrutivo, `on-accent`
+(`#08201F`) sobre `err` (`#D75A4A`): 4,41:1.
+
+**Decision**
+- Escuro: `--accent-text: var(--accent-hover)` (`#46B5BA`): 5,03:1 sobre o item ativo, 6,45:1 sobre
+  `bg-surface`, 7,26:1 sobre `bg-base`. `--accent` continua `#30A5AB` (foco, bordas, marca).
+- Token novo `--on-err` para texto sobre `err`: claro `#FFFFFF` (5,44:1 sobre `#C0392B`), escuro
+  `#141918` (4,61:1 sobre `#D75A4A`). O botão destrutivo passa a usar `text-on-err`.
+- O claro não muda.
+
+**Alternatives considered**
+- Escurecer `accent-light` no escuro — mexe em todas as superfícies de destaque, não só no texto.
+- Clarear `err` no escuro — o vermelho perde força como cor de estado.
+
+**Consequences**
+O Design System no Claude Design precisa dos dois valores (o Cowork atualiza). A auditoria completa
+dos dois temas continua no Módulo 11.
