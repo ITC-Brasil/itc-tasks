@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Archivo, Inter } from "next/font/google";
+import { ThemeProvider } from "next-themes";
 import "@/styles/globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
@@ -12,8 +13,19 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="pt-BR" data-theme="light" className={`${inter.variable} ${archivo.variable}`}>
-      <body>{children}</body>
+    <html lang="pt-BR" suppressHydrationWarning className={`${inter.variable} ${archivo.variable}`}>
+      <body>
+        {/* ADR-013 e ADR-038: só claro e escuro; o script do next-themes aplica antes da pintura */}
+        <ThemeProvider
+          attribute="data-theme"
+          themes={["light", "dark"]}
+          defaultTheme="light"
+          enableSystem={false}
+          disableTransitionOnChange
+        >
+          {children}
+        </ThemeProvider>
+      </body>
     </html>
   );
 }

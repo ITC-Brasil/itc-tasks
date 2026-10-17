@@ -1,18 +1,19 @@
 import { Suspense } from "react";
+import { AppShell } from "@/components/layout/app-shell";
 import { Toaster } from "@/components/ui/sonner";
-import { requireActor } from "@/server/actor";
+import { requireUser } from "@/server/actor";
 
 // cacheComponents (ADR-036): a leitura da sessão fica dentro de Suspense
-async function SessionGate({ children }: { children: React.ReactNode }) {
-  await requireActor();
-  return children;
+async function Shell({ children }: { children: React.ReactNode }) {
+  const { actor, profile } = await requireUser();
+  return <AppShell profile={{ ...profile, role: actor.role }}>{children}</AppShell>;
 }
 
 export default function AppLayout({ children }: LayoutProps<"/">) {
   return (
     <>
       <Suspense>
-        <SessionGate>{children}</SessionGate>
+        <Shell>{children}</Shell>
       </Suspense>
       <Toaster />
     </>
