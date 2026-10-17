@@ -43,3 +43,6 @@ npm-debug.log*
 # Next.js (create-next-app)
 *.pem
 .vercel
+
+# Uploads locais (UPLOADS_DIR em desenvolvimento)
+data/
