@@ -134,6 +134,7 @@ sudo systemctl restart cloudflared
 - O cloudflared foi instalado por `.deb` do GitHub (o APT da Cloudflare falha no Ubuntu 24.04); **não atualiza com `apt upgrade`** (lição 1).
 - O locale precisa ser `pt_BR.UTF-8`: com POSIX, acentos no `config.yml` corrompem o arquivo (`invalid trailing UTF-8 octet`) (lição 5). Preferir comentários sem acento.
 - **Limites do túnel que moldam o app:** ~100 s de timeout por requisição, uploads até 100 MB (o Pingvin Share usa chunks de 90 MB pelo mesmo motivo), conexões ociosas podem cair. No ITC Tasks: jobs fora da requisição, anexos ≤ 25 MB, SSE com heartbeat de 25 s.
+- **IP do cliente:** o app só vê o IP do túnel no socket. `src/server/auth.ts` lê `cf-connecting-ip` e depois `x-forwarded-for` (`advanced.ipAddress.ipAddressHeaders`), para o rate limit do Better Auth não juntar todo mundo numa chave só. Esse rate limit liga só com `NODE_ENV=production` (definido no `Dockerfile`) e guarda os contadores em memória: reiniciar o container zera, o que é aceitável com uma réplica.
 - `/mcp` precisa ser acessível por agentes sem login no navegador. Se um dia o subdomínio ficar atrás de Cloudflare Access (há uma avaliação pendente para o Homepage), liberar `/mcp` com service token ou regra de bypass.
 
 ---
