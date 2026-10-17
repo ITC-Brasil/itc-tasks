@@ -1,0 +1,1 @@
+CREATE INDEX "saved_filters_user_idx" ON "saved_filters" USING btree ("user_id");
