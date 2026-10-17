@@ -117,6 +117,7 @@ Sequencial, um módulo por vez. Cada módulo começa numa sessão nova do Claude
 3. Faça o commit `docs: document module NN name`.
 4. Escreva em `.conversa/para-cowork.md` uma mensagem "Módulo NN pronto para revisão", com o que foi feito, o que ficou de fora e as dúvidas.
 5. **Pare e peça aprovação** antes do próximo módulo.
+6. Quando o módulo for aprovado, abra o PR `develop → main` (regra em `CLAUDE.md` › Modo de execução) e aguarde o "pode iniciar" do próximo módulo.
 
 ---
 
@@ -132,7 +133,7 @@ Sequencial, um módulo por vez. Cada módulo começa numa sessão nova do Claude
 - [ ] `src/lib/env.ts` com `@t3-oss/env-nextjs` e `.env.example` — `chore: add typed env`
 - [ ] Vitest (unit + integração com banco de teste), Playwright, ESLint, Prettier — `test: add test tooling`
 - [ ] GitHub Actions: `ci.yml` (Quality Check: `npm ci`, typecheck, lint com `eslint-plugin-security`, migrações no Postgres de serviço, Vitest com cobertura, `npm audit --audit-level=high`) e `security.yml` (Gitleaks), ações fixadas por SHA; sem CodeQL (ADR-029); `dependabot.yml` minor/patch, máx. 5 PRs — `ci: add quality check and security workflows`
-- [ ] Proteção da `main` (PR + 1 aprovação, CI obrigatório) — `chore: configure branch protection`
+- [x] ~~Proteção da `main`~~ — indisponível no GitHub Free para repositório privado; substituída por hook `pre-push` + PR por módulo (ADR-034)
 - [ ] `scripts/docker-entrypoint.sh`: aplica migrações (`node dist/migrate.js` com o migrator do `drizzle-orm`, sem depender do `.bin` que o standalone não copia) e inicia o Next — `feat(db): run migrations on container start`
 - [ ] `Dockerfile` (standalone, `node:24-alpine`) e `docker-compose.yml` de produção com `itc-tasks` (`127.0.0.1:3021:3000`), `itc-tasks-worker` e `itc-tasks-db`, no padrão do `glpi-srv` (`container_name`, `restart: always`, `TZ`, sem label do Watchtower, senhas só no `.env`) — ver `docs/ARCHITECTURE.md` — `chore: add production docker setup`
 - [ ] `/api/health` — `feat(api): add health endpoint`

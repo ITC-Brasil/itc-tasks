@@ -76,6 +76,14 @@ Não criar variantes paralelas desses componentes.
 
 - Seguir os módulos de `PROMPT_CLAUDE_CODE.md` em ordem; um módulo por vez.
 - Um commit por tarefa, na branch `develop` (ou `feat/…` → `develop`); `main` só por PR `develop → main` com CI verde, nunca push direto (ADR-029, ADR-034). Ao fim do módulo, atualizar `docs/` e **parar para aprovação**.
+- **Módulo aprovado → abrir o PR `develop → main`.** "Aprovado" é a mensagem do Cowork em `.conversa/para-claude-code.md` com a frase "Módulo NN aprovado" (sem ajuste pendente), ou o Matheus dizer isso na sessão. Com "Módulo NN aprovado com ajustes", faça os ajustes, envie e responda ao Cowork; o PR só sai com o "aprovado" final.
+  1. Envie a `develop` ao GitHub e espere o CI verde (Quality Check e Security).
+  2. `gh pr create --base main --head develop --title "Módulo NN — Nome"`, com o corpo: resumo, ADRs novos, link para `docs/modules/NN-nome.md`, resultado do CI e o que ficou de fora.
+  3. Se já houver PR aberto de `develop → main`, não abra outro: atualize título e corpo do existente (`gh pr edit`).
+  4. Nunca faça o merge. O Matheus faz, com "Create a merge commit" (sem squash, para `develop` e `main` não divergirem).
+  5. Escreva em `.conversa/para-cowork.md` o número e o link do PR.
+  6. Sem `gh` instalado ou autenticado (`gh auth status`): pare e peça ao Matheus (`winget install GitHub.cli` e `gh auth login`). Nunca token em arquivo.
+  7. Depois que o `deploy.yml` existir (Módulo 12), avise no corpo do PR que o merge publica em produção.
 - Na dúvida sobre produto, perguntar — não decidir em silêncio.
 - Nunca `git add -A`; adicionar arquivo por arquivo e conferir `git status --short`.
 
@@ -86,6 +94,7 @@ O Claude no Cowork revisa cada módulo entre as paradas e lê esta mesma pasta.
 - No início da sessão, leia `.conversa/para-claude-code.md` e trate as mensagens ABERTAS.
 - Escreva só em `.conversa/para-cowork.md`. Nunca edite `para-claude-code.md`.
 - Para responder, crie uma mensagem que cite o número ("Resposta a M-003") e diga o que foi feito.
+- Os números são uma sequência única nos dois arquivos: antes de escrever, veja o maior `M-NNN` em `para-claude-code.md` e `para-cowork.md` e use o seguinte.
 - Ao fim de cada módulo, escreva "Módulo NN pronto para revisão" em `para-cowork.md`.
 - Decisão tomada na conversa vai para um ADR ou para o PROGRESS antes do commit.
 - Nunca escreva segredos (senhas, tokens, chaves) nesses arquivos.
