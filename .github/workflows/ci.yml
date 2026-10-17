@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Quality Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18.6-alpine
+        env:
+          POSTGRES_USER: itc
+          POSTGRES_PASSWORD: itc
+          POSTGRES_DB: itc_tasks_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U itc -d itc_tasks_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://itc:itc@localhost:5432/itc_tasks_test
+      DATABASE_URL_TEST: postgres://itc:itc@localhost:5432/itc_tasks_test
+      BETTER_AUTH_SECRET: ci-only-secret-not-used-anywhere-else-000
+      BETTER_AUTH_URL: http://localhost:3000
+      GLPI_BASE_URL: http://glpi.grupoitcbrasil.com.br:8888
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.0
+          cache: npm
+      - run: npm install -g npm@11.19.1
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run format:check
+      - name: Migrations
+        run: npm run db:migrate
+      - name: Vitest with coverage
+        run: npm run test:coverage
+      - run: npm run build
+      # Só dependências de produção: as cadeias de dev (eslint-config-next, drizzle-kit, shadcn) não têm correção publicada
+      - run: npm audit --omit=dev --audit-level=high
