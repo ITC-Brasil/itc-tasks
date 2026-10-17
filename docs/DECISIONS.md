@@ -691,3 +691,30 @@ avulsas por `npx`. Nunca pnpm nem yarn.
 **Consequences**
 Instalação um pouco mais lenta e `node_modules` maior; sem impacto em produção. O Dependabot usa
 o ecossistema `npm`. Um só gerenciador em todos os projetos da ITC.
+
+---
+
+## ADR-032 — TypeScript 7 lado a lado com o TypeScript 6 para as ferramentas
+
+**Status:** Accepted
+**Date:** 2026-10-17
+**Module:** 00 — Fundação
+
+**Context**
+O `eslint-config-next@16.4.2` depende do typescript-eslint, que recusa carregar com o TypeScript 7.0
+("typescript-eslint does not support TS 7.0"; suporte acompanhado em typescript-eslint#10940 para TS ≥ 7.1).
+Com `typescript@7.0.2` direto, `npm run lint` quebra.
+
+**Decision**
+Seguir o modo "lado a lado" do anúncio do TypeScript 7.0, com aliases do npm:
+`"@typescript/native": "npm:typescript@7.0.2"` (compilador do `typecheck`) e
+`"typescript": "npm:@typescript/typescript6@6.0.2"` (API importada pelo typescript-eslint e pelo Next).
+`npm run typecheck` = `next typegen` + `tsc` do TS 7 com `--noEmit`.
+
+**Alternatives considered**
+- Só TypeScript 6.0.3 — mais simples, mas abre mão do TS 7 previsto na stack.
+- Tirar `eslint-config-next/typescript` — perde as regras de lint para TypeScript.
+
+**Consequences**
+Duas versões do TypeScript no `node_modules`. A checagem de tipos vale pelo TS 7; o lint usa o TS 6.
+Quando o typescript-eslint suportar o TS 7, remover o alias e voltar a `typescript@7`.
