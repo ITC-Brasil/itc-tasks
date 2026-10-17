@@ -1,6 +1,6 @@
 # Módulo 02 — Layout, navegação e tema
 
-**Concluído em:** 2026-10-17 · **Branch:** `develop` · **Status:** pronto para revisão do Cowork
+**Concluído em:** 2026-10-17 · **Branch:** `develop` · **Status:** aprovado pelo Cowork (M-014) com os ajustes abaixo aplicados
 
 ## O que foi implementado
 
@@ -69,6 +69,17 @@ O axe acusou, no escuro, `accent-text` sobre o item ativo (4,15:1) e o botão de
 - `next.config.ts` — `devIndicators: false`: o indicador do Next cobria o menu da conta no canto
   da sidebar e interceptava os cliques do E2E. Só afeta o `next dev`.
 
+### Ajustes da M-014
+
+- `src/components/layout/save-preference.ts` — `savePreference(save, revert)`: se a server action
+  falhar, desfaz a mudança otimista (sidebar ou tema) e mostra o toast "Não foi possível salvar a
+  preferência". Usado por `app-shell.tsx` e `user-menu.tsx` no lugar do `void`.
+- Tablet: com a sidebar sobreposta aberta, `Esc` fecha e devolve o foco ao botão "Expandir menu"
+  (listener ligado só enquanto a sobreposição está aberta).
+- E2E: falha simulada (`page.route` responde 500 a toda requisição com `next-action`) e `Esc` no
+  tablet (900 px). Os testes esperam `networkidle` depois de entrar e de recarregar, para o atalho
+  só ser pressionado com a página hidratada.
+
 ## Testes
 
 - `tests/integration/preferences.test.ts` — tema e sidebar gravam só no próprio usuário.
@@ -76,7 +87,7 @@ O axe acusou, no escuro, `accent-text` sobre o item ativo (4,15:1) e o botão de
   - desktop: `[` recolhe, o estado sobrevive ao recarregar, `[` expande; `?` abre os atalhos; axe.
   - tema pelo menu da conta, alternando duas vezes, com axe nos dois temas.
   - mobile (Pixel 7): sidebar oculta, barra inferior visível; axe.
-- Resultado local: E2E 11 passaram (3 pulados por projeto), Vitest 16 + integração 14, lint e
+- Resultado local depois da M-014: E2E 13 passaram; antes, E2E 11 passaram (3 pulados por projeto), Vitest 16 + integração 14, lint e
   typecheck limpos.
 
 ## Decisões
