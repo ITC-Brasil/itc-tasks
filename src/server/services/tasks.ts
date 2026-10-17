@@ -82,6 +82,15 @@ async function record(
   );
 }
 
+/** JSON com chaves ordenadas: o jsonb do Postgres não preserva a ordem enviada. */
+export function stable(value: unknown): string {
+  return JSON.stringify(value ?? null, (_k, v: unknown) =>
+    v && typeof v === "object" && !Array.isArray(v)
+      ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a.localeCompare(b)))
+      : v,
+  );
+}
+
 /** Texto puro do documento Tiptap, para a busca (ADR-042). */
 export function docText(node: unknown): string {
   if (!node || typeof node !== "object") return "";
@@ -289,7 +298,10 @@ async function applyUpdate(
     set.assigneeId = data.assigneeId;
     events.push({ type: "assigned", payload: { from: current.assigneeId, to: data.assigneeId } });
   }
-  if ("descriptionJson" in data) {
+  if (
+    "descriptionJson" in data &&
+    stable(data.descriptionJson) !== stable(current.descriptionJson)
+  ) {
     set.descriptionJson = data.descriptionJson;
     set.descriptionText = docText(data.descriptionJson);
     if (set.descriptionText !== current.descriptionText)

@@ -276,3 +276,20 @@ it("UM de outro cliente é recusada na criação e ao trocar o projeto (ADR-043)
   const moved = await updateTask(actor, t2.id, { projectId, mobileUnitId: null });
   expect(moved.projectId).toBe(projectId);
 });
+
+it("descrição igual não grava nem mexe no updatedAt", async () => {
+  const doc = {
+    type: "doc",
+    content: [{ type: "paragraph", content: [{ type: "text", text: "a" }] }],
+  };
+  const t = await createTask(actor, { title: "Desc", projectId, descriptionJson: doc });
+  // mesma descrição com as chaves em outra ordem
+  const same = await updateTask(actor, t.id, {
+    descriptionJson: {
+      content: [{ content: [{ text: "a", type: "text" }], type: "paragraph" }],
+      type: "doc",
+    },
+  });
+  expect(same.updatedAt).toEqual(t.updatedAt);
+  expect((await events(t.id)).map((e) => e.type)).toEqual(["created"]);
+});
