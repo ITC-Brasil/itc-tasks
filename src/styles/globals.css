@@ -23,6 +23,7 @@
   /* ADR-035: superfícies com on-accent (botão primário, checkbox, switch); branco 5,13:1 */
   --accent-solid: #007a80;
   --accent-solid-hover: #006c72;
+  --accent-solid-pressed: #005e63;
   --on-accent: #ffffff;
   --bordo: #491027;
   --ok: #1a7f3c;
@@ -50,6 +51,7 @@
   --accent-text: var(--accent);
   --accent-solid: var(--accent);
   --accent-solid-hover: var(--accent-hover);
+  --accent-solid-pressed: var(--accent-pressed);
   --on-accent: #08201f;
   --bordo: #7a2a45;
   --ok: #3da35d;
@@ -78,6 +80,7 @@
   --color-accent-text: var(--accent-text);
   --color-accent-solid: var(--accent-solid);
   --color-accent-solid-hover: var(--accent-solid-hover);
+  --color-accent-solid-pressed: var(--accent-solid-pressed);
   --color-on-accent: var(--on-accent);
   --color-bordo: var(--bordo);
   --color-ok: var(--ok);
