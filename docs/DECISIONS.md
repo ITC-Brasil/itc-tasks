@@ -1078,3 +1078,79 @@ regras. Decisão do Matheus na M-022.
 **Consequences**
 A criação rápida continua preenchendo o responsável para mostrar o valor antes de criar; o service
 garante a regra para os outros caminhos.
+
+---
+
+## ADR-044 — Cadastros reais: sigla até 12 caracteres, tipo "Projeto" e UM sempre com Projeto/Cliente
+
+**Status:** Accepted
+**Date:** 2026-10-17
+**Module:** 04 — pós-revisão (M-024)
+
+**Context**
+Os cadastros reais da ITC têm siglas como `BSBIA`, `CODHAB` e `MOBILITY` (mais de 4 letras) e três
+naturezas: projeto, cliente e interno. O ADR-040 limitava a sigla a 2–4 letras e o enum
+`project_kind` tinha só `client` e `internal`. Decisões do Matheus na M-024.
+
+**Decision**
+- Sigla: letras maiúsculas e dígitos, 2 a 12 caracteres (`/^[A-Z0-9]{2,12}$/`), única. O limite é
+  só técnico, para caber no Chip. Substitui a regra de sigla do ADR-040.
+- `project_kind` ganha `project` (migração `ALTER TYPE … ADD VALUE`, aditiva). Rótulos: `project`
+  "Projeto", `client` "Cliente", `internal` "Interno". Tipo padrão na tela: Projeto.
+- Toda UM nova ou editada exige Projeto/Cliente (Zod e service). A coluna `mobile_units.project_id`
+  continua anulável no banco (migrações só aditivas); UM antiga sem cliente segue a regra do
+  ADR-043 até ser editada.
+- Seed (`src/db/seed.mjs`): os 9 Projetos/Clientes e 12 UMs da M-024, inseridos com
+  `ON CONFLICT (code) DO NOTHING` — nunca sobrescreve o que o admin mudou. `ACL` continua.
+
+**Alternatives considered**
+- Sigla sem limite — quebra o Chip e a tabela.
+- Novo enum ou coluna para o tipo — exigiria reescrita de dado; `ADD VALUE` é aditivo.
+- `project_id NOT NULL` em `mobile_units` — falharia com UMs já criadas sem cliente.
+
+**Consequences**
+O PRD C1/C2 e o SCHEMA passam a citar a nova sigla e os três tipos. `ADD VALUE` não pode ser usado
+na mesma transação em que é criado: a migração só adiciona o valor.
+
+---
+
+## ADR-045 — Sem responsável automático; vários Projetos/Clientes e UMs por tarefa
+
+**Status:** Accepted
+**Date:** 2026-10-17
+**Module:** 04 — pós-revisão (M-026)
+
+**Context**
+Uma tarefa da ITC costuma envolver mais de um Projeto/Cliente (ex.: rede compartilhada entre BSBIA e
+SEDET) e mais de uma Unidade Móvel. E o responsável é sempre escolhido por quem cria a tarefa, não
+pelo projeto. Decisões do Matheus na M-026; substitui a parte 1 do ADR-043.
+
+**Decision**
+- **Sem responsável automático.** `createTask` não usa `projects.default_assignee_id`; omitido = sem
+  responsável. A criação rápida não pré-preenche, e o campo sai da tela de Projetos e do Zod do
+  projeto. A coluna fica no banco, sem uso (migração só aditiva). `creatorFor` (automação/sistema)
+  usa só o primeiro admin ativo.
+- **Tabelas `task_projects (task_id, project_id)` e `task_mobile_units (task_id, mobile_unit_id)`**,
+  PK composta, `ON DELETE cascade` na tarefa. São a fonte de verdade dos vínculos.
+- **`tasks.project_id` = projeto principal** (o primeiro da lista), sempre presente também em
+  `task_projects`; segue `NOT NULL`, o que mantém "pelo menos um Projeto/Cliente" no banco.
+  `tasks.mobile_unit_id` = primeira UM ou `null`. Os dois são atualizados pelo service a cada
+  mudança das listas.
+- Zod e service recebem `projectIds` (1 a 10, o primeiro é o principal) e `mobileUnitIds` (até 20).
+  Sem projeto: "Escolha um Projeto/Cliente para criar a tarefa."
+- **UM × projeto** (substitui a parte 2 do ADR-043): cada UM com cliente tem de pertencer a um dos
+  projetos da tarefa. Remover um projeto que ainda tem UM sua na tarefa é recusado ("Remova antes
+  a UM X: ela é do Projeto/Cliente Y"). UM antiga sem cliente vale para qualquer projeto.
+- `task_events`: `projects_changed` e `mobile_units_changed` com `{ from, to }` (listas de IDs),
+  no lugar do `field_changed` de `projectId`/`mobileUnitId`.
+- Migração `0007_task_links_many`: cria as tabelas e faz `INSERT … SELECT` a partir de
+  `tasks.project_id`/`mobile_unit_id` (cópia aditiva, não reescreve linha existente).
+
+**Alternatives considered**
+- `tasks.project_id` sem uso, só `task_projects` — o `NOT NULL` precisaria de valor fictício e a
+  regra "pelo menos um" ficaria só no service.
+- Arrays (`uuid[]`) em `tasks` — sem FK por elemento; arquivamento e filtros ficam frágeis.
+
+**Consequences**
+Filtros e contagens do Módulo 05 e as ferramentas do MCP (Módulo 07) consultam `task_projects` e
+`task_mobile_units`; `create_task`/`update_task` aceitam `projectIds[]`/`mobileUnitIds[]`.

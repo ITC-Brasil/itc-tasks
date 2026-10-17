@@ -1,6 +1,6 @@
 # Módulo 04 — Tarefas: núcleo
 
-**Concluído em:** 2026-10-17 · **Branch:** `develop` · **Status:** ajustes da M-022 aplicados; aguardando o "Módulo 04 aprovado"
+**Concluído em:** 2026-10-17 · **Branch:** `develop` · **Status:** aprovado e na `main` (PR #4); M-024 e M-026 aplicadas depois, em revisão
 
 ADR-042 escrito antes do código (`ad75ccf`), como pediu a M-018.
 
@@ -102,6 +102,55 @@ a53d34e fix(tasks): skip banned users when choosing system creator
 9e5cf2a fix(tasks): skip unchanged description on update
 2afd8e4 fix(tasks): touch updatedAt when reordering
 ```
+
+## Cadastros reais e vários Projetos/Clientes por tarefa (M-024, M-026)
+
+Feito depois do merge do PR #4, antes do Módulo 05. ADR-044 e ADR-045 escritos antes do código.
+
+- **Sigla** de 2 a 12 letras ou números (`/^[A-Z0-9]{2,12}$/`); **tipo** `project` ("Projeto")
+  acrescentado ao enum (`drizzle/0006_project_kind.sql`, `ALTER TYPE … ADD VALUE`); rótulos
+  Projeto/Cliente/Interno em `projects-client.tsx`. **UM exige Projeto/Cliente** no Zod
+  (`mobileUnitSchema.projectId`), a coluna segue anulável.
+- **Seed** (`src/db/seed.mjs`): BSBIA, SEDET, CODHAB, QDFM, QMPR (Projeto), MOBILITY, INESQ,
+  IGEPEX (Cliente), ITC (Interno) e as 12 UMs, com `ON CONFLICT (code) DO NOTHING`. Rodado duas
+  vezes no banco de dev: mesmas contagens (BSBIA 4, SEDET 2, CODHAB 1, QDFM 4, QMPR 1).
+- **Sem responsável automático:** `createTask` não usa `default_assignee_id`; a criação rápida não
+  pré-preenche; o campo saiu da tela e do Zod de Projetos. `creatorFor` usa o primeiro admin ativo.
+- **Vários Projetos/Clientes e UMs:** `task_projects` e `task_mobile_units`
+  (`drizzle/0007_task_projects_units.sql`, com `INSERT … SELECT` das tarefas existentes — 15/15 no
+  dev). `projectIds` (1–10, o primeiro é o principal em `tasks.project_id`) e `mobileUnitIds`
+  (até 20). `assertUnitsFit`: UM de projeto não escolhido → "A Unidade Móvel X pertence a outro
+  Projeto/Cliente"; remover projeto que ainda tem UM sua → "Remova antes a UM X: ela é do
+  Projeto/Cliente Y". Eventos `projects_changed` e `mobile_units_changed` com `{ from, to }`.
+  Criação rápida e detalhe com `PickMany` para os dois campos (UMs filtradas pelos projetos) e
+  chips de todos.
+
+| Cenário | Como | Resultado |
+|---|---|---|
+| Sigla longa com dígito aceita; `A-1` recusada; tipo `project` | `tests/integration/catalog.test.ts` | ✅ |
+| UM sem Projeto/Cliente recusada | `tests/integration/tasks.test.ts` | ✅ |
+| Omitido = sem responsável; criador do sistema é admin ativo | idem | ✅ |
+| Sem projeto (lista vazia) recusado na criação e no update | idem | ✅ |
+| Dois projetos com UM de cada; principal = primeiro | idem | ✅ |
+| UM de projeto não escolhido recusada; remover projeto com UM recusado | idem | ✅ |
+| Migração 0007: toda tarefa tem seu `project_id` em `task_projects` | idem | ✅ |
+| Criação rápida com BSBIA + SEDET, UMs filtradas (QDFM01 ausente), chips no detalhe | `tests/e2e/tasks.spec.ts` | ✅ |
+| UM criada só com Projeto/Cliente | `tests/e2e/catalog.spec.ts` | ✅ |
+| Vitest completo / E2E completo | `npx vitest run` / `npx playwright test` | ✅ 38 / 18 passaram |
+
+```
+f2dea30 docs: add adr-044 real catalog rules
+12362c1 feat(catalog): allow 12-char codes, project kind and required unit client
+71c5d9e feat(db): seed real itc projects and mobile units
+d07e7ad docs: add adr-045 many projects and units per task
+f63e025 refactor(tasks): drop automatic default assignee
+c31c002 feat(tasks): support many projects and mobile units per task
+```
+
+Ajuste da M-029: o principal (`tasks.project_id`/`mobile_unit_id`) só é recalculado quando a lista vem no patch; `linkedIds()` não tem ordem. Teste: update só do título ou só das UMs mantém o projeto principal.
+
+Ponto de atenção: numa das rodadas paralelas do E2E, o axe em `/config/projetos` acusou violação
+uma vez e não repetiu em 4 rodadas seguintes (oscilação sob carga, investigar se voltar).
 
 ## Verificação
 

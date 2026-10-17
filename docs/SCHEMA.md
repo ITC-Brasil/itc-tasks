@@ -63,7 +63,7 @@ import { pgEnum } from 'drizzle-orm/pg-core';
 
 export const statusCategory = pgEnum('status_category', ['backlog', 'todo', 'in_progress', 'done']);
 export const taskPriority   = pgEnum('task_priority', ['none', 'low', 'medium', 'high', 'urgent']);
-export const projectKind    = pgEnum('project_kind', ['client', 'internal']);
+export const projectKind    = pgEnum('project_kind', ['client', 'internal', 'project']); // ADR-044
 export const actorKind      = pgEnum('actor_kind', ['user', 'agent', 'automation', 'system']);
 export const linkKind       = pgEnum('link_kind', ['blocks', 'relates']);
 export const cycleState     = pgEnum('cycle_state', ['planned', 'active', 'closed']);
@@ -86,7 +86,7 @@ const timestamps = {
 
 export const projects = pgTable('projects', {
   id: uuid('id').primaryKey().defaultRandom(),
-  code: text('code').notNull(),                 // sigla 2–4 letras, ex. TRL
+  code: text('code').notNull(),                 // sigla 2–12 letras/dígitos, ex. BSBIA (ADR-044)
   name: text('name').notNull(),
   kind: projectKind('kind').notNull().default('client'),
   defaultAssigneeId: text('default_assignee_id').references(() => user.id),
@@ -143,7 +143,7 @@ export const tasks = pgTable('tasks', {
   descriptionText: text('description_text').notNull().default(''),
   statusId: uuid('status_id').notNull().references(() => workflowStatuses.id),
   priority: taskPriority('priority').notNull().default('none'),
-  projectId: uuid('project_id').notNull().references(() => projects.id),   // obrigatório
+  projectId: uuid('project_id').notNull().references(() => projects.id),   // principal; todos em task_projects (ADR-045)
   mobileUnitId: uuid('mobile_unit_id').references(() => mobileUnits.id),
   glpiTicket: integer('glpi_ticket'),                             // ADR-023
   assigneeId: text('assignee_id').references(() => user.id),
@@ -357,7 +357,8 @@ CREATE SEQUENCE IF NOT EXISTS task_number_seq START 1;
 
 - **`tasks.position` e `checklist_items.position`** — `text COLLATE "C"` (implementado no Módulo 04, ADR-042): as chaves do índice fracionário comparam por byte.
 
-- **`tasks.project_id NOT NULL`** — a regra principal do produto existe também no banco.
+- **`tasks.project_id NOT NULL`** — a regra principal do produto existe também no banco: é o projeto principal, sempre presente em `task_projects` (ADR-045).
+- **`task_projects` / `task_mobile_units`** (Módulo 04, migração `0007`) — PK `(task_id, project_id)` / `(task_id, mobile_unit_id)`, `ON DELETE cascade` na tarefa; fonte de verdade dos vínculos com Projetos/Clientes e UMs. `default_assignee_id` de `projects` fica sem uso (ADR-045); `mobile_units.project_id` é exigido pelo Zod (ADR-044).
 - **`tasks.completed_at`** — preenchido pelo service quando o status entra em categoria `done`; limpo ao sair (ADR-022).
 - **`cycles_one_active_uq`** — índice único parcial: no máximo um ciclo `active`.
 - **`task_events`** — só-inserção; nenhum service expõe update/delete.

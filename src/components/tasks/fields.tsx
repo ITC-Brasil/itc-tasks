@@ -62,11 +62,13 @@ export function PickMany({
   items,
   value,
   onChange,
+  invalid,
 }: {
   label: string;
   items: PickItem[];
   value: string[];
   onChange: (value: string[]) => void;
+  invalid?: boolean;
 }) {
   const chosen = items.filter((i) => value.includes(i.value));
   return (
@@ -76,7 +78,7 @@ export function PickMany({
       value={value}
       onValueChange={(v) => onChange((v as string[]) ?? [])}
     >
-      <SelectTrigger aria-label={label} className="w-full">
+      <SelectTrigger aria-label={label} aria-invalid={invalid || undefined} className="w-full">
         <SelectValue>
           {chosen.length ? (
             chosen.map((c) => (
@@ -130,12 +132,11 @@ export function optionItems(o: TaskFormOptions) {
       { value: "", label: "Sem responsável" },
       ...o.people.map((p) => ({ value: p.id, label: p.name })),
     ],
-    units: (projectId: string) => [
-      { value: "", label: "Sem Unidade Móvel" },
-      ...o.units
-        .filter((u) => !u.projectId || u.projectId === projectId)
+    // ADR-045: só UMs dos projetos escolhidos (e as antigas sem cliente)
+    units: (projectIds: string[]) =>
+      o.units
+        .filter((u) => !u.projectId || projectIds.includes(u.projectId))
         .map((u) => ({ value: u.id, label: u.code })),
-    ],
     labels: o.labels.map((l) => ({
       value: l.id,
       label: l.name,

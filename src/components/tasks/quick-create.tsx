@@ -54,8 +54,8 @@ export function QuickCreate() {
   const [open, setOpen] = useState(false);
   const [options, setOptions] = useState<TaskFormOptions | null>(null);
   const [form, setForm] = useState(EMPTY);
-  const [projectId, setProjectId] = useState("");
-  const [mobileUnitId, setMobileUnitId] = useState("");
+  const [projectIds, setProjectIds] = useState<string[]>([]);
+  const [mobileUnitIds, setMobileUnitIds] = useState<string[]>([]);
   const [another, setAnother] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -78,13 +78,17 @@ export function QuickCreate() {
   const set = <K extends keyof typeof EMPTY>(key: K, value: (typeof EMPTY)[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
 
-  function chooseProject(id: string) {
-    setProjectId(id);
+  function chooseProjects(ids: string[]) {
+    setProjectIds(ids);
     setError(null);
-    const p = options?.projects.find((x) => x.id === id);
-    if (p?.defaultAssigneeId && !form.assigneeId) set("assigneeId", p.defaultAssigneeId);
-    const unit = options?.units.find((u) => u.id === mobileUnitId);
-    if (unit?.projectId && unit.projectId !== id) setMobileUnitId("");
+    // tira as UMs de projetos que saíram da lista
+    const fits = new Set(
+      options &&
+        optionItems(options)
+          .units(ids)
+          .map((u) => u.value),
+    );
+    setMobileUnitIds((units) => units.filter((id) => fits.has(id)));
   }
 
   function applyTemplate(id: string) {
@@ -102,9 +106,9 @@ export function QuickCreate() {
 
   function onSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (!projectId) return setError(PROJECT_REQUIRED);
+    if (!projectIds.length) return setError(PROJECT_REQUIRED);
     startTransition(async () => {
-      const result = await createTaskAction({ ...form, projectId, mobileUnitId });
+      const result = await createTaskAction({ ...form, projectIds, mobileUnitIds });
       if (!result.ok) return setError(result.error);
       const { number } = result.data;
       toast.success(`TI-${number} criada`, {
@@ -163,12 +167,18 @@ export function QuickCreate() {
           />
           {items ? (
             <>
-              <Pick
+              <PickMany
                 label="Projeto/Cliente"
                 items={items.projects}
-                value={projectId}
-                onChange={chooseProject}
+                value={projectIds}
+                onChange={chooseProjects}
                 invalid={error === PROJECT_REQUIRED}
+              />
+              <PickMany
+                label="Unidade Móvel"
+                items={items.units(projectIds)}
+                value={mobileUnitIds}
+                onChange={setMobileUnitIds}
               />
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Pick
@@ -188,12 +198,6 @@ export function QuickCreate() {
                   items={items.people}
                   value={form.assigneeId}
                   onChange={(v) => set("assigneeId", v)}
-                />
-                <Pick
-                  label="Unidade Móvel"
-                  items={items.units(projectId)}
-                  value={mobileUnitId}
-                  onChange={setMobileUnitId}
                 />
                 <Input
                   aria-label="Chamado GLPI"

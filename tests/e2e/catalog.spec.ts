@@ -46,7 +46,7 @@ test("cria Projeto/Cliente, recusa sigla repetida e arquiva", async ({ page }) =
     await page.getByRole("button", { name: "Criar Projeto/Cliente" }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByLabel("Nome").fill(name);
-    await dialog.getByLabel("Sigla (2 a 4 letras)").fill(code.toLowerCase());
+    await dialog.getByLabel("Sigla (2 a 12 letras ou números)").fill(code.toLowerCase());
     await dialog.getByRole("button", { name: "Criar Projeto/Cliente" }).click();
     return dialog;
   };
@@ -68,7 +68,7 @@ test("cria Projeto/Cliente, recusa sigla repetida e arquiva", async ({ page }) =
   await expect(row).toContainText("Ativo");
 });
 
-test("cria Unidade Móvel sem cliente", async ({ page }) => {
+test("cria Unidade Móvel com Projeto/Cliente", async ({ page }) => {
   const code = `UM-E2E-${Date.now().toString(36).slice(-5)}`.toUpperCase();
   await login(page);
   await page.goto("/config/unidades");
@@ -76,6 +76,10 @@ test("cria Unidade Móvel sem cliente", async ({ page }) => {
   await page.getByRole("button", { name: "Criar Unidade Móvel" }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Código").fill(code.toLowerCase());
+  await dialog.getByRole("button", { name: "Criar Unidade Móvel" }).click();
+  await expect(dialog.getByRole("alert")).toHaveText("Escolha o Projeto/Cliente da Unidade Móvel");
+  await dialog.getByLabel("Projeto/Cliente").click();
+  await page.getByRole("option").first().click();
   await dialog.getByRole("button", { name: "Criar Unidade Móvel" }).click();
   await expect(dialog).toBeHidden();
   await expect(page.getByRole("row", { name: code })).toContainText("Ativo");

@@ -1,7 +1,7 @@
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, sql } from "drizzle-orm";
 import { beforeAll, expect, it } from "vitest";
 import { db } from "@/db";
-import { taskEvents, tasks, workflowStatuses } from "@/db/schema";
+import { taskEvents, tasks, user, workflowStatuses } from "@/db/schema";
 import { PROJECT_REQUIRED } from "@/lib/validation/tasks";
 import type { Actor } from "@/server/actor";
 import {
@@ -70,12 +70,10 @@ it("sem Projeto/Cliente é recusado e nada é gravado", async () => {
   await expect(createTask(actor, { title: "Sem projeto" } as never)).rejects.toThrow(
     PROJECT_REQUIRED,
   );
-  await expect(createTask(actor, { title: "Vazio", projectId: "" })).rejects.toThrow(
+  await expect(createTask(actor, { title: "Vazio", projectIds: [] })).rejects.toThrow(
     PROJECT_REQUIRED,
   );
-  await expect(
-    updateTask(actor, crypto.randomUUID(), { projectId: null as never }),
-  ).rejects.toThrow();
+  await expect(updateTask(actor, crypto.randomUUID(), { projectIds: [] })).rejects.toThrow();
   expect(await db.$count(tasks)).toBe(before);
 });
 
@@ -86,27 +84,27 @@ it("Projeto/Cliente, UM e etiqueta arquivados são recusados", async () => {
     kind: "client",
   });
   await setProjectArchived(system, p.id, true);
-  await expect(createTask(actor, { title: "x", projectId: p.id })).rejects.toThrow(
+  await expect(createTask(actor, { title: "x", projectIds: [p.id] })).rejects.toThrow(
     "Projeto/Cliente arquivado",
   );
 
-  const um = await createMobileUnit(system, { code: `UM-${run}` });
+  const um = await createMobileUnit(system, { code: `UM-${run}`, projectId });
   await setMobileUnitArchived(system, um.id, true);
-  await expect(createTask(actor, { title: "x", projectId, mobileUnitId: um.id })).rejects.toThrow(
-    "Unidade Móvel arquivado",
-  );
+  await expect(
+    createTask(actor, { title: "x", projectIds: [projectId], mobileUnitIds: [um.id] }),
+  ).rejects.toThrow("Unidade Móvel arquivado");
 
   const l = await createLabel(system, { name: `arq-${run}`, colorToken: "label-blue" });
   await setLabelArchived(system, l.id, true);
-  await expect(createTask(actor, { title: "x", projectId, labelIds: [l.id] })).rejects.toThrow(
-    "Etiqueta arquivada",
-  );
+  await expect(
+    createTask(actor, { title: "x", projectIds: [projectId], labelIds: [l.id] }),
+  ).rejects.toThrow("Etiqueta arquivada");
 });
 
 it("cria no primeiro status `todo`, com checklist e evento `created`", async () => {
   const t = await createTask(actor, {
     title: "Trocar switch",
-    projectId,
+    projectIds: [projectId],
     glpiTicket: "48213",
     checklist: ["Comprar", "Instalar"],
     descriptionJson: {
@@ -125,7 +123,7 @@ it("cria no primeiro status `todo`, com checklist e evento `created`", async () 
 });
 
 it("completedAt ao entrar em `done` e limpo ao sair; complete é idempotente", async () => {
-  const t = await createTask(actor, { title: "Concluir", projectId });
+  const t = await createTask(actor, { title: "Concluir", projectIds: [projectId] });
   const done = await updateTask(actor, t.id, { statusId: status.done });
   expect(done.completedAt).toBeInstanceOf(Date);
   const again = await completeTask(actor, t.id);
@@ -143,7 +141,7 @@ it("completedAt ao entrar em `done` e limpo ao sair; complete é idempotente", a
 });
 
 it("update grava um evento por campo alterado e ignora o que não mudou", async () => {
-  const t = await createTask(actor, { title: "Antes", projectId, priority: "low" });
+  const t = await createTask(actor, { title: "Antes", projectIds: [projectId], priority: "low" });
   await updateTask(actor, t.id, { title: "Depois", priority: "low", glpiTicket: 7 });
   const e = await events(t.id);
   expect(e.slice(1)).toEqual([
@@ -157,9 +155,17 @@ it("update grava um evento por campo alterado e ignora o que não mudou", async 
 });
 
 it("move ordena pela posição fracionária dentro do status", async () => {
-  const a = await createTask(actor, { title: "A", projectId, statusId: status.backlog });
-  const b = await createTask(actor, { title: "B", projectId, statusId: status.backlog });
-  const c = await createTask(actor, { title: "C", projectId, statusId: status.todo });
+  const a = await createTask(actor, {
+    title: "A",
+    projectIds: [projectId],
+    statusId: status.backlog,
+  });
+  const b = await createTask(actor, {
+    title: "B",
+    projectIds: [projectId],
+    statusId: status.backlog,
+  });
+  const c = await createTask(actor, { title: "C", projectIds: [projectId], statusId: status.todo });
   await moveTask(actor, c.id, { statusId: status.backlog, afterTaskId: a.id });
   const order = await db
     .select({ id: tasks.id })
@@ -179,7 +185,7 @@ it("move ordena pela posição fracionária dentro do status", async () => {
 });
 
 it("bulk é tudo ou nada", async () => {
-  const a = await createTask(actor, { title: "Bulk A", projectId });
+  const a = await createTask(actor, { title: "Bulk A", projectIds: [projectId] });
   await expect(
     bulkUpdateTasks(actor, { taskIds: [a.id, crypto.randomUUID()], patch: { priority: "urgent" } }),
   ).rejects.toThrow("Tarefa não encontrada");
@@ -189,8 +195,8 @@ it("bulk é tudo ou nada", async () => {
 });
 
 it("checklist e vínculos (bloqueia ↔ bloqueada por)", async () => {
-  const a = await createTask(actor, { title: "Link A", projectId });
-  const b = await createTask(actor, { title: "Link B", projectId });
+  const a = await createTask(actor, { title: "Link A", projectIds: [projectId] });
+  const b = await createTask(actor, { title: "Link B", projectIds: [projectId] });
   const item = await addChecklistItem(actor, a.id, "Testar");
   await updateChecklistItem(actor, item.id, { done: true });
   await addLink(actor, a.id, { kind: "blocks", target: `TI-${b.number}` });
@@ -211,17 +217,18 @@ it("checklist e vínculos (bloqueia ↔ bloqueada por)", async () => {
   ]);
 });
 
-it("tarefa criada pelo sistema: ator system, criador = responsável padrão", async () => {
-  const userId = (actor as { userId: string }).userId;
-  const p = await createProject(system, {
-    code: letters(),
-    name: "Com responsável",
-    kind: "client",
-    defaultAssigneeId: userId,
+it("tarefa criada pelo sistema: ator system, criador = primeiro admin ativo (ADR-045)", async () => {
+  await createMember(system, {
+    name: "Admin teste",
+    email: `tasks-admin-${run}@t.test`,
+    password: "senha-de-teste-123",
+    role: "admin",
   });
-  const t = await createTask(system, { title: "Pelo sistema", projectId: p.id });
+  const t = await createTask(system, { title: "Pelo sistema", projectIds: [projectId] });
   expect(t.createdVia).toBe("system");
-  expect(t.creatorId).toBe(userId);
+  const [creator] = await db.select().from(user).where(eq(user.id, t.creatorId));
+  expect(creator.role).toBe("admin");
+  expect(creator.banned).not.toBe(true);
   const [e] = await events(t.id);
   expect(e.kind).toBe("system");
 });
@@ -244,37 +251,58 @@ it("docText junta parágrafos", () => {
   ).toBe("ab\nc");
 });
 
-it("responsável padrão: omitido recebe o do projeto; null explícito fica sem (ADR-043)", async () => {
-  const userId = (actor as { userId: string }).userId;
-  const p = await createProject(system, {
-    code: letters(),
-    name: "Padrão",
-    kind: "client",
-    defaultAssigneeId: userId,
-  });
-  const omitted = await createTask(actor, { title: "Omitido", projectId: p.id });
-  expect(omitted.assigneeId).toBe(userId);
-  const none = await createTask(actor, { title: "Ninguém", projectId: p.id, assigneeId: null });
-  expect(none.assigneeId).toBeNull();
+it("sem responsável automático: omitido fica sem responsável (ADR-045)", async () => {
+  const t = await createTask(actor, { title: "Omitido", projectIds: [projectId] });
+  expect(t.assigneeId).toBeNull();
 });
 
-it("UM de outro cliente é recusada na criação e ao trocar o projeto (ADR-043)", async () => {
+it("vários Projetos/Clientes e UMs; UM de projeto não escolhido recusada (ADR-045)", async () => {
   const other = await createProject(system, { code: letters(), name: "Outro", kind: "client" });
+  const mine = await createMobileUnit(system, { code: `UM-P-${run}`, projectId });
   const own = await createMobileUnit(system, { code: `UM-O-${run}`, projectId: other.id });
-  const free = await createMobileUnit(system, { code: `UM-L-${run}` });
-  await expect(createTask(actor, { title: "x", projectId, mobileUnitId: own.id })).rejects.toThrow(
-    `A Unidade Móvel UM-O-${run} pertence a outro Projeto/Cliente`,
+  await expect(
+    createTask(actor, { title: "x", projectIds: [projectId], mobileUnitIds: [own.id] }),
+  ).rejects.toThrow(`A Unidade Móvel UM-O-${run} pertence a outro Projeto/Cliente`);
+  await expect(createMobileUnit(system, { code: `UM-L-${run}` } as never)).rejects.toThrow(
+    "Escolha o Projeto/Cliente da Unidade Móvel", // ADR-044
   );
-  const t = await createTask(actor, { title: "UM livre", projectId, mobileUnitId: free.id });
-  expect(t.mobileUnitId).toBe(free.id);
-  const t2 = await createTask(actor, {
-    title: "UM do outro",
-    projectId: other.id,
-    mobileUnitId: own.id,
+
+  const t = await createTask(actor, {
+    title: "Dois projetos",
+    projectIds: [other.id, projectId],
+    mobileUnitIds: [mine.id, own.id],
   });
-  await expect(updateTask(actor, t2.id, { projectId })).rejects.toThrow("pertence a outro");
-  const moved = await updateTask(actor, t2.id, { projectId, mobileUnitId: null });
+  expect(t.projectId).toBe(other.id); // o primeiro é o principal
+  const d = await getTaskByNumber(actor, t.number);
+  expect(d?.projects.map((p) => p.id)).toEqual([other.id, projectId]);
+  expect(d?.units.map((u) => u.id).sort()).toEqual([mine.id, own.id].sort());
+
+  // remover um projeto que ainda tem UM sua na tarefa é recusado
+  await expect(updateTask(actor, t.id, { projectIds: [projectId] })).rejects.toThrow(
+    `Remova antes a UM UM-O-${run}: ela é do Projeto/Cliente ${other.code}`,
+  );
+  const moved = await updateTask(actor, t.id, {
+    projectIds: [projectId],
+    mobileUnitIds: [mine.id],
+  });
   expect(moved.projectId).toBe(projectId);
+  expect(moved.mobileUnitId).toBe(mine.id);
+  const e = (await events(t.id)).slice(1);
+  expect(e.map((x) => x.type)).toEqual(["projects_changed", "mobile_units_changed"]);
+  expect(e[0].payload).toEqual({
+    from: expect.arrayContaining([other.id, projectId]),
+    to: [projectId],
+  });
+});
+
+it("migração 0007 preenche task_projects de toda tarefa", async () => {
+  const [{ missing }] = (
+    await db.execute<{ missing: number }>(
+      sql`SELECT count(*)::int AS missing FROM tasks t WHERE NOT EXISTS
+        (SELECT 1 FROM task_projects tp WHERE tp.task_id = t.id AND tp.project_id = t.project_id)`,
+    )
+  ).rows;
+  expect(missing).toBe(0);
 });
 
 it("descrição igual não grava nem mexe no updatedAt", async () => {
@@ -282,7 +310,11 @@ it("descrição igual não grava nem mexe no updatedAt", async () => {
     type: "doc",
     content: [{ type: "paragraph", content: [{ type: "text", text: "a" }] }],
   };
-  const t = await createTask(actor, { title: "Desc", projectId, descriptionJson: doc });
+  const t = await createTask(actor, {
+    title: "Desc",
+    projectIds: [projectId],
+    descriptionJson: doc,
+  });
   // mesma descrição com as chaves em outra ordem
   const same = await updateTask(actor, t.id, {
     descriptionJson: {
@@ -295,8 +327,29 @@ it("descrição igual não grava nem mexe no updatedAt", async () => {
 });
 
 it("reordenar no mesmo status atualiza o updatedAt", async () => {
-  await createTask(actor, { title: "Ord A", projectId, statusId: status.backlog });
-  const b = await createTask(actor, { title: "Ord B", projectId, statusId: status.backlog });
+  await createTask(actor, { title: "Ord A", projectIds: [projectId], statusId: status.backlog });
+  const b = await createTask(actor, {
+    title: "Ord B",
+    projectIds: [projectId],
+    statusId: status.backlog,
+  });
   const moved = await moveTask(actor, b.id, { statusId: status.backlog, afterTaskId: null });
   expect(moved.updatedAt.getTime()).toBeGreaterThan(b.updatedAt.getTime());
+});
+
+it("update sem projectIds/mobileUnitIds mantém o principal (M-029)", async () => {
+  const other = await createProject(system, { code: letters(), name: "Segundo", kind: "client" });
+  const u1 = await createMobileUnit(system, { code: `UM-A-${run}`, projectId });
+  const u2 = await createMobileUnit(system, { code: `UM-B-${run}`, projectId: other.id });
+  const t = await createTask(actor, {
+    title: "Principal",
+    projectIds: [other.id, projectId],
+    mobileUnitIds: [u2.id, u1.id],
+  });
+  const titled = await updateTask(actor, t.id, { title: "Principal 2" });
+  expect(titled.projectId).toBe(other.id);
+  expect(titled.mobileUnitId).toBe(u2.id);
+  const units = await updateTask(actor, t.id, { mobileUnitIds: [u1.id, u2.id] });
+  expect(units.projectId).toBe(other.id);
+  expect(units.mobileUnitId).toBe(u1.id); // a lista enviada define a UM principal
 });

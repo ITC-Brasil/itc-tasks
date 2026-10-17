@@ -57,7 +57,6 @@ export async function getTaskFormOptionsAction() {
       id: p.id,
       code: p.code,
       name: p.name,
-      defaultAssigneeId: p.defaultAssigneeId,
     })),
     units: units.map((u) => ({ id: u.id, code: u.code, projectId: u.projectId })),
     statuses: statuses.map((s) => ({ id: s.id, name: s.name, category: s.category })),

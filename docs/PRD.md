@@ -40,7 +40,7 @@ trabalho (ADR-001). Faltam também três coisas que nenhuma ferramenta pronta tr
 ### 4.1 Tarefas (núcleo)
 
 - **T1** Criar tarefa com título, descrição rica, responsável, prioridade (Sem / Baixa / Média / Alta / Urgente), prazo, etiquetas, anexos.
-- **T2** Campos ITC: **Projeto/Cliente obrigatório**, Unidade Móvel opcional, Chamado GLPI opcional (número; link automático).
+- **T2** Campos ITC: **um ou mais Projetos/Clientes (pelo menos um obrigatório)**, nenhuma ou várias Unidades Móveis (cada UM de um dos projetos da tarefa), Chamado GLPI opcional (número; link automático) (ADR-045).
 - **T3** Subtarefas como checklist com responsável opcional e progresso (ADR-019).
 - **T4** Vínculos "bloqueia / bloqueada por" e "relacionada".
 - **T5** Comentários com @menção; histórico de alterações mostrando pessoa, agente ou automação.
@@ -82,8 +82,8 @@ trabalho (ADR-001). Faltam também três coisas que nenhuma ferramenta pronta tr
 
 ### 4.6 Cadastros
 
-- **C1** Projetos/Clientes: nome, sigla única (2–4 letras), tipo (Cliente / Projeto interno), responsável padrão, entidade no GLPI, ativo/arquivado.
-- **C2** Unidades Móveis: código único, modelo, placa, base, cliente, ativa/arquivada, contagem de tarefas abertas.
+- **C1** Projetos/Clientes: nome, sigla única (2 a 12 letras ou números), tipo (Projeto / Cliente / Interno), entidade no GLPI, ativo/arquivado (ADR-044). Sem responsável padrão: o responsável é escolhido por quem cria a tarefa (ADR-045).
+- **C2** Unidades Móveis: código único, modelo, placa, base, Projeto/Cliente (obrigatório, ADR-044), ativa/arquivada, contagem de tarefas abertas.
 - **C3** Etiquetas com cor dos tokens. **C4** Membros (admin cria, desativa, troca papel).
 
 ### 4.7 Agentes (MCP)

@@ -43,8 +43,8 @@ input: {
   query?: string;                 // busca em título/descrição; "#48213" busca por GLPI
   status?: string[];              // nomes de status
   category?: ('backlog'|'todo'|'in_progress'|'done')[];
-  project?: string;               // código, ex. "TRL"
-  mobileUnit?: string;            // "UM-07"
+  project?: string;               // código, ex. "TRL"; casa com qualquer projeto da tarefa (task_projects)
+  mobileUnit?: string;            // "UM-07"; casa com qualquer UM da tarefa (task_mobile_units)
   assignee?: string | 'me' | 'none';
   cycle?: 'current' | number;
   dueBefore?: string;             // YYYY-MM-DD
@@ -53,8 +53,8 @@ input: {
   cursor?: string;
 }
 output: { tasks: TaskSummary[]; nextCursor?: string }
-TaskSummary = { id: "TI-142", title, status, category, priority, project: "TRL",
-                mobileUnit?: "UM-07", glpiTicket?: 48213, assignee?: email,
+TaskSummary = { id: "TI-142", title, status, category, priority, projects: ["TRL"],
+                mobileUnits: ["UM-07"], glpiTicket?: 48213, assignee?: email,
                 dueDate?: "2026-10-16", url }
 ```
 
@@ -82,12 +82,12 @@ output: TaskSummary & { description: string /* markdown */, checklist: { text, d
 ```ts
 input: {
   title: string;                  // 1–200
-  project: string;                // OBRIGATÓRIO, código ativo
+  projectIds: string[];           // OBRIGATÓRIO, 1–10 códigos ativos; o primeiro é o principal (ADR-045)
   description?: string;           // markdown → Tiptap JSON
   status?: string;                // padrão: primeiro status de categoria 'todo'
   priority?: 'none'|'low'|'medium'|'high'|'urgent';
   assignee?: string | 'me';
-  mobileUnit?: string;
+  mobileUnitIds?: string[];       // até 20; cada UM de um dos projetos da tarefa
   glpiTicket?: number;            // inteiro positivo, até 7 dígitos
   dueDate?: string;               // YYYY-MM-DD
   cycle?: 'current' | number;
@@ -96,7 +96,7 @@ input: {
 }
 output: TaskSummary
 ```
-Erro esperado sem `project`: `VALIDATION` — "Escolha um Projeto/Cliente para criar a tarefa."
+Erro esperado sem `projectIds` (ou lista vazia): `VALIDATION` — "Escolha um Projeto/Cliente para criar a tarefa."
 
 #### `update_task`
 ```ts
@@ -105,7 +105,7 @@ input: { id: string | number } & Partial<Omit<CreateTaskInput, never>> & {
 }
 output: TaskSummary
 ```
-Só os campos enviados mudam. `project: null` é recusado (`VALIDATION`).
+Só os campos enviados mudam. `projectIds: []` é recusado (`VALIDATION`); UM de projeto que não está na tarefa e remoção de projeto que ainda tem UM sua na tarefa também (ADR-045).
 
 #### `complete_task`
 `input: { id, comment?: string }` → move para o primeiro status de categoria `done`; idempotente.

@@ -11,7 +11,18 @@ const optional = <T extends z.ZodType>(schema: T) =>
   z.preprocess((v) => (v === "" ? null : v), schema.nullable()).optional();
 
 const title = z.string().trim().min(1, "Informe o título").max(200, "Até 200 caracteres");
-const projectId = z.uuid(PROJECT_REQUIRED);
+// ADR-045: vários Projetos/Clientes (o primeiro é o principal) e várias UMs; sem repetição
+const uniqueIds = (max: number) =>
+  z
+    .array(uuid)
+    .max(max)
+    .transform((ids) => [...new Set(ids)]);
+const projectIds = z
+  .preprocess(
+    (v) => v ?? [],
+    z.array(z.uuid(PROJECT_REQUIRED)).min(1, PROJECT_REQUIRED).max(10, "Até 10 Projetos/Clientes"),
+  )
+  .transform((ids) => [...new Set(ids)]);
 const glpiTicket = z.coerce
   .number()
   .int("Chamado GLPI é um número inteiro")
@@ -23,11 +34,10 @@ const descriptionJson = z.object({ type: z.literal("doc") }).loose();
 
 const fields = {
   title,
-  projectId,
   statusId: optional(uuid),
   priority: z.enum(PRIORITIES).default("none"),
   assigneeId: optional(z.string().min(1)),
-  mobileUnitId: optional(uuid),
+  mobileUnitIds: uniqueIds(20).default([]),
   glpiTicket: optional(glpiTicket),
   dueDate: optional(dueDate),
   descriptionJson: optional(descriptionJson),
@@ -36,15 +46,21 @@ const fields = {
 
 export const createTaskSchema = z.object({
   ...fields,
-  projectId: z.preprocess((v) => v ?? "", projectId),
+  projectIds,
   checklist: z.array(z.string().trim().min(1).max(200)).max(50).default([]),
 });
 export type CreateTaskInput = z.input<typeof createTaskSchema>;
 
-// só os campos enviados mudam; projectId presente nunca é null (API.md › update_task)
+// só os campos enviados mudam; projectIds presente tem ao menos um (API.md › update_task)
 export const updateTaskSchema = z
   .object({
     ...fields,
+    projectIds: z
+      .array(uuid)
+      .min(1, "A tarefa precisa de pelo menos um Projeto/Cliente")
+      .max(10, "Até 10 Projetos/Clientes")
+      .transform((ids) => [...new Set(ids)]),
+    mobileUnitIds: uniqueIds(20),
     priority: z.enum(PRIORITIES),
     labelIds: z.array(uuid).max(20),
   })

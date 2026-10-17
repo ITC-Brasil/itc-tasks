@@ -31,14 +31,17 @@ const variant = (n: number) =>
   code.slice(0, 3) + String.fromCharCode(65 + ((code.charCodeAt(3) - 65 + n) % 26));
 const ids = (rows: { id: string }[]) => rows.map((r) => r.id);
 
-it("sigla é única sem diferenciar maiúsculas e tem 2 a 4 letras", async () => {
+it("sigla é única sem diferenciar maiúsculas e tem 2 a 12 letras ou números (ADR-044)", async () => {
   const p = await createProject(admin, { code: code.toLowerCase(), name: "Teste", kind: "client" });
   expect(p.code).toBe(code);
   await expect(createProject(admin, { code, name: "Outro", kind: "internal" })).rejects.toThrow(
     new CatalogError(`Já existe um Projeto/Cliente com a sigla ${code}`),
   );
-  await expect(createProject(admin, { code: "A1", name: "Ruim", kind: "client" })).rejects.toThrow(
-    "A sigla tem de 2 a 4 letras",
+  const long = await createProject(admin, { code: `${code}01x`, name: "Longa", kind: "project" });
+  expect(long.code).toBe(`${code}01X`);
+  expect(long.kind).toBe("project");
+  await expect(createProject(admin, { code: "A-1", name: "Ruim", kind: "client" })).rejects.toThrow(
+    "A sigla tem de 2 a 12 letras ou números",
   );
 });
 

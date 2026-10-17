@@ -4,7 +4,7 @@ ITC Tasks é o gestor de tarefas do dia a dia do time de TI do Grupo ITC Brasil 
 substituto do Windshift. Toda tarefa tem Projeto/Cliente (obrigatório), Unidade Móvel e
 Chamado GLPI (opcionais), e agentes operam o app por um servidor MCP embutido em `/mcp`.
 
-**Estado:** Módulo 04 pronto para revisão em 17/10/2026 (Módulos 00 a 02 na `main`, 03 no PR #3). Próximo: Módulo 05, após a aprovação.
+**Estado:** Módulos 00 a 04 na `main`; M-024/M-026 (cadastros reais, vários Projetos/Clientes por tarefa) em revisão em 17/10/2026. Próximo: Módulo 05, após a aprovação.
 
 ## Stack (versões exatas — após o scaffold, a fonte é o `package.json`)
 
@@ -27,7 +27,7 @@ Chamado GLPI (opcionais), e agentes operam o app por um servidor MCP embutido em
 ## Regras invioláveis
 
 - **Toda escrita passa por `src/server/services/`** com um `Actor` (`user` | `agent` | `automation` | `system`). Server Actions e ferramentas MCP só validam, chamam o service e mapeiam erros (ADR-003).
-- **Projeto/Cliente é obrigatório** em toda tarefa — no banco (`NOT NULL`), no Zod e no service. Vale para UI e MCP.
+- **Projeto/Cliente é obrigatório** em toda tarefa (pelo menos um; vários em `task_projects`, ADR-045) — no banco (`NOT NULL` no principal), no Zod e no service. Vale para UI e MCP.
 - **Cadastros nunca são excluídos**, só arquivados (`archivedAt`) (ADR-018).
 - **Zod no servidor sempre**, schemas em `src/lib/validation/` (ADR-006).
 - **`task_events` é só-inserção**; toda escrita grava um evento com o `Actor`.
