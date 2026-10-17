@@ -1,2 +1,2 @@
-// Schemas por domínio entram aqui a partir do Módulo 01 (docs/SCHEMA.md).
-export {};
+// Schemas por domínio (docs/SCHEMA.md). auth.ts é gerado pelo CLI do Better Auth.
+export * from "./auth";
