@@ -104,7 +104,9 @@ test("Kanban move o card, filtros vão para a URL e a Lista atualiza em massa", 
     .getByRole("listitem")
     .filter({ has: page.getByRole("link", { name: title }) })
     .getByRole("button", { name: /^Mover TI-/ });
-  await handle.scrollIntoViewIfNeeded();
+  // no centro: com scrollIntoViewIfNeeded a alça podia ficar colada no topo (y≈20) e o arrasto
+  // na mesma altura passava pelo cabeçalho da coluna, fora da lista onde se solta (M-039)
+  await handle.evaluate((el) => el.scrollIntoView({ block: "center" }));
   const from = (await handle.boundingBox())!;
   const to = (await done.getByRole("list").boundingBox())!; // a lista ocupa a altura da coluna
   await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
