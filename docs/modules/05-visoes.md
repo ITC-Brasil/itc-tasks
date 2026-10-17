@@ -38,6 +38,13 @@ PRD V1 a V5: Minhas tarefas, Kanban, Lista com ações em massa, Calendário men
 ### Correção de acessibilidade (`src/components/layout/app-shell.tsx`)
 O link do lockup tinha `aria-label="ITC Tasks, início"` sobre o texto visível "ITC"/"Tasks", o que o axe acusa como `label-content-name-mismatch`. Agora o nome vem do texto visível + `sr-only` ", início". Era a causa do "axe intermitente em `/config/projetos`" da M-029, junto com o limite de 30 s (abaixo).
 
+## Ajustes da revisão (M-034)
+
+- **ADR-047** (complementa o ADR-046), antes do código: `listTasks` faz duas consultas — abertas sem limite e concluídas por `completed_at desc` com `LIST_LIMIT` (1 000) — e junta por `position`. Opção `recentDone` (Kanban, via `loadView(searchParams, { recentDone: true })`) só traz concluídas com `completed_at` nos últimos 14 dias; Lista, Calendário e o filtro de status mostram todas.
+- `LimitNotice` em `src/components/tasks/no-results.tsx`: quando `truncated`, "Mostrando as primeiras 1.000 tarefas concluídas; refine os filtros para ver as demais." nas três visões.
+- Migração `drizzle/0009_saved_filters_user_idx.sql`: `CREATE INDEX "saved_filters_user_idx" ON "saved_filters" ("user_id")`.
+- Testes em `tests/integration/views.test.ts`: concluída há 15 dias fora do Kanban e presente na Lista; com `doneLimit: 1`, as duas abertas vêm inteiras, só a concluída mais recente entra e `truncated` é `true`.
+
 ## Verificação
 
 | Cenário | Como | Resultado |
@@ -54,6 +61,7 @@ O link do lockup tinha `aria-label="ITC Tasks, início"` sobre o texto visível 
 | Lista: seleção em massa → status (limpeza) e prioridade | idem | ✅ "1 tarefa atualizada" |
 | axe claro e escuro no Kanban e na Lista | idem | ✅ |
 | Suíte | `npm test` / `npx playwright test` | ✅ Vitest 46; E2E 19 passaram, 11 pulados (mobile), 4 rodadas seguidas |
+| Após a M-034 | idem | ✅ Vitest 48; E2E 19 |
 | `npm run lint` / `npm run typecheck` | — | ✅ 0 erros (1 aviso antigo em `tasks.test.ts`) |
 
 ## Commits
@@ -67,6 +75,16 @@ cfc771c feat(board): add kanban
 93dcec5 feat(tasks): add calendar view
 6a08db8 feat(tasks): add my tasks
 c40e4b7 test(e2e): cover board and list
+4940677 docs: document module 05 views and filters
+```
+
+Revisão (M-034):
+
+```
+f9b4728 docs(adr): add adr-047 recent done tasks and done-only limit
+add86f7 feat(tasks): limit only done tasks and keep 14 days of done on kanban
+4e1403f feat(tasks): warn when done tasks hit the list limit
+90c4512 perf(db): index saved_filters by user
 ```
 
 ## Ficou de fora
@@ -84,4 +102,4 @@ c40e4b7 test(e2e): cover board and list
 - **Card não é o arrastável:** um `li` com `role="button"` contendo o link do título viola `nested-interactive`/`aria-allowed-role`. Por isso a alça separada.
 - **Teclado:** a seta escolhe o alvo mais próximo, que pode ser um card de outra coluna e não a coluna vazia do lado.
 - **E2E no banco de dev:** os testes acumulam tarefas "E2E visão" no QMPR; o teste joga as antigas para o Backlog antes de arrastar. `test.slow()` em `catalog`, `tasks` e `views`: com os workers em paralelo e o `next dev`, esses fluxos passavam de 30 s.
-- `listTasks` corta em 1 000 linhas sem aviso na tela; suficiente para 4 pessoas.
+- `listTasks` devolve `{ tasks, truncated }`: abertas nunca são cortadas; o limite de 1 000 vale só para as concluídas (ADR-047).

@@ -16,6 +16,7 @@
 
 | Data | Módulo | Resumo |
 |---|---|---|
+| 2026-10-17 | 05 — Revisão | Ajustes de M-034: ADR-047 (limite de 1 000 só nas concluídas, abertas nunca cortadas; Kanban com concluídas dos últimos 14 dias), aviso de limite nas visões, índice `saved_filters_user_idx` (`0009`). Vitest 48, E2E 19. |
 | 2026-10-17 | 05 — Visões e filtros | ADR-046 (filtros na URL, `listTasks` único, `saved_filters` em `0008_saved_filters`). Kanban com `@dnd-kit/react` + `@dnd-kit/helpers` 0.5.1 e alça por card; Lista com TanStack Table 9.3.1 e ações em massa; Calendário mensal; Minhas tarefas por prazo. Axe intermitente da M-029: `label-content-name-mismatch` no lockup + limite de 30 s. Vitest 46, E2E 19. Detalhes: `docs/modules/05-visoes.md`. |
 | 2026-10-17 | 04 — M-029 | `applyUpdate` só recalcula o projeto/UM principal quando `projectIds`/`mobileUnitIds` vêm no patch (antes, `linkedIds()` sem ordem podia trocar o principal em silêncio). Vitest 39. |
 | 2026-10-17 | 04 — M-024/M-026 | ADR-044 (sigla 2–12, tipo `project`, UM com Projeto/Cliente, seed dos 9 cadastros e 12 UMs reais) e ADR-045 (sem responsável automático; `task_projects`/`task_mobile_units` com cópia das tarefas existentes; `projectIds`/`mobileUnitIds`; UM sempre de um dos projetos da tarefa). Vitest 38, E2E 18. |
