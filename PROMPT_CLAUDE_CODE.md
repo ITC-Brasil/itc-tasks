@@ -185,10 +185,10 @@ Sequencial, um módulo por vez. Cada módulo começa numa sessão nova do Claude
 - [x] SSE `/api/events` com heartbeat de 25 s — `feat(realtime): add server-sent events`
 
 ### Módulo 07 — Servidor MCP
-- [ ] `/mcp` com SDK 1.32.1, autenticação por API key, rate limit 60/min — `feat(mcp): add mcp server`
-- [ ] Ferramentas de `docs/API.md` sobre os services — `feat(mcp): add task tools`
-- [ ] Configurações › Agentes e MCP (criar, exibir uma vez, revogar, atividade) — `feat(settings): add agents screen`
-- [ ] Testes: token só-leitura não escreve; token revogado → 401; `create_task` sem project → `VALIDATION` — `test(mcp): cover permissions and validation`
+- [x] `/mcp` com SDK 1.32.1, autenticação por API key, rate limit 60/min — `feat(mcp): add mcp server`
+- [x] Ferramentas de `docs/API.md` sobre os services — `feat(mcp): add task tools`
+- [x] Configurações › Agentes e MCP (criar, exibir uma vez, revogar, atividade) — `feat(settings): add agents screen`
+- [x] Testes: token só-leitura não escreve; token revogado → 401; `create_task` sem project → `VALIDATION` — `test(mcp): cover permissions and validation`
 
 ### Módulo 08 — Notificações
 - [ ] Worker pg-boss (`worker/index.ts`) e fila `notification.fanout` — `feat(jobs): add worker`

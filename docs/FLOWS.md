@@ -173,7 +173,7 @@ sequenceDiagram
   BA-->>UI: chave em texto UMA vez (hash salvo)
   UI-->>U: "Copie agora: ele não será mostrado de novo."
   U->>UI: Revogar
-  UI->>BA: deleteApiKey(id)
+  UI->>BA: desativa (enabled = false, ADR-049)
   Note over BA: próxima chamada ao /mcp com essa chave → 401
 ```
 
