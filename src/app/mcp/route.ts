@@ -3,7 +3,6 @@ import { createMcpServer } from "@/server/mcp";
 import { agentFromKey } from "@/server/services/agents";
 
 // ADR-049: Streamable HTTP sem sessão; um servidor por requisição
-export const dynamic = "force-dynamic";
 
 const json = (status: number, message: string, headers: Record<string, string> = {}) =>
   Response.json({ error: message }, { status, headers });
