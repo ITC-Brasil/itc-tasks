@@ -19,6 +19,7 @@ import {
 } from "@/db/schema";
 import {
   type CreateTaskInput,
+  type TaskFilters,
   type UpdateTaskInput,
   bulkUpdateSchema,
   checklistItemSchema,
@@ -27,6 +28,7 @@ import {
   linkSchema,
   moveTaskSchema,
   taskTemplatePayloadSchema,
+  taskFiltersSchema,
   updateTaskSchema,
 } from "@/lib/validation/tasks";
 import type { Actor } from "@/server/actor";
@@ -698,3 +700,115 @@ export async function listTaskTemplates() {
     return payload.success ? [{ id: t.id, name: t.name, payload: payload.data }] : [];
   });
 }
+
+// ── Visões (ADR-046) ────────────────────────────────────────────────
+
+const LIST_LIMIT = 1000;
+
+/** Kanban, Lista, Calendário e Minhas tarefas: tarefas não arquivadas que passam nos filtros. */
+export async function listTasks(
+  _actor: Actor,
+  input: Partial<TaskFilters>,
+  scope: { assigneeId?: string; creatorId?: string; openOnly?: boolean } = {},
+) {
+  const f = taskFiltersSchema.parse(input);
+  const any = <T>(ids: T[], cond: (ids: T[]) => ReturnType<typeof inArray>) =>
+    ids.length ? cond(ids) : undefined;
+  const rows = await db
+    .select({
+      id: tasks.id,
+      number: tasks.number,
+      title: tasks.title,
+      priority: tasks.priority,
+      statusId: tasks.statusId,
+      category: workflowStatuses.category,
+      position: tasks.position,
+      dueDate: tasks.dueDate,
+      glpiTicket: tasks.glpiTicket,
+      assigneeId: tasks.assigneeId,
+      assigneeName: assignee.name,
+      assigneeInitials: assignee.initials,
+      updatedAt: tasks.updatedAt,
+    })
+    .from(tasks)
+    .innerJoin(workflowStatuses, eq(workflowStatuses.id, tasks.statusId))
+    .leftJoin(assignee, eq(assignee.id, tasks.assigneeId))
+    .where(
+      and(
+        isNull(tasks.archivedAt),
+        any(f.statusIds, (ids) => inArray(tasks.statusId, ids)),
+        any(f.assigneeIds, (ids) => inArray(tasks.assigneeId, ids)),
+        any(f.priorities, (ids) => inArray(tasks.priority, ids)),
+        // ADR-045: qualquer vínculo, não só o principal
+        any(f.projectIds, (ids) =>
+          inArray(
+            tasks.id,
+            db
+              .select({ id: taskProjects.taskId })
+              .from(taskProjects)
+              .where(inArray(taskProjects.projectId, ids)),
+          ),
+        ),
+        any(f.mobileUnitIds, (ids) =>
+          inArray(
+            tasks.id,
+            db
+              .select({ id: taskMobileUnits.taskId })
+              .from(taskMobileUnits)
+              .where(inArray(taskMobileUnits.mobileUnitId, ids)),
+          ),
+        ),
+        any(f.labelIds, (ids) =>
+          inArray(
+            tasks.id,
+            db
+              .select({ id: taskLabels.taskId })
+              .from(taskLabels)
+              .where(inArray(taskLabels.labelId, ids)),
+          ),
+        ),
+        scope.assigneeId ? eq(tasks.assigneeId, scope.assigneeId) : undefined,
+        scope.creatorId ? eq(tasks.creatorId, scope.creatorId) : undefined,
+        scope.openOnly ? ne(workflowStatuses.category, "done") : undefined,
+      ),
+    )
+    .orderBy(asc(tasks.position))
+    .limit(LIST_LIMIT);
+  if (rows.length === 0) return [];
+
+  const ids = rows.map((r) => r.id);
+  const [projectRows, unitRows, labelRows] = await Promise.all([
+    db
+      .select({
+        taskId: taskProjects.taskId,
+        id: projects.id,
+        code: projects.code,
+        name: projects.name,
+      })
+      .from(taskProjects)
+      .innerJoin(projects, eq(projects.id, taskProjects.projectId))
+      .where(inArray(taskProjects.taskId, ids))
+      .orderBy(asc(projects.code)),
+    db
+      .select({ taskId: taskMobileUnits.taskId, code: mobileUnits.code })
+      .from(taskMobileUnits)
+      .innerJoin(mobileUnits, eq(mobileUnits.id, taskMobileUnits.mobileUnitId))
+      .where(inArray(taskMobileUnits.taskId, ids))
+      .orderBy(asc(mobileUnits.code)),
+    db
+      .select({ taskId: taskLabels.taskId, name: labels.name, colorToken: labels.colorToken })
+      .from(taskLabels)
+      .innerJoin(labels, eq(labels.id, taskLabels.labelId))
+      .where(inArray(taskLabels.taskId, ids))
+      .orderBy(asc(labels.name)),
+  ]);
+  const by = <T extends { taskId: string }>(list: T[], id: string) =>
+    list.filter((r) => r.taskId === id);
+  return rows.map((r) => ({
+    ...r,
+    projects: by(projectRows, r.id),
+    units: by(unitRows, r.id).map((u) => u.code),
+    labels: by(labelRows, r.id),
+  }));
+}
+export type TaskRow = Awaited<ReturnType<typeof listTasks>>[number];

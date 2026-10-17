@@ -54,3 +54,15 @@ export const templates = pgTable("templates", {
     .references(() => user.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ADR-046: filtros salvos por pessoa; `filters` = query string validada por taskFiltersSchema
+export const savedFilters = pgTable("saved_filters", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  view: text("view").notNull(), // 'kanban' | 'list' | 'calendar'
+  filters: jsonb("filters").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});

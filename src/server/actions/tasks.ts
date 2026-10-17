@@ -14,14 +14,17 @@ import {
   TaskError,
   addChecklistItem,
   addLink,
+  bulkUpdateTasks,
   createTask,
   listAssignees,
   listTaskTemplates,
+  moveTask,
   removeChecklistItem,
   removeLink,
   updateChecklistItem,
   updateTask,
 } from "@/server/services/tasks";
+import { createSavedFilter, deleteSavedFilter } from "@/server/services/saved-filters";
 
 export type TaskResult<T = undefined> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -120,4 +123,27 @@ export async function setLinkAction(
     const id = taskIdSchema.parse(taskId); // id inválido vira { ok: false }, não exceção
     return linked ? addLink(actor, id, input) : removeLink(actor, id, input);
   }, detail(number));
+}
+
+export async function moveTaskAction(
+  taskId: string,
+  input: { statusId: string; afterTaskId: string | null },
+) {
+  const actor = await requireActor();
+  return run(() => moveTask(actor, taskIdSchema.parse(taskId), input).then(() => undefined));
+}
+
+export async function bulkUpdateTasksAction(input: { taskIds: string[]; patch: UpdateTaskInput }) {
+  const actor = await requireActor();
+  return run(() => bulkUpdateTasks(actor, input).then((t) => t.length));
+}
+
+export async function createSavedFilterAction(input: unknown) {
+  const actor = await requireActor();
+  return run(() => createSavedFilter(actor, input).then((f) => f.id));
+}
+
+export async function deleteSavedFilterAction(id: string) {
+  const actor = await requireActor();
+  return run(() => deleteSavedFilter(actor, taskIdSchema.parse(id)));
 }
