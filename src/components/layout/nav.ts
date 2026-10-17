@@ -17,7 +17,7 @@ export const NAV: NavGroup[] = [
     label: "Configurar",
     items: [
       {
-        href: "/config/membros",
+        href: "/config/projetos",
         label: "Configurações",
         icon: Settings,
         match: "/config",

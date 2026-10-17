@@ -156,11 +156,11 @@ Sequencial, um módulo por vez. Cada módulo começa numa sessão nova do Claude
 - [ ] Empty, loading e error padrão — `feat(ui): add state components`
 
 ### Módulo 03 — Cadastros
-- [ ] Schema `catalog.ts` + seed de status e etiquetas — `feat(db): add catalog schema`
-- [ ] `catalogService` com arquivamento (ADR-018) — `feat(catalog): add catalog service`
-- [ ] Telas Projetos/Clientes e Unidades Móveis — `feat(catalog): add projects and mobile units screens`
-- [ ] Configurações › Workflow e Etiquetas — `feat(settings): add workflow and labels`
-- [ ] Testes: sigla única, arquivado fora dos seletores — `test(catalog): cover archiving rules`
+- [x] Schema `catalog.ts` + seed de status e etiquetas — `feat(db): add catalog schema`
+- [x] `catalogService` com arquivamento (ADR-018) — `feat(catalog): add catalog service`
+- [x] Telas Projetos/Clientes e Unidades Móveis — `feat(catalog): add projects and mobile units screens`
+- [x] Configurações › Workflow e Etiquetas — `feat(settings): add workflow and labels`
+- [x] Testes: sigla única, arquivado fora dos seletores — `test(catalog): cover archiving rules`
 
 ### Módulo 04 — Tarefas: núcleo
 - [ ] Schema `tasks.ts` (tasks, checklist, links, labels, events, comments, attachments) — `feat(db): add tasks schema`

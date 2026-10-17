@@ -4,9 +4,9 @@
 
 > Sobrescrito a cada passagem de sessão. Não é registro permanente.
 
-- **Fase:** Módulo 02 — Layout, navegação e tema aprovado com ajustes (M-014), ajustes aplicados em 17/10/2026, na `develop`. Módulos 00 e 01 na `main` (PR #1).
-- **Próximo passo:** revisão do Cowork; depois, Módulo 03 — Cadastros.
-- **Prontos:** Next 16.4.2 standalone, tokens do Design System, 10 componentes base em Base UI, Drizzle com a migração base, env tipado, Vitest/Playwright/ESLint/Prettier, CI (Quality Check + Gitleaks) verde no GitHub, Dockerfile e `docker-compose.yml` de produção, `/api/health`; Better Auth com Argon2id, tela Entrar, `requireActor()`, seed do admin (`npm run db:seed`), Configurações › Membros; shell com sidebar/trilho/barra inferior, tema claro/escuro salvo no usuário, atalhos `[` e `?`, estados vazio/carregando/erro.
+- **Fase:** Módulo 03 — Cadastros, ajustes da M-018 aplicados em 17/10/2026, na `develop`. Módulos 00 a 02 na `main` (PRs #1 e #2).
+- **Próximo passo:** revisão do Cowork; depois, Módulo 04 — Tarefas: núcleo.
+- **Prontos:** Next 16.4.2 standalone, tokens do Design System, 10 componentes base em Base UI, Drizzle com a migração base, env tipado, Vitest/Playwright/ESLint/Prettier, CI (Quality Check + Gitleaks) verde no GitHub, Dockerfile e `docker-compose.yml` de produção, `/api/health`; Better Auth com Argon2id, tela Entrar, `requireActor()`, seed do admin (`npm run db:seed`), Configurações › Membros; shell com sidebar/trilho/barra inferior, tema claro/escuro salvo no usuário, atalhos `[` e `?`, estados vazio/carregando/erro; cadastros (Projetos/Clientes, UMs, Workflow, Etiquetas) com arquivamento.
 - **Proteção da `main`:** por disciplina e hook local (ADR-034); depois de clonar, `git config core.hooksPath .githooks`.
 - **Backup:** não definido por decisão de 17/10/2026 (`docs/INFRA.md` §9); migrações só aditivas até lá.
 - **Pendências externas:** criar a caixa `tasks@itcbr.xyz` no Titan e
@@ -16,6 +16,8 @@
 
 | Data | Módulo | Resumo |
 |---|---|---|
+| 2026-10-17 | 03 — Revisão | Ajustes de M-018: paleta própria das etiquetas (ADR-041, 7 tokens `--label-*`, migração `0004_label_palette` que só renomeia o token); seed de etiquetas só com a tabela vazia; `seed.mjs` regravado com LF. Decisões do Matheus: categoria do status imutável; cadastros só para admin. Processo: ADR antes do código a partir do Módulo 04. |
+| 2026-10-17 | 03 — Cadastros | `catalog.ts` + `0003_catalog`; seed de status, etiquetas e "A classificar"; `catalogService`; telas em `/config/*` com abas. ADR-040 (normalização, categoria fixa, um status ativo por categoria), escrito no fechamento, depois do código. Detalhes: `docs/modules/03-cadastros.md`. |
 | 2026-10-17 | 02 — Revisão | Ajustes de M-014: falha ao salvar preferência desfaz a mudança e mostra toast (`savePreference`); `Esc` fecha a sidebar sobreposta no tablet e devolve o foco. Decisões do Matheus: "Criar tarefa" desabilitado até o Módulo 04; Configurações só para admin até existir "Minhas preferências". |
 | 2026-10-17 | 02 — Layout, navegação e tema | Shell (`src/components/layout/`): sidebar 236/64 px salva em `user.sidebarCollapsed`, sobreposta em 768–1023 px, barra inferior < 768 px; `next-themes` com sincronização de `user.theme` (ADR-038); `useShortcut` + diálogo `?`; EmptyState, Skeleton, Avatar, `loading`/`error`/`not-found`; contraste do escuro (ADR-039). As três primeiras tarefas do módulo saíram num só commit (o shell, o tema e os atalhos dependem um do outro). Detalhes: `docs/modules/02-layout.md`. |
 | 2026-10-17 | 01 — Revisão | Ajustes de M-007: redefinir senha pelo admin (encerra sessões), `MemberError` para membro inexistente e para e-mail duplicado em corrida, IP do cliente por `cf-connecting-ip`/`x-forwarded-for` no rate limit. E2E fora do CI até o Módulo 11 (aceito na M-007); os testes de integração de auth rodam no Quality Check (`npm run test:coverage`). |

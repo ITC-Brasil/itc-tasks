@@ -1,5 +1,5 @@
 // Seed idempotente (docs/SCHEMA.md "Seed planejado"). JS puro para rodar igual no dev e no
-// container (copiado para dist/seed.mjs). Módulo 01: só o primeiro admin.
+// container (copiado para dist/seed.mjs).
 import { randomUUID } from "node:crypto";
 import { hash } from "@node-rs/argon2";
 import pg from "pg";
@@ -37,6 +37,24 @@ try {
       [randomUUID(), userId, password],
     );
   }
+  // status e etiquetas só na primeira vez: depois são do admin (renomear, arquivar, reordenar)
+  await client.query(
+    `INSERT INTO workflow_statuses (name, category, position)
+     SELECT * FROM (VALUES ('Backlog', 'backlog'::status_category, 1), ('A fazer', 'todo', 2),
+       ('Em andamento', 'in_progress', 3), ('Concluído', 'done', 4)) v
+     WHERE NOT EXISTS (SELECT 1 FROM workflow_statuses)`,
+  );
+  await client.query(
+    `INSERT INTO labels (name, color_token)
+     SELECT * FROM (VALUES ('rede', 'label-blue'), ('hardware', 'label-plum'),
+       ('segurança', 'label-rose'), ('campo', 'label-teal')) v
+     WHERE NOT EXISTS (SELECT 1 FROM labels)`,
+  );
+  // destino das tarefas do Windshift sem projeto identificável (PRD §9)
+  await client.query(
+    `INSERT INTO projects (code, name, kind) VALUES ('ACL', 'A classificar', 'internal')
+     ON CONFLICT (code) DO NOTHING`,
+  );
   await client.query("COMMIT");
   console.log(
     rowCount ? `Admin ${SEED_ADMIN_EMAIL} criado.` : `Admin ${SEED_ADMIN_EMAIL} já existe.`,

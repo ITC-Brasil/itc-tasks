@@ -33,6 +33,14 @@
   --err: #c0392b;
   --info: #1565c0;
   --sev-medium: #c9a227;
+  /* ADR-041: etiquetas, nunca para estado; ponto >= 4,6:1 sobre bg-surface */
+  --label-teal: #1f7f6b;
+  --label-blue: #3d5bd9;
+  --label-plum: #8a3f8f;
+  --label-rose: #c02a5e;
+  --label-olive: #6a7a1c;
+  --label-brown: #9a5a2c;
+  --label-slate: #5b6b7b;
   --shadow-1: 0 1px 2px rgba(26, 32, 32, 0.06);
   --shadow-2: 0 10px 34px rgba(26, 32, 32, 0.09);
 }
@@ -62,6 +70,13 @@
   --err: #d75a4a;
   --info: #4b93db;
   --sev-medium: #c9a227;
+  --label-teal: #4fb89e;
+  --label-blue: #7f96f2;
+  --label-plum: #c483c9;
+  --label-rose: #ec7099;
+  --label-olive: #a9ba4c;
+  --label-brown: #d18d5c;
+  --label-slate: #9aa9b8;
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.35);
   --shadow-2: 0 12px 42px rgba(0, 0, 0, 0.5);
 }
@@ -88,6 +103,13 @@
   --color-on-accent-dark: var(--on-accent-dark);
   --color-on-err: var(--on-err);
   --color-bordo: var(--bordo);
+  --color-label-teal: var(--label-teal);
+  --color-label-blue: var(--label-blue);
+  --color-label-plum: var(--label-plum);
+  --color-label-rose: var(--label-rose);
+  --color-label-olive: var(--label-olive);
+  --color-label-brown: var(--label-brown);
+  --color-label-slate: var(--label-slate);
   --color-ok: var(--ok);
   --color-warn: var(--warn);
   --color-err: var(--err);
