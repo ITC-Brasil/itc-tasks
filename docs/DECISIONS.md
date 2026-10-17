@@ -608,7 +608,9 @@ Adotar no ITC Tasks o mesmo fluxo: branches `feat/…` → `develop` → `main` 
 - Manter CodeQL — indisponível sem custo para repositório privado.
 
 **Consequences**
-O time usa um só modelo mental para os dois apps. Análise estática fica limitada ao ESLint security plugin. O Postgres local de desenvolvimento usa a porta `5435` (o NoteScan local usa `5434`).
+O time usa um só modelo mental para os dois apps. Análise estática fica limitada ao ESLint security plugin.
+
+> Alterado pelo ADR-033 (audit só de produção; Gitleaks por imagem). O Postgres local de desenvolvimento usa a porta `5435` (o NoteScan local usa `5434`).
 
 ---
 
@@ -718,3 +720,31 @@ Seguir o modo "lado a lado" do anúncio do TypeScript 7.0, com aliases do npm:
 **Consequences**
 Duas versões do TypeScript no `node_modules`. A checagem de tipos vale pelo TS 7; o lint usa o TS 6.
 Quando o typescript-eslint suportar o TS 7, remover o alias e voltar a `typescript@7`.
+
+---
+
+## ADR-033 — Ajustes de CI do Módulo 00
+
+**Status:** Accepted
+**Date:** 2026-10-17
+**Module:** 00 — Fundação
+
+**Context**
+O ADR-029 previa `npm audit --audit-level=high` e Gitleaks no CI. No Módulo 00, o audit completo
+falha por `braces@3.0.3` (GHSA-vfj7-8cjw-p6xm), que não tem versão corrigida e só chega por
+ferramentas de desenvolvimento (`eslint-config-next`, `shadcn`, `@ts-morph`; `esbuild` via `drizzle-kit`).
+A `gitleaks/gitleaks-action` exige licença paga em repositório de organização.
+
+**Decision**
+Altera o ADR-029 em dois pontos:
+- `ci.yml` roda `npm audit --omit=dev --audit-level=high` (só dependências de produção).
+- `security.yml` roda a imagem oficial `ghcr.io/gitleaks/gitleaks` (v8.30.1) fixada por digest, no histórico inteiro.
+
+**Alternatives considered**
+- Audit completo com `--audit-level=critical` — esconderia também falhas altas de produção.
+- `overrides` do `braces` — não existe versão corrigida para apontar.
+- Licença da gitleaks-action — custo sem ganho sobre o binário.
+
+**Consequences**
+Falhas em ferramentas de dev não bloqueiam o CI; voltar ao audit completo quando sair a correção do
+`braces`. O Gitleaks é atualizado trocando o digest à mão (o Dependabot não acompanha a imagem).

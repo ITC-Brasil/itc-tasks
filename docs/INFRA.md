@@ -97,6 +97,7 @@ Baseados em `novo-container-glpi-srv.md`:
 | Monitor no Uptime Kuma | HTTP(s) em `https://tasks.itcbr.xyz/api/health` |
 | Registro na documentação do servidor | Guia (nova seção 3.x), contexto (serviços, portas, contador) e credenciais |
 | Senhas | Únicas, só no `.env` da pasta, nunca no `docker-compose.yml` nem no repositório |
+| Volume do Postgres | Postgres 18 ou maior: montar o volume em `/var/lib/postgresql`, não em `/var/lib/postgresql/data` |
 
 ---
 
