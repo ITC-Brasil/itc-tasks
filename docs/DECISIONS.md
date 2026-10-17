@@ -1006,3 +1006,46 @@ com um aviso. Decisão do Matheus na M-018.
 **Consequences**
 O Design System no Claude Design recebe os sete tokens (o Cowork atualiza). A cor continua só como
 ponto de fundo; o nome da etiqueta usa a cor de texto normal.
+
+---
+
+## ADR-042 — Núcleo das tarefas: tabelas de planejamento antecipadas, posição e histórico
+
+**Status:** Accepted
+**Date:** 2026-10-17
+**Module:** 04 — Tarefas: núcleo
+
+**Context**
+`tasks` referencia `cycles` e `milestones` (Módulo 10), e a criação rápida usa `templates`
+(Módulo 09). A posição (ADR-014) precisa de um gerador de índice fracionário, e o histórico
+(`task_events`) precisa de um formato fixo antes de o MCP e as automações gravarem nele.
+
+**Decision**
+- A migração do Módulo 04 cria `cycles`, `milestones` e `templates` como em `docs/SCHEMA.md`, sem
+  tela. Assim as FKs de `tasks` nascem completas e nenhuma migração futura altera `tasks`.
+- `fractional-indexing` 4.0.0 (`generateKeyBetween`) gera `tasks.position` e
+  `checklist_items.position`. Tarefa nova vai para o fim do seu status; empate de chave em criações
+  simultâneas é tolerado (ordem por `position`, depois `number`).
+- Status padrão na criação: o primeiro (por `position`) ativo de categoria `todo`. `complete` move
+  para o primeiro ativo de categoria `done` e é idempotente. Entrar em `done` grava `completedAt`;
+  sair limpa (ADR-022). Status arquivado é recusado.
+- Descrição: Tiptap JSON em `description_json`; o service extrai `description_text` percorrendo os
+  nós `text` (sem carregar o Tiptap no servidor).
+- `task_events`: um evento por mudança. Tipos: `created`, `status_changed`, `assigned`,
+  `field_changed`, `labels_changed`, `checklist_changed`, `link_added`, `link_removed`.
+  Payload `{ field?, from?, to? }` com IDs ou valores crus (o Módulo 06 formata para a tela).
+  Ator: `actor_kind` + `actor_user_id`/`api_key_id`/`automation_rule_id` a partir do `Actor`.
+- Qualquer `user`/`agent` escreve em qualquer tarefa (time de 4); `automation`/`system` também.
+  `creator_id` de tarefa criada por automação/sistema fica com o responsável padrão do projeto ou,
+  sem ele, o primeiro admin (a coluna é `NOT NULL`).
+- `NOTIFY task_changed` e as filas do pg-boss entram nos Módulos 06 e 08.
+
+**Alternatives considered**
+- `cycle_id`/`milestone_id` sem FK até o Módulo 10 — exigiria alterar `tasks` depois.
+- Posição inteira com renumeração — reescreve linhas a cada arrasto.
+- Gerar chaves fracionárias à mão — o algoritmo tem casos de borda (prefixos, inteiros) já
+  resolvidos na biblioteca.
+
+**Consequences**
+`cycles`, `milestones` e `templates` ficam vazias até os Módulos 09 e 10; o seletor de template
+da criação rápida só aparece quando houver templates.
