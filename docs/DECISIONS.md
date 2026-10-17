@@ -928,3 +928,39 @@ abaixo de 4,5:1 no escuro: `accent-text` (`#30A5AB`) sobre o item ativo da naveg
 **Consequences**
 O Design System no Claude Design precisa dos dois valores (o Cowork atualiza). A auditoria completa
 dos dois temas continua no Módulo 11.
+
+## ADR-040 — Regras dos cadastros: normalização, categoria fixa e um status ativo por categoria
+
+**Status:** Accepted
+**Date:** 2026-10-17
+**Module:** 03 — Cadastros
+
+**Context**
+O PRD (C1–C3, W1–W2) pede sigla única, código de UM único, etiquetas e status configuráveis, mas
+não diz se a unicidade diferencia maiúsculas, se a categoria de um status pode mudar, nem o que
+acontece ao arquivar o último status de uma categoria. Escrito no fechamento do módulo, junto com
+o código (deveria ter vindo antes; registrado no PROGRESS).
+
+**Decision**
+- Normalização no Zod (`src/lib/validation/catalog.ts`): sigla e código de UM em maiúsculas, nome
+  de etiqueta em minúsculas. Os índices únicos (`projects_code_uq`, `mobile_units_code_uq`,
+  `labels_name_uq`) passam a valer sem diferenciar caixa; a violação `23505` vira mensagem
+  ("Já existe um Projeto/Cliente com a sigla TRL").
+- A categoria do status (ADR-022) é escolhida na criação e não muda; só o nome é editável
+  (`renameStatus`). Trocar a categoria mudaria em silêncio o sentido das tarefas já no status
+  (`completedAt`).
+- Cada categoria mantém ao menos um status ativo: `setStatusArchived` recusa o último, com
+  `SELECT … FOR UPDATE` na categoria contra dois arquivamentos simultâneos.
+- Cliente de UM: um cliente novo precisa estar ativo; o atual pode continuar mesmo arquivado.
+- Escrita de cadastros só para admin; leitura (`list*`) para qualquer actor, sem arquivados por
+  padrão (`includeArchived` nas telas de Configurações).
+
+**Alternatives considered**
+- Índice único em `lower(code)`: exige migração e o dado continuaria com caixa misturada.
+- Categoria editável com migração das tarefas: sem caso de uso no MVP.
+- Permitir categoria vazia: o Kanban e o "concluir" (W2) ficariam sem destino.
+
+**Consequences**
+A ordem muda por troca com o vizinho (subir/descer); arrastar fica para o Kanban (Módulo 05). A
+posição de um status novo é `max + 1` sem trava: dois admins criando ao mesmo tempo podem empatar a
+posição, o que só afeta a ordem.
