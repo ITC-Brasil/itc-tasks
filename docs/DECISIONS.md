@@ -1195,3 +1195,28 @@ link e poder ser salvos por pessoa.
 **Consequences**
 Mudar filtro é navegação (`router.replace`), não fetch próprio. Filtros salvos de visões futuras
 reaproveitam o mesmo formato.
+
+## ADR-047 — Concluídas recentes no Kanban e limite só nas concluídas (complementa o ADR-046)
+
+**Status:** Accepted
+**Date:** 2026-10-17
+**Module:** 05 — revisão (M-034)
+
+**Context**
+O limite de 1 000 linhas do ADR-046 podia cortar tarefas abertas sem aviso, e a coluna de
+concluídas do Kanban cresce sem fim. Decisão do Matheus na M-034.
+
+**Decision**
+- `listTasks` faz duas consultas: **abertas** (categoria ≠ `done`) **sem limite**, e **concluídas**
+  ordenadas por `completed_at desc` com limite de 1 000. O resultado junta as duas e ordena por
+  `position`; devolve `{ tasks, truncated }`, com `truncated` quando as concluídas batem no limite.
+- No **Kanban** (opção `recentDone`), só entram concluídas com `completed_at` nos últimos
+  **14 dias**. Lista, Calendário e o filtro de status mostram todas.
+- Com `truncated`, a tela mostra "Mostrando as primeiras N tarefas concluídas; refine os filtros".
+
+**Alternatives considered**
+- Paginação na Lista — mais código para um time de 4 pessoas; o limite só atinge histórico.
+- Limite único sobre todas — corta abertas, o que a M-034 proíbe.
+
+**Consequences**
+Abertas sempre aparecem inteiras. Índice em `saved_filters.user_id` entra na migração `0009`.
