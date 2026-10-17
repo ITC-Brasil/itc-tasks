@@ -64,7 +64,11 @@ export function createMcpServer(actor: AgentActor, access: Access[]) {
   const server = new McpServer({ name: "itc-tasks", version: "1.0.0" });
   // ponytail: o SDK devolve erro de schema só como texto; o contrato pede { code } (ADR-049)
   Reflect.set(server, "createToolError", (message: string) =>
-    fail(message.includes("Input validation error") ? "VALIDATION" : "INTERNAL", message),
+    message.includes("Input validation error")
+      ? fail("VALIDATION", message)
+      : / disabled$/.test(message)
+        ? fail("FORBIDDEN", "O token não tem a permissão tasks:write")
+        : fail("INTERNAL", message),
   );
 
   const tool = <S extends z.ZodRawShape>(
@@ -73,8 +77,8 @@ export function createMcpServer(actor: AgentActor, access: Access[]) {
     description: string,
     inputSchema: S,
     run: (input: z.output<z.ZodObject<S>>) => Promise<Record<string, unknown>>,
-  ) =>
-    server.registerTool(
+  ) => {
+    const registered = server.registerTool(
       name,
       { description, inputSchema, annotations: { readOnlyHint: need === "read" } },
       // @ts-expect-error -- o tipo genérico do SDK não acompanha o ZodRawShape genérico
@@ -88,6 +92,9 @@ export function createMcpServer(actor: AgentActor, access: Access[]) {
         }
       },
     );
+    // M-044: o token não lista o que não pode usar; chamar mesmo assim → FORBIDDEN
+    if (!access.includes(need)) registered.disable();
+  };
 
   // ── Leitura ──
   tool("list_tasks", "read", "Lista tarefas com filtros; mais novas primeiro.", mcpListTasks, (i) =>
@@ -139,18 +146,20 @@ export function createMcpServer(actor: AgentActor, access: Access[]) {
   tool(
     "update_task",
     "write",
-    "Altera só os campos enviados.",
+    "Altera só os campos enviados. checklist acrescenta itens; checklistToggle.index conta sobre o checklist de antes desta chamada.",
     mcpUpdateTask,
     async ({ id, checklist = [], checklistToggle: toggles = [], ...rest }) => {
+      // M-044: tudo resolvido e validado antes da primeira escrita; índices = checklist de antes
       const taskId = await taskIdOf(id);
-      // ponytail: campos, checklist e toggles em transações separadas; o histórico registra cada uma
-      await updateTask(actor, taskId, await toUpdateInput(actor, rest));
-      for (const text of checklist) await addChecklistItem(actor, taskId, text);
+      const patch = await toUpdateInput(actor, rest);
       const itemIds = await checklistIdsAt(
         actor,
         id,
         toggles.map((t) => t.index),
       );
+      // ponytail: campos, checklist e toggles em transações separadas; o histórico registra cada uma
+      await updateTask(actor, taskId, patch);
+      for (const text of checklist) await addChecklistItem(actor, taskId, text);
       for (const [n, itemId] of itemIds.entries())
         // eslint-disable-next-line security/detect-object-injection -- n é o índice do próprio array
         await updateChecklistItem(actor, itemId, { done: toggles[n].done });
