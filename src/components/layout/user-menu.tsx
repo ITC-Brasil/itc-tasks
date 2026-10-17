@@ -12,13 +12,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { authClient } from "@/lib/auth-client";
 import { setThemeAction } from "@/server/actions/preferences";
+import { savePreference } from "./save-preference";
 
 export function useToggleTheme() {
   const { resolvedTheme, setTheme } = useTheme();
   return () => {
     const next = resolvedTheme === "dark" ? "light" : "dark";
     setTheme(next);
-    void setThemeAction(next);
+    savePreference(setThemeAction(next), () => setTheme(resolvedTheme ?? "light"));
   };
 }
 

@@ -42,6 +42,7 @@ test("desktop: [ recolhe a sidebar e a escolha sobrevive ao recarregar", async (
   await press(page, "[");
   await expect.poll(width).not.toBe(start);
   await page.reload();
+  await page.waitForLoadState("networkidle"); // hidratado: o atalho já responde
   await expect.poll(width).not.toBe(start);
 
   await press(page, "[");
@@ -78,4 +79,31 @@ test("mobile: barra inferior no lugar da sidebar", async ({ page, isMobile }) =>
   await expect(page.getByRole("navigation", { name: "Navegação principal" })).toBeHidden();
   await expect(page.getByRole("navigation", { name: "Navegação", exact: true })).toBeVisible();
   await axe(page);
+});
+
+test("falha ao salvar a preferência desfaz a mudança e avisa", async ({ page, isMobile }) => {
+  test.skip(isMobile, "sidebar só a partir de 768 px");
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await page.waitForLoadState("networkidle");
+  // toda server action responde 500 a partir daqui
+  await page.route("**/*", (route) =>
+    route.request().headers()["next-action"]
+      ? route.fulfill({ status: 500, body: "" })
+      : route.continue(),
+  );
+  const nav = page.getByRole("navigation", { name: "Navegação principal" });
+  const width = async () => (await nav.boundingBox())!.width;
+  const start = await width();
+  const html = page.locator("html");
+  const theme = await html.getAttribute("data-theme");
+  const toast = page.getByText("Não foi possível salvar a preferência").first();
+
+  await page.keyboard.press("[");
+  await expect(toast).toBeVisible();
+  await expect.poll(width).toBe(start);
+
+  await page.getByRole("button", { name: /Administrador/ }).click();
+  await page.getByRole("menuitem", { name: /Usar tema/ }).click();
+  await expect(html).toHaveAttribute("data-theme", theme!);
 });

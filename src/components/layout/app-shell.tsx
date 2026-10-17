@@ -9,6 +9,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { setSidebarCollapsedAction } from "@/server/actions/preferences";
 import { NAV, isActive } from "./nav";
+import { savePreference } from "./save-preference";
 import { ShortcutsDialog, useShortcut } from "./shortcuts";
 import { UserMenu } from "./user-menu";
 
@@ -51,8 +52,9 @@ export function AppShell({
         at === window.location.pathname ? null : window.location.pathname,
       );
     setCollapsed(!collapsed);
-    void setSidebarCollapsedAction(!collapsed);
+    savePreference(setSidebarCollapsedAction(!collapsed), () => setCollapsed(collapsed));
   }, [collapsed]);
+
   const showShortcuts = useCallback(() => setShortcutsOpen(true), []);
   useShortcut("[", toggle);
   useShortcut("?", showShortcuts);
