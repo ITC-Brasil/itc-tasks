@@ -16,6 +16,12 @@ export const user = pgTable("user", {
   banned: boolean("banned").default(false),
   banReason: text("ban_reason"),
   banExpires: timestamp("ban_expires"),
+  initials: text("initials"),
+  theme: text("theme").default("light"),
+  sidebarCollapsed: boolean("sidebar_collapsed").default(false),
+  quietHoursStart: text("quiet_hours_start").default("08:00"),
+  quietHoursEnd: text("quiet_hours_end").default("18:00"),
+  emailDigest: boolean("email_digest").default(true),
 });
 
 export const session = pgTable(
