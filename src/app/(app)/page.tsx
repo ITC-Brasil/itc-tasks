@@ -1,32 +1,26 @@
-import { Plus } from "lucide-react";
+import { Inbox, Plus } from "lucide-react";
+import { Topbar } from "@/components/layout/topbar";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
+import { EmptyState } from "@/components/ui/empty-state";
 
-// ponytail: vitrine provisória dos tokens; a tela real chega no Módulo 02
-export default function Home() {
+// ponytail: sem tarefas até o Módulo 04; a lista real substitui o empty state
+export default function MyTasks() {
   return (
-    <main className="flex max-w-xl flex-col gap-5 p-6">
-      <h1 className="text-h1">ITC Tasks</h1>
-      <p className="text-muted">
-        <span className="tech">TI-142</span> ·{" "}
-        <span className="text-accent-text">Em andamento</span>
-      </p>
-      <div className="flex flex-wrap gap-2">
-        <Button>
-          <Plus /> Criar tarefa
-        </Button>
-        <Button variant="secondary">Cancelar</Button>
-        <Button variant="ghost">Ver todas</Button>
-        <Button variant="destructive">Arquivar projeto</Button>
-      </div>
-      <Input placeholder="Título da tarefa" />
-      <div className="flex items-center gap-4">
-        <Checkbox defaultChecked aria-label="Concluída" />
-        <Switch defaultChecked aria-label="Notificações" />
-      </div>
-      <div className="rounded-xl bg-surface p-5 shadow-1">bg-surface</div>
-    </main>
+    <>
+      <Topbar title="Minhas tarefas" />
+      <main className="p-4 md:p-6">
+        <EmptyState
+          icon={Inbox}
+          title="Nada pendente por aqui"
+          action={
+            <Button disabled title="Disponível no Módulo 04">
+              <Plus aria-hidden="true" /> Criar tarefa
+            </Button>
+          }
+        >
+          Você não tem tarefas abertas neste ciclo. Crie uma ou puxe algo do backlog.
+        </EmptyState>
+      </main>
+    </>
   );
 }

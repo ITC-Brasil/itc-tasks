@@ -252,13 +252,15 @@ action; checagens no cliente são só de interface.
 
 **Módulo 01 — Autenticação e membros (17/10/2026).** `src/server/auth.ts` configura Better Auth 1.7.10 com Drizzle, `disableSignUp`, senha mínima de 12, hash Argon2id pelo `@node-rs/argon2` 2.2.2 (`memoryCost 19456`, `timeCost 2`), `trustedOrigins` com `https://tasks.itcbr.xyz`, plugins `admin` (papéis `admin` e `member`, ADR-037), `apiKey` do pacote `@better-auth/api-key` (prefixo `itct_`, 60 req/min) e `nextCookies`, mais os campos de preferência do usuário (`initials`, `theme`, `sidebarCollapsed`, horário de silêncio, `emailDigest`). O schema `src/db/schema/auth.ts` sai do CLI `auth` e as migrações `0001_auth` e `0002_user_preferences` são aditivas. `src/proxy.ts` manda quem não tem cookie para `/login`; `requireActor()` em `src/server/actor.ts` valida a sessão, recusa banidos e devolve o `Actor`. A tela Entrar usa o cliente do Better Auth, e Configurações › Membros (`/config/membros`) cria membros, troca papel e desativa por ban, sempre pelo `membersService` com `assertAdmin`; ninguém altera a própria conta. `src/db/seed.mjs` cria o primeiro admin de forma idempotente, no dev e na imagem (`dist/seed.mjs`). Testes de integração cobrem login, cadastro bloqueado, desativação e permissões; E2E cobre rota protegida, erro de login e Membros com axe. Details: docs/modules/01-autenticacao.md
 
+**Módulo 02 — Layout, navegação e tema (17/10/2026).** `src/components/layout/app-shell.tsx` envolve o grupo `(app)`: sidebar de 236 px ou trilho de 64 px a partir de 1024 px, com o estado inicial lido de `user.sidebarCollapsed` no servidor e alternado por `[` ou pelo botão "Recolher menu"; entre 768 e 1023 px fica o trilho e a expansão sobrepõe o conteúdo sem mudar a preferência; abaixo de 768 px aparece a barra inferior. A navegação (`nav.ts`) só lista telas que existem. O tema usa `next-themes` no layout raiz (`data-theme`, só claro e escuro) e o shell corrige o tema do aparelho a partir de `user.theme`, porque o layout raiz é estático com `cacheComponents` (ADR-038). Preferências passam por `preferencesService` com o próprio actor; `requireUser()` devolve actor e perfil. `useShortcut` ignora campos de texto e o diálogo `?` lista os atalhos ativos. Estados padrão: EmptyState, Skeleton, Avatar, `loading.tsx`, `error.tsx` e `not-found.tsx`. O axe no escuro levou ao ADR-039 (`accent-text` `#46B5BA` e token `on-err`). Details: docs/modules/02-layout.md
+
 Plano de módulos (`PROMPT_CLAUDE_CODE.md`):
 
 | Nº | Módulo | Status |
 |---|---|---|
 | 00 | Fundação (scaffold, Docker, DB, tokens, CI) | Concluído (17/10/2026) |
 | 01 | Autenticação e membros | Concluído (17/10/2026) |
-| 02 | Layout, navegação e tema | Planejado |
+| 02 | Layout, navegação e tema | Em revisão (17/10/2026) |
 | 03 | Cadastros (Projetos/Clientes, UMs, workflow, etiquetas) | Planejado |
 | 04 | Tarefas: núcleo, detalhe e criação rápida | Planejado |
 | 05 | Visões: Kanban, Lista, Calendário, Minhas tarefas, filtros | Planejado |

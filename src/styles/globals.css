@@ -25,6 +25,8 @@
   --accent-solid-hover: #006c72;
   --accent-solid-pressed: #005e63;
   --on-accent: #ffffff;
+  --on-err: #ffffff; /* ADR-039: texto sobre err */
+  --on-accent-dark: #f4f6f6; /* Avatar: texto sobre accent-dark, igual nos dois temas */
   --bordo: #491027;
   --ok: #1a7f3c;
   --warn: #cc7a00;
@@ -48,11 +50,12 @@
   --accent-pressed: #268a8f;
   --accent-light: rgba(48, 165, 171, 0.16);
   --accent-dark: #0c2c2e;
-  --accent-text: var(--accent);
+  --accent-text: var(--accent-hover); /* ADR-039: 5,03:1 sobre o item ativo */
   --accent-solid: var(--accent);
   --accent-solid-hover: var(--accent-hover);
   --accent-solid-pressed: var(--accent-pressed);
   --on-accent: #08201f;
+  --on-err: #141918; /* ADR-039: 4,61:1 sobre err */
   --bordo: #7a2a45;
   --ok: #3da35d;
   --warn: #d98e2b;
@@ -82,6 +85,8 @@
   --color-accent-solid-hover: var(--accent-solid-hover);
   --color-accent-solid-pressed: var(--accent-solid-pressed);
   --color-on-accent: var(--on-accent);
+  --color-on-accent-dark: var(--on-accent-dark);
+  --color-on-err: var(--on-err);
   --color-bordo: var(--bordo);
   --color-ok: var(--ok);
   --color-warn: var(--warn);
