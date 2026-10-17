@@ -834,3 +834,36 @@ banco, como em `src/app/api/health/route.ts`.
 Validado no Módulo 00: `next build` passa, `/` sai estático e `/api/health` dinâmico (200/503 com o
 banco no ar e fora). Cada módulo novo precisa lembrar que leitura de banco fora de `<Suspense>` sem
 sinal de requisição quebra o build ou é pré-renderizada.
+
+---
+
+## ADR-037 — Membros: papel `member`, desativação por ban e seed em JS
+
+**Status:** Accepted
+**Date:** 2026-10-17
+**Module:** 01 — Autenticação e membros
+
+**Context**
+O plugin `admin` do Better Auth 1.7.10 conhece os papéis `admin` e `user`; o produto usa `admin` e
+`member`. A PRD pede "desativar" membros, e o ADR-018 proíbe excluir cadastros. O seed do primeiro
+admin precisa rodar no dev e dentro da imagem standalone, que não tem `tsx` nem os aliases `@/`.
+
+**Decision**
+- `admin({ roles: { admin: adminAc, member: userAc }, defaultRole: "member", adminRoles: ["admin"] })`
+  em `src/server/auth.ts`: `member` tem as permissões de `user` do plugin. Passar `ac: defaultAc`
+  quebra a tipagem no TS 7, então o `ac` padrão fica implícito.
+- Desativar = `banned = true` (campo do plugin `admin`), feito em `src/server/services/members.ts`,
+  que também apaga as sessões do usuário na mesma transação. O Better Auth já recusa login de banido
+  (`BANNED_USER`, 403).
+- Ninguém altera o próprio papel nem se desativa (`MemberError`), o que garante sempre um admin ativo.
+- `src/db/seed.mjs` em JS puro com `pg` e `@node-rs/argon2`, idempotente (`ON CONFLICT (email) DO
+  NOTHING`), copiado para `dist/seed.mjs` na imagem.
+
+**Alternatives considered**
+- Coluna própria `archived_at` em `user` — duplicaria o `banned` que o Better Auth já respeita no login.
+- Seed em TypeScript com `tsx` — dependência a mais e não roda na imagem standalone.
+- Seed por `auth.api.createUser` — exige carregar o app inteiro (env, aliases) fora do Next.
+
+**Consequences**
+O seed repete os parâmetros do Argon2id de `src/server/auth.ts`; mudar um exige mudar o outro.
+Seletores de responsável (Módulo 04) devem filtrar `banned = false`.

@@ -134,7 +134,9 @@ Só os campos enviados mudam. `project: null` é recusado (`VALIDATION`).
 
 ### [GET, POST] /api/auth/[...all]
 Auth: pública (rotas do Better Auth: `sign-in/email`, `sign-out`, `get-session`, `admin/*`, `api-key/*`).
-Cadastro público desligado (`disableSignUp: true`). Rate limit do Better Auth ativo.
+Cadastro público desligado (`disableSignUp: true`, `sign-up/email` → 400). Rate limit do Better Auth ativo.
+Login: `POST /api/auth/sign-in/email` `{ email, password }` → 200 com cookie de sessão · 401 `INVALID_EMAIL_OR_PASSWORD` · 403 `BANNED_USER` (membro desativado) · 429.
+Handler: `src/app/api/auth/[...all]/route.ts`.
 
 ---
 
@@ -198,3 +200,4 @@ Não são rotas públicas; listadas para mapear UI → service.
 | `markNotificationsReadAction`, `updateNotificationPreferencesAction` | `notificationsService` |
 | `createApiKeyAction`, `revokeApiKeyAction` | Better Auth `apiKey` + `agentsService` |
 | `updateUserPreferencesAction` (tema, sidebar) | `usersService` |
+| `createMemberAction`, `setMemberRoleAction`, `setMemberActiveAction` (`src/server/actions/members.ts`) | `membersService` (`src/server/services/members.ts`) |
