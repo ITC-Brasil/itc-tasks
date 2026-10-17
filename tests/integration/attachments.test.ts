@@ -5,6 +5,7 @@ import { listActivity } from "@/server/services/activity";
 import {
   addAttachment,
   cleanFileName,
+  declaredSizeStatus,
   getAttachment,
   listAttachments,
 } from "@/server/services/attachments";
@@ -64,4 +65,13 @@ it("cleanFileName tira caminho e controle", () => {
   expect(cleanFileName(String.raw`C:\Users\x\print.png`)).toBe("print.png");
   expect(cleanFileName('a\u0000b"c.txt')).toBe("abc.txt");
   expect(cleanFileName("   ")).toBe("arquivo");
+});
+
+it("envio sem Content-Length válido é recusado antes de ler o corpo (411); acima de 25 MB, 413", () => {
+  expect(declaredSizeStatus(null)).toBe(411);
+  expect(declaredSizeStatus("")).toBe(411);
+  expect(declaredSizeStatus("abc")).toBe(411);
+  expect(declaredSizeStatus("-1")).toBe(411);
+  expect(declaredSizeStatus(String(26 * 1024 * 1024))).toBe(413);
+  expect(declaredSizeStatus("1024")).toBeNull();
 });

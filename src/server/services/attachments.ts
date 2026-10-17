@@ -112,3 +112,13 @@ export async function listAttachments(taskId: string) {
     .where(eq(attachments.taskId, taskId))
     .orderBy(asc(attachments.createdAt));
 }
+
+/**
+ * Checagem antes de ler o corpo (M-039): sem `Content-Length` válido o `formData()` leria um
+ * envio chunked inteiro na memória. Devolve o status HTTP de recusa, ou null para seguir.
+ */
+export function declaredSizeStatus(contentLength: string | null): 411 | 413 | null {
+  if (!contentLength || !/^\d+$/.test(contentLength)) return 411;
+  // a folga cobre o envelope multipart
+  return Number(contentLength) > MAX_ATTACHMENT_BYTES + 64 * 1024 ? 413 : null;
+}
