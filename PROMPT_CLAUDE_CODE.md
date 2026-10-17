@@ -170,12 +170,12 @@ Sequencial, um módulo por vez. Cada módulo começa numa sessão nova do Claude
 - [x] Testes: sem Projeto/Cliente recusado; projeto arquivado recusado; `completedAt` ao entrar/sair de `done` — `test(tasks): cover core rules`
 
 ### Módulo 05 — Visões e filtros
-- [ ] Kanban com `@dnd-kit/react`, posição fracionária, otimista — `feat(board): add kanban`
-- [ ] Lista com TanStack Table e ações em massa — `feat(tasks): add list view`
-- [ ] Calendário mensal — `feat(tasks): add calendar view`
-- [ ] Minhas tarefas — `feat(tasks): add my tasks`
-- [ ] Filtros e filtros salvos — `feat(tasks): add filters and saved filters`
-- [ ] E2E: mover card, filtrar, seleção em massa — `test(e2e): cover board and list`
+- [x] Kanban com `@dnd-kit/react`, posição fracionária, otimista — `feat(board): add kanban`
+- [x] Lista com TanStack Table e ações em massa — `feat(tasks): add list view`
+- [x] Calendário mensal — `feat(tasks): add calendar view`
+- [x] Minhas tarefas — `feat(tasks): add my tasks`
+- [x] Filtros e filtros salvos — `feat(tasks): add filters and saved filters`
+- [x] E2E: mover card, filtrar, seleção em massa — `test(e2e): cover board and list`
 
 ### Módulo 06 — Comentários, histórico, anexos e busca
 - [ ] Comentários com Tiptap e @menção — `feat(tasks): add comments with mentions`
