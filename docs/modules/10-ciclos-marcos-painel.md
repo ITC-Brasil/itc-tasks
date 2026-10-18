@@ -49,7 +49,15 @@ Sem E2E novo neste módulo.
 38093dd feat(planning): add cycles
 1397f8d feat(planning): add milestones
 aa7c506 feat(planning): add project dashboard
+7b4a1a8 fix(planning): map unique races, archived project and dashboard timezone
 ```
+
+## Revisão (M-061)
+
+- `onUnique` em `planning.ts`: `23505` de `createCycle` ("Outro ciclo foi criado ao mesmo tempo. Tente de novo.") e de `startCycle` ("Já existe um ciclo ativo") vira `TaskError` `VALIDATION` em vez de 500.
+- `saveMilestone` recusa Projeto/Cliente arquivado também na edição, salvo se já era o projeto do marco.
+- Painel: a janela das 12 semanas usa `AT TIME ZONE 'America/Sao_Paulo'` como o agrupamento.
+- Os três ajustes mexem no mesmo service e teste: um commit. Vitest integração 97.
 
 O primeiro traz todo o `planningService` (inclusive marcos e painel), porque é um arquivo só; os outros dois trazem as telas.
 
