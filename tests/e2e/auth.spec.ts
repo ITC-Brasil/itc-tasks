@@ -1,6 +1,9 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
+// testa o próprio login: sem a sessão do auth.setup.ts
+test.use({ storageState: { cookies: [], origins: [] } });
+
 test("rota protegida sem sessão vai para Entrar", async ({ page }) => {
   await page.goto("/config/membros");
   await expect(page).toHaveURL(/\/login$/);

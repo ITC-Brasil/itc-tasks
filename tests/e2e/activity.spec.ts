@@ -1,17 +1,8 @@
-import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { axeBothThemes, login } from "./session";
 
 const email = process.env.SEED_ADMIN_EMAIL;
 const password = process.env.SEED_ADMIN_PASSWORD;
-
-async function login(page: Page) {
-  await page.goto("/login");
-  await page.getByLabel("E-mail").fill(email!);
-  await page.getByLabel("Senha").fill(password!);
-  await page.getByRole("button", { name: "Entrar" }).click();
-  await page.waitForURL("/");
-  await page.waitForLoadState("networkidle");
-}
 
 test.beforeEach(({ isMobile }) => {
   test.skip(!email || !password, "SEED_ADMIN_* não definidos");
@@ -53,12 +44,7 @@ test("busca ⌘K abre a tarefa; comentário com @menção vai para a aba Mençõ
   await expect(page.getByText("criou a tarefa")).toBeVisible();
   await expect(page.locator("section[aria-labelledby=activity] .mention")).toBeVisible();
 
-  for (const theme of ["light", "dark"]) {
-    await page.evaluate((t) => document.documentElement.setAttribute("data-theme", t), theme);
-    await page.waitForTimeout(300);
-    const { violations } = await new AxeBuilder({ page }).analyze();
-    expect(violations, theme).toEqual([]);
-  }
+  await axeBothThemes(page);
 
   await page.goto("/?aba=mencoes");
   await expect(page.getByText(title)).toBeVisible();

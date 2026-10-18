@@ -1,16 +1,9 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { login } from "./session";
 
 const email = process.env.SEED_ADMIN_EMAIL;
 const password = process.env.SEED_ADMIN_PASSWORD;
-
-async function login(page: Page) {
-  await page.goto("/login");
-  await page.getByLabel("E-mail").fill(email!);
-  await page.getByLabel("Senha").fill(password!);
-  await page.getByRole("button", { name: "Entrar" }).click();
-  await page.waitForURL("/");
-}
 
 async function pickFirst(page: Page, scope: ReturnType<Page["getByRole"]>, label: string) {
   await scope.getByRole("combobox", { name: label, exact: true }).click();

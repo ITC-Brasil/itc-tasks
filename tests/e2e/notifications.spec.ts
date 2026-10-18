@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { login } from "./session";
 
 const email = process.env.SEED_ADMIN_EMAIL;
 const password = process.env.SEED_ADMIN_PASSWORD;
@@ -7,14 +8,6 @@ const password = process.env.SEED_ADMIN_PASSWORD;
 // o PushDevice só troca "Verificando…" pelo estado final no efeito: sinal de que a tela hidratou
 const hydrated = (page: Page) =>
   expect(page.getByRole("status").filter({ hasText: /dispositivo|navegador/ })).toBeVisible();
-
-async function login(page: Page) {
-  await page.goto("/login");
-  await page.getByLabel("E-mail").fill(email!);
-  await page.getByLabel("Senha").fill(password!);
-  await page.getByRole("button", { name: "Entrar" }).click();
-  await page.waitForURL("/");
-}
 
 test.describe.configure({ mode: "serial" }); // mexe nas preferências do admin do seed
 test.beforeEach(({ isMobile }) => {

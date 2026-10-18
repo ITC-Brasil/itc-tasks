@@ -1,33 +1,9 @@
-import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { axeBothThemes, login } from "./session";
 
 // Módulo 11 (ADR-054): PWA, telas mobile e axe nos dois temas
 const email = process.env.SEED_ADMIN_EMAIL;
 const password = process.env.SEED_ADMIN_PASSWORD;
-
-async function login(page: Page) {
-  await page.goto("/login");
-  await page.getByLabel("E-mail").fill(email!);
-  await page.getByLabel("Senha").fill(password!);
-  await page.getByRole("button", { name: "Entrar" }).click();
-  await page.waitForURL("/");
-}
-
-// troca só o atributo (CSS dos tokens), sem mexer na preferência salva do admin
-async function axeBothThemes(page: Page) {
-  await page.locator("main").first().waitFor();
-  // sem transição: o axe leria a cor no meio da troca
-  await page.addStyleTag({ content: "*,*::before,*::after{transition:none!important}" });
-  for (const theme of ["light", "dark"]) {
-    await page.evaluate((t) => (document.documentElement.dataset.theme = t), theme);
-    const { violations } = await new AxeBuilder({ page }).analyze();
-    expect(
-      violations.map(
-        (v) => `${page.url()} ${theme} ${v.id}: ${v.nodes.map((n) => n.target).join(" | ")}`,
-      ),
-    ).toEqual([]);
-  }
-}
 
 test.beforeEach(() => test.skip(!email || !password, "SEED_ADMIN_* não definidos"));
 test.describe.configure({ timeout: 60_000 });
