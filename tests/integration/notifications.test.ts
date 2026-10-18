@@ -37,6 +37,8 @@ vi.mock("web-push", () => ({
     sendNotification: async (sub: { endpoint: string }) => {
       if (sub.endpoint.includes("gone"))
         throw Object.assign(new Error("Gone"), { statusCode: 410 });
+      if (sub.endpoint.includes("boom"))
+        throw Object.assign(new Error("Boom"), { statusCode: 500 });
       pushed.push(sub.endpoint);
     },
   },
@@ -192,8 +194,8 @@ it("status avisa o criador com os nomes; agente avisa responsável e criador", a
   await updateTask(agent, task.id, { priority: "high" });
   await drain(task.id);
   expect((await inbox(caio, task.id)).sort()).toEqual(["agent_action", "assigned"]);
-  // o agente da Bia conta como a Bia (N4)
-  expect(await inbox(bia, task.id)).toEqual([]);
+  // ADR-051: a Bia é avisada do que o agente dela fez, só com agent_action
+  expect(await inbox(bia, task.id)).toEqual(["agent_action"]);
   const agentNote = await db
     .select({ label: notifications.actorLabel })
     .from(notifications)
@@ -296,4 +298,34 @@ it("push: assinatura validada, teste entregue e assinatura expirada (410) apagad
     .from(pushSubscriptions)
     .where(eq(pushSubscriptions.userId, caio.userId));
   expect(left.map((r) => r.endpoint)).toEqual([`https://push.test/ok-${run}`]);
+});
+
+it("push: erro numa assinatura não interrompe as outras nem lança (M-048)", async () => {
+  const keys = { p256dh: "k", auth: "a" };
+  const dan = await person("Danilo");
+  await subscribePush(dan, { endpoint: `https://push.test/boom-${run}`, keys });
+  await subscribePush(dan, { endpoint: `https://push.test/ok2-${run}`, keys });
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  expect(await sendTestPush(dan)).toBe(1);
+  expect(pushed).toContain(`https://push.test/ok2-${run}`);
+});
+
+it("agente do dono em tarefa dele → agent_action para o dono (ADR-051)", async () => {
+  const task = await createTask(ana, {
+    title: "Do agente",
+    projectIds: [projectId],
+    assigneeId: ana.userId,
+  });
+  await drain(task.id);
+  const key = await createAgentKey(ana, { name: "Claude da Ana", access: "write" });
+  const agent: Actor = { kind: "agent", userId: ana.userId, role: "member", apiKeyId: key.id };
+  await updateTask(agent, task.id, { priority: "urgent" });
+  await drain(task.id);
+  expect(await inbox(ana, task.id)).toEqual(["agent_action"]);
+  // padrão: só no app
+  expect((await getPreferences(ana)).channels.agent_action).toEqual({
+    inApp: true,
+    push: false,
+    email: false,
+  });
 });

@@ -102,7 +102,7 @@ export async function fanout(eventIds: string[]) {
     const first = events[0];
     const [task] = await tx.select().from(tasks).where(eq(tasks.id, first.taskId));
     if (!task) return;
-    // N4: o autor não recebe; o agente conta como o dono do token
+    // N4: o autor não recebe; na escrita de agente, o dono só recebe agent_action (ADR-051)
     const author = first.actorUserId;
     const out = new Map<string, Pending>();
     const add = (userId: string | null, event: NotificationEvent, data: NotificationData = {}) => {
@@ -149,9 +149,13 @@ export async function fanout(eventIds: string[]) {
         }
       }
     }
-    if (first.actorKind === "agent")
+    if (first.actorKind === "agent") {
       for (const id of [task.assigneeId, task.creatorId])
         if (id && !has(id)) add(id, "agent_action");
+      // ADR-051: o dono do token é avisado do que o próprio agente fez (só agent_action)
+      if (author)
+        out.set(`${author}:agent_action`, { userId: author, event: "agent_action", data: {} });
+    }
 
     await deliver(tx, task.id, await actorLabel(tx, first), [...out.values()]);
   });
@@ -189,7 +193,8 @@ async function sendPush(userId: string, payload: { title: string; body: string; 
       // assinatura expirada ou revogada pelo navegador
       if (status === 404 || status === 410)
         await db.delete(pushSubscriptions).where(eq(pushSubscriptions.id, s.id));
-      else throw err;
+      // M-048: sem lançar — o retry do job reenviaria às assinaturas que já receberam
+      else console.error("push: falha na assinatura", s.id, status ?? err);
     }
   }
   return sent;
