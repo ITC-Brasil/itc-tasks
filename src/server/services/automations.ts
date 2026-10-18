@@ -25,7 +25,7 @@ import {
   automationRuleSchema,
   triggerOf,
 } from "@/lib/validation/automations";
-import { type Actor, assertAdmin } from "@/server/actor";
+import { type Actor, assertAdmin } from "@/server/permissions";
 import { addComment } from "./comments";
 import { notifyFromAutomation } from "./notifications";
 import { lockTask, record, updateTask } from "./tasks";

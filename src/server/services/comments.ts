@@ -2,7 +2,7 @@ import { and, asc, eq, inArray, isNull, or } from "drizzle-orm";
 import { db } from "@/db";
 import { apikey, comments, user } from "@/db/schema";
 import { commentBodySchema, taskIdSchema } from "@/lib/validation/tasks";
-import { type Actor, ForbiddenError } from "@/server/actor";
+import { type Actor, ForbiddenError } from "@/server/permissions";
 import { TaskError, creatorFor, docText, lockTask, mentionIds, record } from "./tasks";
 
 export { mentionIds };
