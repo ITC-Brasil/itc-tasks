@@ -5,11 +5,11 @@ import { auth } from "@/server/auth";
 
 export type Role = "admin" | "member";
 
-// ADR-003: toda escrita recebe um Actor; agent/automation/system chegam nos Módulos 07 e 08
+// ADR-003: toda escrita recebe um Actor; `depth` da automação = nível na cadeia (ADR-052)
 export type Actor =
   | { kind: "user"; userId: string; role: Role }
   | { kind: "agent"; userId: string; role: Role; apiKeyId: string }
-  | { kind: "automation"; automationId: string }
+  | { kind: "automation"; automationId: string; depth: number }
   | { kind: "system" };
 
 export class ForbiddenError extends Error {

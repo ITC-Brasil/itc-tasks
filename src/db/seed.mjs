@@ -74,6 +74,30 @@ try {
      JOIN projects p ON p.code = v.project
      ON CONFLICT (code) DO NOTHING`,
   );
+  // as 6 regras da tela Automações (ADR-052), só na primeira vez; a última nasce desligada
+  await client.query(
+    `INSERT INTO automation_rules (name, trigger, conditions, actions, enabled)
+     SELECT * FROM (VALUES
+       ('Avisar quem criou quando concluir', 'task.status_changed',
+        '{"statusCategory":"done"}'::jsonb, '[{"type":"notify","to":"creator"}]'::jsonb, true),
+       ('Puxar para o ciclo ao atribuir', 'task.assigned', '{"statusCategory":"backlog"}',
+        jsonb_build_array(
+          jsonb_build_object('type', 'setStatus', 'statusId',
+            (SELECT id FROM workflow_statuses WHERE category = 'todo' AND archived_at IS NULL
+             ORDER BY position LIMIT 1)),
+          '{"type":"moveToActiveCycle"}'::jsonb), true),
+       ('Urgente vai para o topo', 'task.priority_changed', '{"priority":"urgent"}',
+        '[{"type":"notify","to":"team"},{"type":"moveToTop"}]', true),
+       ('Prazo vencido', 'task.overdue', '{}', '[{"type":"notify","to":"assignee"}]', true),
+       ('Lembrar de atualizar o GLPI', 'task.status_changed',
+        '{"statusCategory":"done","hasGlpi":true}',
+        '[{"type":"comment","text":"Atualize o chamado #{GLPI}"}]', true),
+       ('Etiquetar tarefas de UM', 'task.created', '{"hasMobileUnit":true}',
+        jsonb_build_array(jsonb_build_object('type', 'addLabel', 'labelId',
+          (SELECT id FROM labels WHERE name = 'campo' LIMIT 1))), false)
+     ) v
+     WHERE NOT EXISTS (SELECT 1 FROM automation_rules)`,
+  );
   await client.query("COMMIT");
   console.log(
     rowCount ? `Admin ${SEED_ADMIN_EMAIL} criado.` : `Admin ${SEED_ADMIN_EMAIL} já existe.`,

@@ -1,9 +1,11 @@
 import { PgBoss } from "pg-boss";
 import { env } from "@/lib/env";
 import { type FanoutJob, type PushJob, QUEUES } from "@/server/jobs";
+import type { EvaluateJob } from "@/lib/validation/automations";
+import { evaluate, overdue } from "@/server/services/automations";
 import { daily, fanout, pushNotification } from "@/server/services/notifications";
 
-// ADR-010/050: processo separado; cria/migra o schema pgboss e consome as filas
+// ADR-010/050/052: processo separado; cria/migra o schema pgboss e consome as filas
 if (env.NODE_ENV === "production") {
   const missing = [
     "VAPID_PUBLIC_KEY",
@@ -28,6 +30,10 @@ await boss.work<FanoutJob>(QUEUES.fanout, async ([job]) => fanout(job.data.event
 await boss.work<PushJob>(QUEUES.push, async ([job]) => pushNotification(job.data.notificationId));
 await boss.work(QUEUES.daily, async () => daily());
 await boss.schedule(QUEUES.daily, "0 8 * * *", null, { tz: env.APP_TIMEZONE });
+// ADR-052: automações fora da requisição; a virada do dia dispara `task.overdue`
+await boss.work<EvaluateJob>(QUEUES.evaluate, async ([job]) => evaluate(job.data));
+await boss.work(QUEUES.overdue, async () => overdue());
+await boss.schedule(QUEUES.overdue, "5 0 * * *", null, { tz: env.APP_TIMEZONE });
 console.log("worker: pronto");
 
 for (const sig of ["SIGTERM", "SIGINT"] as const)

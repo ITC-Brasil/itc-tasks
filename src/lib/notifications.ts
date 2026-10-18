@@ -8,6 +8,7 @@ export const NOTIFICATION_EVENTS = [
   "overdue",
   "status_changed",
   "agent_action",
+  "automation",
 ] as const;
 export type NotificationEvent = (typeof NOTIFICATION_EVENTS)[number];
 export type Channels = { inApp: boolean; push: boolean; email: boolean };
@@ -21,6 +22,7 @@ export const DEFAULT_CHANNELS: Record<NotificationEvent, Channels> = {
   overdue: { inApp: true, push: true, email: true },
   status_changed: { inApp: true, push: false, email: false },
   agent_action: { inApp: true, push: false, email: false },
+  automation: { inApp: true, push: false, email: false },
 };
 
 export const EVENT_LABELS: Record<NotificationEvent, { name: string; hint: string; chip: string }> =
@@ -48,9 +50,14 @@ export const EVENT_LABELS: Record<NotificationEvent, { name: string; hint: strin
       hint: "Criação, mudança ou conclusão via MCP",
       chip: "Agente",
     },
+    automation: {
+      name: "Aviso de automação",
+      hint: "Regras de Configurações › Automações",
+      chip: "Automação",
+    },
   };
 
-export type NotificationData = { quote?: string; from?: string; to?: string };
+export type NotificationData = { quote?: string; from?: string; to?: string; rule?: string };
 
 /** "Ana mencionou você em" — o que vem antes de "TI-149 Título". */
 export function verb(event: NotificationEvent, data: NotificationData) {
@@ -69,6 +76,8 @@ export function verb(event: NotificationEvent, data: NotificationData) {
       return data.to ? `mudou para ${data.to}` : "mudou o status de";
     case "agent_action":
       return "alterou";
+    case "automation":
+      return data.rule ? `“${data.rule}” avisou sobre` : "avisou sobre";
   }
 }
 

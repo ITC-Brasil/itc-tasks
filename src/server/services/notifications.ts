@@ -368,6 +368,18 @@ async function digest(now: Date) {
   return byUser.size;
 }
 
+/** Ação "notificar" de uma automação (ADR-052): não passa pelo N4. */
+export async function notifyFromAutomation(taskId: string, userIds: string[], rule: string) {
+  await db.transaction((tx) =>
+    deliver(
+      tx,
+      taskId,
+      "Automação",
+      [...new Set(userIds)].map((userId) => ({ userId, event: "automation", data: { rule } })),
+    ),
+  );
+}
+
 /** Job daily.morning (08:00): lembretes primeiro, para entrarem no resumo. */
 export async function daily(now = new Date()) {
   await reminders(now);

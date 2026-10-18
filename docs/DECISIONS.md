@@ -1440,7 +1440,8 @@ template de projeto cria.
 - **Gatilhos:** `task.created` (`created`), `task.status_changed`, `task.assigned` (responsável novo
   não nulo), `task.priority_changed` (`field_changed` de `priority`) e `task.overdue` (job
   `automation.overdue` às 00:05 de `APP_TIMEZONE`, tarefas abertas com prazo ontem).
-- **Condições** (todas precisam bater, sobre a tarefa no momento da avaliação): categoria do status,
+- **Condições** (todas precisam bater, sobre um retrato da tarefa tirado no início do job, para uma
+  regra não reagir à ação de outra no mesmo job): categoria do status,
   prioridade, tem Chamado GLPI, tem Unidade Móvel. "Status muda para Concluído" = gatilho
   `task.status_changed` + condição "status é Concluído".
 - **Ações** (em ordem, cada uma pelo service, com `Actor` `automation` que carrega `automationId` e

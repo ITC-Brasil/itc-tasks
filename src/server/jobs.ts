@@ -3,11 +3,13 @@ import { PgBoss } from "pg-boss";
 import type { Tx } from "@/server/services/tasks";
 import { env } from "@/lib/env";
 
-// ADR-050: filas do worker; o processo web só envia
+// ADR-050/052: filas do worker; o processo web só envia
 export const QUEUES = {
   fanout: "notification.fanout",
   push: "notification.push",
   daily: "daily.morning",
+  evaluate: "automation.evaluate",
+  overdue: "automation.overdue",
 } as const;
 
 export type FanoutJob = { eventIds: string[] };

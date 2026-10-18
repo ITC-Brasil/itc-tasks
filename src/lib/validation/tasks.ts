@@ -103,12 +103,14 @@ export const linkSchema = z.object({
 });
 
 // template de tarefa (Módulo 09): campos que a criação rápida preenche
+// `{UM}` no título vira o código da UM; `dueInDays` = dias úteis após criar (ADR-052)
 export const taskTemplatePayloadSchema = z.object({
   title: z.string().max(200).optional(),
   priority: z.enum(PRIORITIES).optional(),
-  labelIds: z.array(uuid).optional(),
-  checklist: z.array(z.string()).optional(),
+  labelIds: z.array(uuid).max(20).optional(),
+  checklist: z.array(z.string().trim().min(1).max(200)).max(50).optional(),
   descriptionJson: descriptionJson.optional(),
+  dueInDays: z.number().int().min(0).max(60).optional(),
 });
 
 // ── Filtros das visões (ADR-046) ────────────────────────────────────

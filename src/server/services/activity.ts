@@ -68,6 +68,10 @@ function fieldChange(p: Payload) {
       return p.to ? `definiu o prazo para ${brDate(String(p.to))}` : "removeu o prazo";
     case "description":
       return "editou a descrição";
+    case "cycle":
+      return "moveu para o ciclo atual";
+    case "position":
+      return "moveu para o topo da coluna";
     default:
       return `alterou ${p.field ?? "um campo"}`;
   }
