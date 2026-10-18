@@ -1581,3 +1581,40 @@ até lá). Se o escopo offline crescer (edição offline), reavaliar o Serwist.
 Exceção à regra "nunca hex em componente": os hex da página "Sem conexão" do `public/sw.js` e do
 `viewport.themeColor` em `src/app/layout.tsx` ficam fora do CSS (o worker não carrega os tokens; o
 `theme-color` é meta do navegador) e repetem `--bg-base`, `--text-base` e o fundo do escuro.
+
+---
+
+## ADR-055 — E2E no CI (Módulo 11; complementa o ADR-029)
+
+**Status:** Accepted
+**Date:** 2026-10-18
+**Module:** 11 — PWA, mobile e acabamento
+
+**Context**
+O E2E ficou fora do CI desde a M-007, por precisar de banco semeado e servidor rodando. No Módulo 11
+a suíte passou a entrar uma vez (`tests/e2e/auth.setup.ts`) e a rodar contra o build de produção.
+O Matheus pediu o E2E no CI agora (M-066).
+
+**Decision**
+- Job `e2e` no `ci.yml`, em paralelo ao Quality Check, com Postgres 18.6 de serviço e banco próprio
+  `itc_tasks_e2e` (o `itc_tasks_test` continua só para a integração).
+- Passos: `npm ci`, `db:migrate`, `db:seed`, `next build`, `next start -p 3000` em segundo plano,
+  espera do `/api/health`, `npx playwright install --with-deps chromium` e `npx playwright test`.
+  `BETTER_AUTH_URL` e `E2E_BASE_URL` em `http://localhost:3000`.
+- **Credenciais do seed geradas a cada execução:** e-mail fixo de teste (`e2e@itcbr.test`) e senha
+  `openssl rand` mascarada (`::add-mask::`) e passada por `$GITHUB_ENV`. Nada em arquivo nem em
+  secret, porque o banco morre com o job.
+- Falhou → `playwright-report/` e `test-results/` (traces) como artefato por 7 dias, com
+  `actions/upload-artifact` fixada por SHA.
+- Sem worker pg-boss: nenhum spec depende de job assíncrono.
+
+**Alternatives considered**
+- Secret do repositório com a senha do seed — mais um segredo para girar, sem ganho num banco
+  descartável.
+- Passo no Quality Check — somaria build e navegador ao caminho crítico e misturaria os bancos.
+- `node .next/standalone/server.js` — exige copiar `public/` e `.next/static/` como o Dockerfile;
+  o `next start` serve o mesmo build para o teste.
+
+**Consequences**
+O CI fica mais longo, mas em paralelo. Um spec que dependa do worker precisa subir o
+`dist/worker.mjs` no job.
