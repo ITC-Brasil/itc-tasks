@@ -19,7 +19,7 @@ Response 401: token ausente, inválido, expirado ou revogado.
 Response 429: mais de 60 requisições/min no mesmo token (`Retry-After: 60`).
 Token: `permissions = { tasks: ["read"] }` ou `{ tasks: ["read", "write"] }`; revogar = `enabled = false`.
 
-**Diferenças da implementação (Módulo 07):** `cycle` em `list_tasks`, `create_task` e `update_task` é aceito no schema mas responde `VALIDATION` ("Ciclo ainda não suportado") até o Módulo 10 (M-044); o `tools/list` de um token só-leitura traz só as ferramentas de leitura (chamar uma de escrita → `FORBIDDEN`); `query` de `list_tasks` procura no título e no `#GLPI`; erro inesperado sai como `code: "INTERNAL"`; `update_task` aceita `checklist` (acrescenta itens).
+**Diferenças da implementação (Módulo 07):** `cycle` em `list_tasks`, `create_task` e `update_task` vale desde o Módulo 10 (ADR-053): `'current'` sem ciclo ativo ou número inexistente → `NOT_FOUND`; ciclo encerrado → `ARCHIVED_REFERENCE`; o `tools/list` de um token só-leitura traz só as ferramentas de leitura (chamar uma de escrita → `FORBIDDEN`); `query` de `list_tasks` procura no título e no `#GLPI`; erro inesperado sai como `code: "INTERNAL"`; `update_task` aceita `checklist` (acrescenta itens).
 
 **Regras comuns a todas as ferramentas**
 - O agente age **em nome do dono do token**; histórico registra `actorKind = 'agent'` e `apiKeyId`.
