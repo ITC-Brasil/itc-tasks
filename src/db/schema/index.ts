@@ -4,3 +4,4 @@ export * from "./enums";
 export * from "./catalog";
 export * from "./planning";
 export * from "./tasks";
+export * from "./notifications";

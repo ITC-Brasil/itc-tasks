@@ -5,7 +5,8 @@ import { subscribe } from "@/server/realtime";
 const HEARTBEAT_MS = 25_000;
 
 export async function GET(request: Request) {
-  if (!(await sessionActor())) return new Response(null, { status: 401 });
+  const actor = await sessionActor();
+  if (!actor) return new Response(null, { status: 401 });
   const encoder = new TextEncoder();
   let cleanup = () => {};
   const stream = new ReadableStream<Uint8Array>({
@@ -18,7 +19,12 @@ export async function GET(request: Request) {
         }
       };
       controller.enqueue(encoder.encode("retry: 5000\n\n"));
-      const unsubscribe = await subscribe((e) => send(e.event, e.data));
+      const unsubscribe = await subscribe((e) => {
+        if (e.event !== "notification.created") return send(e.event, e.data);
+        // ADR-050: aviso só para a aba da própria pessoa, sem o userId
+        const { userId, ...rest } = JSON.parse(e.data) as { userId: string };
+        if (userId === actor.userId) send(e.event, JSON.stringify(rest));
+      });
       const ping = setInterval(() => send("ping", "{}"), HEARTBEAT_MS);
       cleanup = () => {
         clearInterval(ping);

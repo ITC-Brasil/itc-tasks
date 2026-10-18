@@ -114,6 +114,15 @@ export function UnitChip({ code }: { code: string }) {
   );
 }
 
+/** Chip só de texto (tipo de notificação). */
+export function TextChip({ children }: { children: React.ReactNode }) {
+  return (
+    <span className={cn(chip, "bg-muted")}>
+      <span>{children}</span>
+    </span>
+  );
+}
+
 /** ADR-023: só o número e o link para o GLPI, em nova aba. */
 export function GlpiChip({ ticket, href }: { ticket: number; href: string }) {
   return (

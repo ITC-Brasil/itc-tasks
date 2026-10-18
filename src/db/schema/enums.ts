@@ -8,3 +8,12 @@ export const actorKind = pgEnum("actor_kind", ["user", "agent", "automation", "s
 export const linkKind = pgEnum("link_kind", ["blocks", "relates"]);
 export const cycleState = pgEnum("cycle_state", ["planned", "active", "closed"]);
 export const templateKind = pgEnum("template_kind", ["task", "project"]);
+export const notificationEvent = pgEnum("notification_event", [
+  "assigned",
+  "mentioned",
+  "commented",
+  "due_today",
+  "overdue",
+  "status_changed",
+  "agent_action",
+]);

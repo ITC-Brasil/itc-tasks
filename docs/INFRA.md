@@ -212,7 +212,7 @@ services:
     image: itc-tasks:local
     container_name: itc-tasks-worker
     restart: always
-    command: ["node", "worker/index.js"]
+    command: ["node", "dist/worker.mjs"]
     env_file: .env
     environment:
       - TZ=America/Sao_Paulo
@@ -243,7 +243,7 @@ volumes:
   itc-tasks-db-data:
 ```
 
-Sem label do Watchtower (§3). Sem porta do Postgres no host. Versão implementada: `docker-compose.yml` na raiz do repositório (Módulo 00), com o `itc-tasks-worker` no perfil `worker` até o Módulo 08.
+Sem label do Watchtower (§3). Sem porta do Postgres no host. Versão implementada: `docker-compose.yml` na raiz do repositório (Módulo 00), com o `itc-tasks-worker` sempre ativo desde o Módulo 08 (`node dist/worker.mjs`, ADR-050).
 
 ### 6.3 `.env` de produção (nomes; valores no Vaultwarden)
 

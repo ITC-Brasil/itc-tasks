@@ -6,7 +6,7 @@ RUN npm ci
 FROM deps AS builder
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1 SKIP_ENV_VALIDATION=1
-RUN npm run build
+RUN npm run build && npm run worker:build
 
 FROM node:24.22.0-alpine AS runner
 WORKDIR /app
@@ -18,6 +18,8 @@ COPY --from=builder --chown=app:app /app/public ./public
 # O trace do standalone só leva o que o app importa; o migrator precisa do pacote inteiro
 COPY --from=builder --chown=app:app /app/node_modules/drizzle-orm ./node_modules/drizzle-orm
 COPY --from=builder --chown=app:app /app/drizzle ./drizzle
+# worker empacotado pelo esbuild, sem node_modules (ADR-050)
+COPY --from=builder --chown=app:app /app/dist/worker.mjs ./dist/worker.mjs
 COPY --from=builder --chown=app:app /app/scripts/migrate.mjs ./dist/migrate.mjs
 # seed do primeiro admin: docker compose exec itc-tasks node dist/seed.mjs
 COPY --from=builder --chown=app:app /app/src/db/seed.mjs ./dist/seed.mjs

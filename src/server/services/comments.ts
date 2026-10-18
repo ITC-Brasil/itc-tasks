@@ -3,18 +3,11 @@ import { db } from "@/db";
 import { apikey, comments, user } from "@/db/schema";
 import { commentBodySchema, taskIdSchema } from "@/lib/validation/tasks";
 import { type Actor, ForbiddenError } from "@/server/actor";
-import { TaskError, docText, lockTask, record } from "./tasks";
+import { TaskError, docText, lockTask, mentionIds, record } from "./tasks";
+
+export { mentionIds };
 
 // ADR-048: comentário com @menção; o autor edita o próprio, sem exclusão
-
-/** IDs dos nós `mention` do documento Tiptap. */
-export function mentionIds(node: unknown): string[] {
-  if (!node || typeof node !== "object") return [];
-  const n = node as { type?: unknown; attrs?: { id?: unknown }; content?: unknown };
-  const own = n.type === "mention" && typeof n.attrs?.id === "string" ? [n.attrs.id] : [];
-  const children = Array.isArray(n.content) ? n.content.flatMap(mentionIds) : [];
-  return [...new Set([...own, ...children])];
-}
 
 function author(actor: Actor) {
   if (actor.kind !== "user" && actor.kind !== "agent")

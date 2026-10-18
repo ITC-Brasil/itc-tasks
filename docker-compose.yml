@@ -21,9 +21,7 @@ services:
     image: itc-tasks:local
     container_name: itc-tasks-worker
     restart: always
-    # ponytail: worker/index.js chega no Módulo 08; até lá o serviço fica fora do "up" padrão
-    profiles: [worker]
-    command: ["node", "worker/index.js"]
+    command: ["node", "dist/worker.mjs"] # pg-boss: notificações, push e 08:00 (ADR-050)
     env_file: .env
     environment:
       - TZ=America/Sao_Paulo

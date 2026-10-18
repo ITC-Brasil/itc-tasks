@@ -71,6 +71,13 @@
       "when": 1792268159461,
       "tag": "0009_saved_filters_user_idx",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792280408839,
+      "tag": "0010_notifications",
+      "breakpoints": true
     }
   ]
 }
