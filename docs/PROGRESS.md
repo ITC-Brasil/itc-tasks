@@ -4,9 +4,9 @@
 
 > Sobrescrito a cada passagem de sessão. Não é registro permanente.
 
-- **Fase:** Módulo 09 — Automações e templates aprovado; PR `develop → main` aberto. Módulos 00 a 08 na `main`.
-- **Próximo passo:** revisão do Cowork; Módulo 10 só depois do "aprovado" e do "pode iniciar" do Matheus.
-- **Depois do pull:** `npm run db:migrate` (migração `0011`), `npm run db:seed` (6 regras), reiniciar `npm run dev` e `npm run worker:dev`.
+- **Fase:** Módulo 10 — Ciclos, marcos e painel pronto para revisão. Módulos 00 a 09 na `main` (PR #11 com o complemento do 09).
+- **Próximo passo:** revisão do Cowork; Módulo 11 só depois do "aprovado" e do "pode iniciar" do Matheus.
+- **Depois do pull:** `npm install` (Recharts 3.10.1); sem migração. Telas novas: `/ciclos`, `/marcos`, `/painel`; atalho `G C`.
 - **Regra "Avisar quem criou quando concluir" (M-053):** nasce desligada no seed, mas bancos já semeados (dev) a mantêm ligada; desligar em Configurações › Automações, se quiser.
 - **E2E no build de produção (Módulo 11):** `notifications.spec` "preferências", `shell.spec` "tema… axe" e `tasks.spec` "tarefa inexistente" falham no `next start` desde antes do Módulo 09; o limite de login (60/min) derruba specs seguidos. Detalhes: `docs/modules/09-automacoes-templates.md`.
 - **Pendência do Módulo 11 (M-041):** investigar o detalhe em branco intermitente de `tasks.spec.ts`/`activity.spec.ts` com os workers em paralelo (hipótese: rebuild do `next dev` no meio da navegação), quando o E2E rodar contra o build de produção. Detalhes: `docs/modules/06-comentarios-busca.md`, Pontos de atenção.
@@ -20,6 +20,8 @@
 
 | Data | Módulo | Resumo |
 |---|---|---|
+| 2026-10-18 | 10 — Revisão | Ajustes de M-061: `23505` de corrida em `createCycle`/`startCycle` vira `TaskError`; marco não muda para Projeto/Cliente arquivado; semanas do painel no fuso de Brasília no filtro e no agrupamento. Decisões do ADR-053 confirmadas pelo Matheus. Vitest 97 integração. |
+| 2026-10-18 | 10 — Ciclos, marcos e painel | ADR-053 (membros planejam; encerrar exige ciclo planejado, marcadas vão para ele e desmarcadas ficam sem ciclo; marco do projeto da tarefa; painel por `task_projects`). `planningService`, ciclo/marco na tarefa, ação em massa e filtro `ciclo`, `cycle` no MCP, telas `/ciclos`, `/marcos`, `/painel` (Chart do shadcn, Recharts 3.10.1), marcos no calendário, `G C`. Sem migração. Vitest 108 (96 integração + 12 unit). Detalhes: `docs/modules/10-ciclos-marcos-painel.md`. |
 | 2026-10-17 | 08 — Revisão | Ajustes de M-048: push que falha numa assinatura (não 404/410) é registrado e não falha o job; `quietHours*` documentados como expediente; ADR-051: o dono do token recebe `agent_action` do próprio agente (padrão só no app). Itens 1 e 3 mexem no mesmo service e teste: um commit. Vitest 89. |
 | 2026-10-17 | 09 — Automações e templates | ADR-052 (fila `automation.evaluate` na transação do `record()`, profundidade 3, condições sobre um retrato por job, ações pelos services com ator automação, tipo de aviso `automation`, template de projeto cria várias tarefas numa transação). `0011_automations`; job `automation.overdue` às 00:05. Telas `/config/automacoes` e `/templates`. Correções: filas criadas no sender antigo, `twMerge` com tamanhos do tema, `src/server/permissions.ts` para o worker não importar Better Auth; `b8941b2`: o `worker:dev` (`tsx watch`, CommonJS) não aceitava top-level await, inicialização em `main()`. Vitest 105. Detalhes: `docs/modules/09-automacoes-templates.md`. |
 | 2026-10-17 | 08 — Notificações | ADR-050 (fanout enfileirado na transação do `record()`, tabela de destinatários, agente conta como o dono no N4, preferência ausente = padrão, push só no expediente, e-mail só no resumo das 08:00). `0010_notifications`; `worker/index.ts` empacotado pelo esbuild em `dist/worker.mjs`; `pg-boss` 12.38.0, `web-push` 3.6.7, `nodemailer` 10.1.2. Telas `/notificacoes` e `/config/preferencias`. Vitest 87, E2E desktop 18. Detalhes: `docs/modules/08-notificacoes.md`. |

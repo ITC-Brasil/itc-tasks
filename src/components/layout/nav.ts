@@ -1,9 +1,12 @@
 import {
   Bell,
   Bot,
+  ChartColumn,
   Columns3,
+  Flag,
   House,
   LayoutTemplate,
+  RefreshCw,
   Settings,
   SlidersHorizontal,
   type LucideIcon,
@@ -27,6 +30,9 @@ export const NAV: NavGroup[] = [
     items: [
       { href: "/", label: "Minhas tarefas", icon: House },
       { href: "/tarefas", label: "Tarefas", icon: Columns3 },
+      { href: "/ciclos", label: "Ciclos", icon: RefreshCw },
+      { href: "/marcos", label: "Marcos", icon: Flag },
+      { href: "/painel", label: "Painel", icon: ChartColumn },
       { href: "/notificacoes", label: "Notificações", icon: Bell },
       { href: "/templates", label: "Templates", icon: LayoutTemplate },
     ],

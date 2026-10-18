@@ -8,6 +8,7 @@ import { POST } from "@/app/mcp/route";
 import { createAgentKey, listAgentKeys, revokeAgentKey } from "@/server/services/agents";
 import { createMobileUnit, createProject } from "@/server/services/catalog";
 import { createMember } from "@/server/services/members";
+import { createCycle } from "@/server/services/planning";
 
 const system: Actor = { kind: "system" };
 const run = String(Date.now()).slice(-6);
@@ -210,13 +211,28 @@ it("update_task com índice de checklist inválido não grava nada (M-044)", asy
   });
 });
 
-it("cycle ainda não suportado → VALIDATION, sem gravar (M-044)", async () => {
+it("cycle por número grava e filtra; ciclo inexistente → NOT_FOUND (ADR-053)", async () => {
+  const cycle = await createCycle(person, { startsOn: "2026-11-02", endsOn: "2026-11-13" });
+  const created = await call(writeKey, "create_task", {
+    title: "Com ciclo",
+    projectIds: [code],
+    cycle: cycle.number,
+  });
+  expect(created.isError).toBeFalsy();
+  const id = String(created.structuredContent.id);
+  const [row] = await db
+    .select({ cycleId: tasks.cycleId })
+    .from(tasks)
+    .where(eq(tasks.number, Number(id.replace("TI-", ""))));
+  expect(row.cycleId).toBe(cycle.id);
+  const listed = await call(readKey, "list_tasks", { cycle: cycle.number });
+  expect(listed.structuredContent.tasks).toEqual([expect.objectContaining({ id })]);
   for (const [name, args] of [
-    ["create_task", { title: "Com ciclo", projectIds: [code], cycle: "current" }],
-    ["list_tasks", { cycle: 3 }],
+    ["create_task", { title: "Sem ciclo", projectIds: [code], cycle: 99_999_999 }],
+    ["list_tasks", { cycle: 99_999_999 }],
   ] as const) {
     const res = await call(writeKey, name, args);
-    expect(res.structuredContent, name).toMatchObject({ code: "VALIDATION" });
+    expect(res.structuredContent, name).toMatchObject({ code: "NOT_FOUND" });
   }
 });
 

@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Flag } from "lucide-react";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { monthGrid, shiftMonth } from "@/lib/dates";
@@ -8,15 +8,17 @@ import { PriorityIcon } from "./badges";
 
 const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
-/** PRD V4: grade mensal com os prazos (marcos no Módulo 10 — ADR-046). */
+/** PRD V4: grade mensal com os prazos e os marcos abertos (ADR-046, ADR-053). */
 export function MonthCalendar({
   month,
   tasks,
+  milestones,
   today,
   query,
 }: {
   month: string;
   tasks: TaskRow[];
+  milestones: { id: string; name: string; dueOn: string | null; code: string }[];
   today: string;
   query: string; // filtros atuais, mantidos ao trocar de mês
 }) {
@@ -31,6 +33,7 @@ export function MonthCalendar({
     tasks.filter((t) => t.dueDate),
     (t) => t.dueDate!,
   );
+  const marks = Map.groupBy(milestones, (m) => m.dueOn!);
   return (
     <div className="p-4 md:p-6">
       <div className="mb-3 flex items-center gap-2">
@@ -92,6 +95,18 @@ export function MonthCalendar({
                   {Number(day.slice(8))}
                 </span>
                 <ul className="mt-1 flex flex-col gap-1">
+                  {(marks.get(day) ?? []).map((m) => (
+                    <li key={m.id}>
+                      <Link
+                        href="/marcos"
+                        className="flex items-center gap-1 rounded-sm px-1 py-0.5 text-xs font-medium text-accent-text hover:bg-muted"
+                        title={`Marco · ${m.code} · ${m.name}`}
+                      >
+                        <Flag className="size-3 flex-none" strokeWidth={1.75} aria-hidden="true" />
+                        <span className="truncate">{m.name}</span>
+                      </Link>
+                    </li>
+                  ))}
                   {list.map((t) => (
                     <li key={t.id}>
                       <Link

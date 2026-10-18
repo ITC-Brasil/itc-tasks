@@ -258,6 +258,30 @@ export function TaskDetail({
             onChange={(e) => save({ dueDate: e.currentTarget.value || null })}
           />
         </Prop>
+        <Prop label="Ciclo">
+          <Pick
+            label="Ciclo"
+            items={withCurrent(
+              items.cycles,
+              task.cycleId,
+              task.cycleNumber ? `Ciclo ${task.cycleNumber}` : null,
+            )}
+            value={view.cycleId ?? ""}
+            onChange={(v) => save({ cycleId: v || null })}
+          />
+        </Prop>
+        <Prop label="Marco">
+          <Pick
+            label="Marco"
+            items={withCurrent(
+              items.milestones(view.projectIds),
+              task.milestoneId,
+              task.milestoneName,
+            )}
+            value={view.milestoneId ?? ""}
+            onChange={(v) => save({ milestoneId: v || null })}
+          />
+        </Prop>
         <Prop label="Etiquetas">
           <PickMany
             label="Etiquetas"

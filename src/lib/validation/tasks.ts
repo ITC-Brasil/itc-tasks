@@ -42,6 +42,9 @@ const fields = {
   dueDate: optional(dueDate),
   descriptionJson: optional(descriptionJson),
   labelIds: z.array(uuid).max(20).default([]),
+  // ADR-053: ciclo não encerrado; marco aberto de um dos Projetos/Clientes da tarefa
+  cycleId: optional(uuid),
+  milestoneId: optional(uuid),
 };
 
 export const createTaskSchema = z.object({
@@ -71,7 +74,7 @@ export type UpdateTaskInput = z.input<typeof updateTaskSchema>;
 
 export const bulkUpdateSchema = z.object({
   taskIds: z.array(uuid).min(1).max(200),
-  patch: updateTaskSchema.pick({ statusId: true, assigneeId: true, priority: true }),
+  patch: updateTaskSchema.pick({ statusId: true, assigneeId: true, priority: true, cycleId: true }),
 });
 
 export const moveTaskSchema = z.object({
@@ -124,6 +127,7 @@ export const FILTER_PARAMS = {
   um: "mobileUnitIds",
   prioridade: "priorities",
   etiqueta: "labelIds",
+  ciclo: "cycleIds",
 } as const;
 const many = <T extends z.ZodType>(item: T) =>
   z
@@ -136,6 +140,7 @@ export const taskFiltersSchema = z.object({
   mobileUnitIds: many(uuid),
   priorities: many(z.enum(PRIORITIES)),
   labelIds: many(uuid),
+  cycleIds: many(uuid),
 });
 export type TaskFilters = z.output<typeof taskFiltersSchema>;
 

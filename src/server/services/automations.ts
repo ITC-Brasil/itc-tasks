@@ -102,7 +102,7 @@ async function act(action: AutomationAction, rule: Rule, actor: Actor, taskId: s
       return;
     }
     case "moveToActiveCycle":
-      // ponytail: sem ciclo ativo não faz nada; a tela de ciclos chega no Módulo 10
+      // sem ciclo ativo não faz nada (ADR-052)
       return db.transaction(async (tx) => {
         const [cycle] = await tx.select().from(cycles).where(eq(cycles.state, "active"));
         const current = await lockTask(tx, taskId);

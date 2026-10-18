@@ -1,8 +1,10 @@
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   apikey,
+  cycles,
   labels,
+  milestones,
   mobileUnits,
   projects,
   taskEvents,
@@ -56,7 +58,7 @@ function listChange(what: string, p: Payload, names: Names) {
   return `${what}: ${parts.join("; ") || "sem mudança"}`;
 }
 
-function fieldChange(p: Payload) {
+function fieldChange(p: Payload, names: Names) {
   switch (p.field) {
     case "title":
       return `renomeou para “${String(p.to)}”`;
@@ -69,7 +71,9 @@ function fieldChange(p: Payload) {
     case "description":
       return "editou a descrição";
     case "cycle":
-      return "moveu para o ciclo atual";
+      return p.to ? `moveu para o ${name(names, p.to)}` : "tirou do ciclo";
+    case "milestone":
+      return p.to ? `ligou ao marco ${name(names, p.to)}` : "tirou do marco";
     case "position":
       return "moveu para o topo da coluna";
     default:
@@ -86,7 +90,7 @@ export function describe(type: string, p: Payload, names: Names): string | null 
     case "assigned":
       return p.to ? `atribuiu a ${name(names, p.to)}` : "removeu o responsável";
     case "field_changed":
-      return fieldChange(p);
+      return fieldChange(p, names);
     case "labels_changed":
       return listChange("etiquetas", p, names);
     case "projects_changed":
@@ -114,6 +118,8 @@ async function allNames(): Promise<Names> {
     db.select({ id: projects.id, name: projects.code }).from(projects),
     db.select({ id: mobileUnits.id, name: mobileUnits.code }).from(mobileUnits),
     db.select({ id: labels.id, name: labels.name }).from(labels),
+    db.select({ id: cycles.id, name: sql<string>`'Ciclo ' || ${cycles.number}` }).from(cycles),
+    db.select({ id: milestones.id, name: milestones.name }).from(milestones),
   ]);
   return new Map(rows.flat().map((r) => [r.id, r.name]));
 }

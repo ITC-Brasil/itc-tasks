@@ -30,7 +30,7 @@ export const mcpListTasks = {
   cycle: z
     .union([z.literal("current"), z.number().int().positive()])
     .optional()
-    .describe("ainda não suportado (Módulo 10): enviar responde VALIDATION"),
+    .describe("'current' (ciclo ativo) ou o número do ciclo"),
 };
 
 const taskFields = {
@@ -53,7 +53,7 @@ const taskFields = {
   cycle: z
     .union([z.literal("current"), z.number().int().positive()])
     .optional()
-    .describe("ainda não suportado (Módulo 10): enviar responde VALIDATION"),
+    .describe("'current' (ciclo ativo) ou o número do ciclo"),
 };
 
 export const mcpCreateTask = taskFields;

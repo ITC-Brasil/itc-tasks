@@ -203,9 +203,9 @@ Sequencial, um módulo por vez. Cada módulo começa numa sessão nova do Claude
 - [x] Templates de tarefa e projeto — `feat(templates): add templates`
 
 ### Módulo 10 — Ciclos, marcos e painel
-- [ ] Ciclos (um ativo, encerrar levando pendências) — `feat(planning): add cycles`
-- [ ] Marcos — `feat(planning): add milestones`
-- [ ] Painel por Projeto/Cliente com Chart do shadcn — `feat(planning): add project dashboard`
+- [x] Ciclos (um ativo, encerrar levando pendências) — `feat(planning): add cycles`
+- [x] Marcos — `feat(planning): add milestones`
+- [x] Painel por Projeto/Cliente com Chart do shadcn — `feat(planning): add project dashboard`
 
 ### Módulo 11 — PWA, mobile e acabamento
 - [ ] Manifest, Serwist, splash iOS, prompt de instalação — `feat(pwa): add manifest and service worker`

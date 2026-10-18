@@ -26,6 +26,7 @@ import {
   updateTask,
 } from "@/server/services/tasks";
 import { addComment, editComment } from "@/server/services/comments";
+import { listCycles, listMilestones } from "@/server/services/planning";
 import { createSavedFilter, deleteSavedFilter } from "@/server/services/saved-filters";
 
 export type TaskResult<T = undefined> = { ok: true; data: T } | { ok: false; error: string };
@@ -49,13 +50,15 @@ const detail = (n: number) => `/tarefas/${n}`;
 /** Opções dos seletores da criação rápida e do detalhe: só cadastros ativos. */
 export async function getTaskFormOptionsAction() {
   const actor = await requireActor();
-  const [projects, units, statuses, labels, people, tpls] = await Promise.all([
+  const [projects, units, statuses, labels, people, tpls, cycles, milestones] = await Promise.all([
     listProjects(actor),
     listMobileUnits(actor),
     listStatuses(actor),
     listLabels(actor),
     listAssignees(),
     listTaskTemplates(),
+    listCycles(),
+    listMilestones(),
   ]);
   return {
     projects: projects.map((p) => ({
@@ -68,6 +71,13 @@ export async function getTaskFormOptionsAction() {
     labels: labels.map((l) => ({ id: l.id, name: l.name, colorToken: l.colorToken })),
     people,
     templates: tpls,
+    // ADR-053: só ciclos não encerrados e marcos abertos são escolhidos
+    cycles: cycles
+      .filter((c) => c.state !== "closed")
+      .map((c) => ({ id: c.id, number: c.number, state: c.state })),
+    milestones: milestones
+      .filter((m) => !m.closedAt)
+      .map((m) => ({ id: m.id, name: m.name, projectId: m.projectId })),
     actorId: "userId" in actor ? actor.userId : null,
   };
 }
