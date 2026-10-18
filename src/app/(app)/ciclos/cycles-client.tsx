@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { shortDate } from "@/lib/dates";
 import { closeCycleAction, saveCycleAction, startCycleAction } from "@/server/actions/planning";
 import type { CycleRow } from "@/server/services/planning";
+import { Card } from "@/components/ui/card";
 
 type Pending = { id: string; number: number; title: string };
 
@@ -213,7 +214,7 @@ export function CyclesView({
   return (
     <>
       {active ? (
-        <section aria-labelledby="ciclo-ativo" className="rounded-xl bg-surface p-5 shadow-1">
+        <Card as="section" padding="lg" aria-labelledby="ciclo-ativo">
           <div className="flex flex-wrap items-center gap-2">
             <h2 id="ciclo-ativo" className="text-h3 font-bold">
               Ciclo {active.number}
@@ -263,11 +264,11 @@ export function CyclesView({
               )}
             </div>
           </div>
-        </section>
+        </Card>
       ) : (
-        <p className="rounded-xl bg-surface p-5 text-sm text-muted shadow-1">
+        <Card as="p" padding="lg" className="text-sm text-muted">
           Nenhum ciclo ativo. Inicie um ciclo planejado.
-        </p>
+        </Card>
       )}
 
       {planned.length > 0 && (
@@ -276,17 +277,14 @@ export function CyclesView({
             Planejados
           </h2>
           {planned.map((c) => (
-            <div
-              key={c.id}
-              className="flex flex-wrap items-center gap-3 rounded-xl bg-surface px-4 py-3 shadow-1"
-            >
+            <Card padding="sm" key={c.id} className="flex flex-wrap items-center gap-3">
               <span className="font-medium">Ciclo {c.number}</span>
               <span className="text-sm text-muted tabular-nums">{range(c)}</span>
               <span className="text-sm text-muted tabular-nums">{c.total} tarefas</span>
               <span className="flex-1" />
               <CycleDialog cycle={c} />
               <StartButton cycle={c} blocked={!!active} />
-            </div>
+            </Card>
           ))}
         </section>
       )}
@@ -296,7 +294,7 @@ export function CyclesView({
           <h2 id="encerrados" className="text-sm font-medium text-muted">
             Encerrados
           </h2>
-          <ul className="overflow-hidden rounded-xl bg-surface shadow-1">
+          <Card as="ul" className="overflow-hidden">
             {closed.map((c) => (
               <li
                 key={c.id}
@@ -312,7 +310,7 @@ export function CyclesView({
                 </span>
               </li>
             ))}
-          </ul>
+          </Card>
         </section>
       )}
     </>

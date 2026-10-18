@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { saveLabelAction, setLabelArchivedAction } from "@/server/actions/catalog";
 import { ArchiveButton, FieldLabel, FormDialog, FormSelect, Situation } from "../config-ui";
+import { Card } from "@/components/ui/card";
 
 type Label = { id: string; name: string; colorToken: string; archivedAt: Date | null };
 
@@ -63,7 +64,7 @@ export function LabelDialog({ label }: { label?: Label }) {
 
 export function LabelsTable({ labels }: { labels: Label[] }) {
   return (
-    <div className="overflow-x-auto rounded-xl bg-surface shadow-1">
+    <Card className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead className="text-left text-muted">
           <tr>
@@ -99,6 +100,6 @@ export function LabelsTable({ labels }: { labels: Label[] }) {
           ))}
         </tbody>
       </table>
-    </div>
+    </Card>
   );
 }

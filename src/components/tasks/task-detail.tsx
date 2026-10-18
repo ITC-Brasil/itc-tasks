@@ -30,6 +30,7 @@ import { GlpiChip, LabelChip, ProjectChip, StatusIcon, UnitChip, glpiUrl } from 
 import { CommentBody, CommentEditor } from "./comment-editor";
 import { DescriptionEditor } from "./description-editor";
 import { type PickItem, Pick, PickMany, optionItems } from "./fields";
+import { Card } from "@/components/ui/card";
 
 type Task = NonNullable<Awaited<ReturnType<typeof getTaskByNumber>>>;
 type Comment = Awaited<ReturnType<typeof listComments>>[number];
@@ -182,9 +183,11 @@ export function TaskDetail({
         <Activity task={task} comments={comments} activity={activity} options={options} />
       </article>
 
-      <aside
+      <Card
+        as="aside"
+        padding="md"
         aria-label="Propriedades"
-        className="flex flex-col gap-3 rounded-xl bg-surface p-4 shadow-1 lg:self-start"
+        className="flex flex-col gap-3 lg:self-start"
       >
         <Prop label="Status">
           <Pick
@@ -304,7 +307,7 @@ export function TaskDetail({
             </>
           )}
         </p>
-      </aside>
+      </Card>
     </main>
   );
 }

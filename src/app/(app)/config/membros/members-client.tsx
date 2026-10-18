@@ -28,6 +28,7 @@ import {
   setMemberActiveAction,
   setMemberRoleAction,
 } from "@/server/actions/members";
+import { Card } from "@/components/ui/card";
 
 type Member = {
   id: string;
@@ -208,7 +209,7 @@ export function MembersTable({ members, selfId }: { members: Member[]; selfId: s
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl bg-surface shadow-1">
+    <Card className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead className="text-left text-muted">
           <tr>
@@ -266,6 +267,6 @@ export function MembersTable({ members, selfId }: { members: Member[]; selfId: s
           })}
         </tbody>
       </table>
-    </div>
+    </Card>
   );
 }

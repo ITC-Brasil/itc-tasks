@@ -27,6 +27,7 @@ import {
 } from "@/server/actions/automations";
 import { FieldLabel, FormDialog, FormSelect, useRun } from "../config-ui";
 import { CATEGORIES } from "../workflow/workflow-client";
+import { Card } from "@/components/ui/card";
 
 type Rule = {
   id: string;
@@ -317,14 +318,14 @@ function Token({ children, accent }: { children: React.ReactNode; accent?: boole
 export function RulesList({ rules, refs }: { rules: Rule[]; refs: Refs }) {
   if (!rules.length)
     return (
-      <div className="rounded-xl bg-surface shadow-1">
+      <Card>
         <EmptyState icon={Zap} title="Nenhuma automação" action={<RuleDialog refs={refs} />}>
           Regras “quando isto, faça aquilo” economizam cliques repetidos.
         </EmptyState>
-      </div>
+      </Card>
     );
   return (
-    <ul className="divide-y divide-border rounded-xl bg-surface shadow-1">
+    <Card as="ul" className="divide-y divide-border">
       {rules.map((r) => {
         const when = TRIGGERS.find((t) => t.value === r.trigger)?.label ?? r.trigger;
         const cond = describeConditions((r.conditions ?? {}) as AutomationConditions);
@@ -363,6 +364,6 @@ export function RulesList({ rules, refs }: { rules: Rule[]; refs: Refs }) {
           </li>
         );
       })}
-    </ul>
+    </Card>
   );
 }

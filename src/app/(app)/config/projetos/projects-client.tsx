@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { saveProjectAction, setProjectArchivedAction } from "@/server/actions/catalog";
 import { ArchiveButton, FieldLabel, FormDialog, FormSelect, Situation } from "../config-ui";
+import { Card } from "@/components/ui/card";
 
 type Project = {
   id: string;
@@ -69,7 +70,7 @@ export function ProjectDialog({ project }: { project?: Project }) {
 
 export function ProjectsTable({ projects }: { projects: Project[] }) {
   return (
-    <div className="overflow-x-auto rounded-xl bg-surface shadow-1">
+    <Card className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead className="text-left text-muted">
           <tr>
@@ -107,6 +108,6 @@ export function ProjectsTable({ projects }: { projects: Project[] }) {
           ))}
         </tbody>
       </table>
-    </div>
+    </Card>
   );
 }

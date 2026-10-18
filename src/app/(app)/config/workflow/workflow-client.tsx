@@ -9,6 +9,7 @@ import {
   setStatusArchivedAction,
 } from "@/server/actions/catalog";
 import { ArchiveButton, FieldLabel, FormDialog, FormSelect, Situation, useRun } from "../config-ui";
+import { Card } from "@/components/ui/card";
 
 type Category = "backlog" | "todo" | "in_progress" | "done";
 type Status = { id: string; name: string; category: Category; archivedAt: Date | null };
@@ -58,7 +59,7 @@ export function StatusesTable({ statuses }: { statuses: Status[] }) {
     run(() => moveStatusAction(s.id, direction), "Ordem alterada");
 
   return (
-    <div className="overflow-x-auto rounded-xl bg-surface shadow-1">
+    <Card className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead className="text-left text-muted">
           <tr>
@@ -120,6 +121,6 @@ export function StatusesTable({ statuses }: { statuses: Status[] }) {
           })}
         </tbody>
       </table>
-    </div>
+    </Card>
   );
 }
