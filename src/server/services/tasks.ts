@@ -304,6 +304,34 @@ export async function lockTask(tx: Tx, id: string) {
   return row;
 }
 
+/** ADR-052: conta um uso do template (ativo e do tipo certo). */
+export async function countTemplateUse(tx: Tx, id: string, kind: "task" | "project") {
+  const [row] = await tx
+    .update(templates)
+    .set({ usageCount: sql`${templates.usageCount} + 1` })
+    .where(and(eq(templates.id, id), eq(templates.kind, kind), isNull(templates.archivedAt)))
+    .returning();
+  if (!row) throw new TaskError("NOT_FOUND", "Template não encontrado ou arquivado");
+  return row;
+}
+
+/** `{UM}` no título de template vira o código da primeira UM (sem UM, some). */
+export async function unitTitle(tx: Tx, title: string, unitIds: string[]) {
+  if (!title.includes("{UM}")) return title;
+  const [unit] = unitIds.length
+    ? await tx
+        .select({ code: mobileUnits.code })
+        .from(mobileUnits)
+        .where(eq(mobileUnits.id, unitIds[0]))
+    : [];
+  const out = title
+    .replaceAll("{UM}", unit?.code ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!out) throw new TaskError("VALIDATION", "Informe o título");
+  return out;
+}
+
 // ── Escrita ─────────────────────────────────────────────────────────
 
 export async function createTask(actor: Actor, input: CreateTaskInput) {
@@ -317,6 +345,10 @@ export async function insertTask(
   actor: Actor,
   data: ReturnType<typeof createTaskSchema.parse>,
 ) {
+  if (data.templateId) {
+    await countTemplateUse(tx, data.templateId, "task");
+    data = { ...data, title: await unitTitle(tx, data.title, data.mobileUnitIds) };
+  }
   await assertActive(tx, projects, data.projectIds, "Projeto/Cliente");
   await assertActive(tx, mobileUnits, data.mobileUnitIds, "Unidade Móvel");
   await assertUnitsFit(tx, data.mobileUnitIds, data.projectIds, []);
@@ -754,12 +786,12 @@ export async function listAssignees() {
     .orderBy(asc(user.name));
 }
 
-/** Templates de tarefa válidos, os mais usados primeiro (tela no Módulo 09). */
+/** Templates de tarefa ativos e válidos, os mais usados primeiro (criação rápida). */
 export async function listTaskTemplates() {
   const rows = await db
     .select({ id: templates.id, name: templates.name, payload: templates.payload })
     .from(templates)
-    .where(eq(templates.kind, "task"))
+    .where(and(eq(templates.kind, "task"), isNull(templates.archivedAt)))
     .orderBy(desc(templates.usageCount));
   return rows.flatMap((t) => {
     const payload = taskTemplatePayloadSchema.safeParse(t.payload);

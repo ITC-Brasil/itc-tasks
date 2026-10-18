@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { dueBucket, monthGrid, relativeTime, shiftMonth, todayISO } from "./dates";
+import { addBusinessDays, dueBucket, monthGrid, relativeTime, shiftMonth, todayISO } from "./dates";
 
 it("agrupa prazos de Minhas tarefas", () => {
   const today = "2026-10-14"; // quarta
@@ -30,4 +30,10 @@ it("formata o histórico relativo em pt-BR", () => {
   expect(relativeTime(new Date("2026-10-17T10:00:00Z"), now)).toBe("há 2 horas");
   expect(relativeTime(new Date("2026-10-16T12:00:00Z"), now)).toBe("ontem");
   expect(relativeTime(new Date("2026-10-01T12:00:00Z"), now)).toBe("01/10/2026");
+});
+
+it("addBusinessDays pula sábado e domingo", () => {
+  expect(addBusinessDays("2026-10-16", 1)).toBe("2026-10-19"); // sexta → segunda
+  expect(addBusinessDays("2026-10-17", 5)).toBe("2026-10-23"); // sábado → sexta seguinte
+  expect(addBusinessDays("2026-10-14", 0)).toBe("2026-10-14");
 });

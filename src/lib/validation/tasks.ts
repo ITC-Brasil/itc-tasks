@@ -48,6 +48,8 @@ export const createTaskSchema = z.object({
   ...fields,
   projectIds,
   checklist: z.array(z.string().trim().min(1).max(200)).max(50).default([]),
+  // template de tarefa usado: conta o uso e troca `{UM}` no título (ADR-052)
+  templateId: uuid.optional(),
 });
 export type CreateTaskInput = z.input<typeof createTaskSchema>;
 

@@ -8,6 +8,17 @@ export const addDays = (iso: string, days: number) => {
   return d.toISOString().slice(0, 10);
 };
 
+/** Prazo de template (ADR-052): dias úteis, pulando sábado e domingo; sem feriados. */
+export function addBusinessDays(iso: string, days: number) {
+  let d = iso;
+  for (let left = days; left > 0;) {
+    d = addDays(d, 1);
+    const weekday = new Date(`${d}T12:00:00Z`).getUTCDay();
+    if (weekday !== 0 && weekday !== 6) left--;
+  }
+  return d;
+}
+
 export type DueBucket = "overdue" | "today" | "week" | "later";
 
 /** PRD V1: vencidas, hoje, esta semana (até domingo), depois (inclui sem prazo). */
