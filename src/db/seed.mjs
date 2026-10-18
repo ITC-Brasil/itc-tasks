@@ -79,7 +79,7 @@ try {
     `INSERT INTO automation_rules (name, trigger, conditions, actions, enabled)
      SELECT * FROM (VALUES
        ('Avisar quem criou quando concluir', 'task.status_changed',
-        '{"statusCategory":"done"}'::jsonb, '[{"type":"notify","to":"creator"}]'::jsonb, true),
+        '{"statusCategory":"done"}'::jsonb, '[{"type":"notify","to":"creator"}]'::jsonb, false),
        ('Puxar para o ciclo ao atribuir', 'task.assigned', '{"statusCategory":"backlog"}',
         jsonb_build_array(
           jsonb_build_object('type', 'setStatus', 'statusId',

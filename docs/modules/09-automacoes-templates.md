@@ -2,7 +2,7 @@
 
 **Status:** pronto para revisão. ADR-052 escrito antes do código (`3d37cfb`).
 
-PRD A1 (regras "Quando → Se → Então" com liga/desliga, contador e última execução), A2 (5 gatilhos), A3 (ações; "topo da coluna" acrescentado por decisão do Matheus), A4 (6 regras no seed, a última desligada) e P4 (templates de tarefa e de projeto; usar pede Projeto/Cliente e UM).
+PRD A1 (regras "Quando → Se → Então" com liga/desliga, contador e última execução), A2 (5 gatilhos), A3 (ações; "topo da coluna" acrescentado por decisão do Matheus), A4 (6 regras no seed; "Etiquetar tarefas de UM" e, pela M-053, "Avisar quem criou quando concluir" desligadas) e P4 (templates de tarefa e de projeto; usar pede Projeto/Cliente e UM).
 
 ## O que foi implementado
 
@@ -11,7 +11,7 @@ PRD A1 (regras "Quando → Se → Então" com liga/desliga, contador e última e
 - `src/db/schema/enums.ts` — valor `automation` em `notification_event`.
 - `src/db/schema/planning.ts` — `templates.archived_at` (arquivar, nunca excluir).
 - Migração `drizzle/0011_automations.sql`, só aditiva (`ALTER TYPE … ADD VALUE`, `CREATE TABLE`, `ADD COLUMN`, `CREATE INDEX`).
-- Seed (`src/db/seed.mjs`): as 6 regras da tela de referência, só com a tabela vazia; status "A fazer" e etiqueta "campo" resolvidos por subselect.
+- Seed (`src/db/seed.mjs`): as 6 regras da tela de referência, só com a tabela vazia; regras 1 e 6 nascem desligadas (M-053); status "A fazer" e etiqueta "campo" resolvidos por subselect.
 
 ### Motor (`src/server/services/automations.ts`)
 - `record()` (`src/server/services/tasks.ts`) enfileira `automation.evaluate` `{ eventIds, depth }` na mesma transação do fanout, só quando `triggerOf()` (`src/lib/validation/automations.ts`) acha gatilho: `created`, `status_changed`, `assigned` com responsável, `field_changed` de `priority`.
@@ -42,7 +42,7 @@ PRD A1 (regras "Quando → Se → Então" com liga/desliga, contador e última e
 
 | Cenário | Como verificado | Resultado |
 |---|---|---|
-| Só escrita-gatilho enfileira `automation.evaluate`, na transação | `tests/integration/automations.test.ts` | ✅ +1 job ao criar; subtarefa não enfileira |
+| Só escrita-gatilho enfileira `automation.evaluate`, na transação, sem retry | `tests/integration/automations.test.ts` | ✅ +1 job ao criar; subtarefa não enfileira; `retry_limit` 0 |
 | Concluída com GLPI comenta `#48213 da TI-n`; sem GLPI não roda | idem | ✅ `actor_kind = automation`, 1 run, `run_count` 1 |
 | Notificar criador → `automation` com `data.rule`, mesmo sendo o autor | idem | ✅ |
 | Atribuir em Backlog → A fazer; evento com `automation_rule_id`; sem ciclo ativo não faz nada | idem | ✅ |
@@ -86,7 +86,8 @@ A migração `0011` (no `feat(automation): add rules engine`) já traz `template
 - Ferramentas MCP para templates e automações.
 
 ## Pontos de atenção
-- **Regra 1 do seed × ADR-050:** "Avisar quem criou quando concluir" repete o aviso `status_changed` que o criador já recebe; ficou como na tela de referência. Desligar a regra ou o tipo em Preferências resolve.
+- **Regra 1 do seed × ADR-050:** "Avisar quem criou quando concluir" repete o aviso `status_changed` do N2; nasce desligada (M-053). Bancos já semeados não mudam: desligar na tela.
+- **Sem retry (M-053):** `automation.evaluate` e `automation.overdue` vão com `retryLimit: 0` (`NO_RETRY` em `src/server/jobs.ts`; o cron no `worker/index.ts`). Retry repetiria avisos e comentários das regras que já rodaram; em troca, uma falha de banco no meio perde o restante daquele job (fica no log do worker).
 - **Dev server antigo:** um `next dev` aberto antes do módulo ficou com `tasks.ts` velho no HMR (`countTemplateUse is not a function`). Reinicie o `npm run dev` depois do pull.
 - **Depois do pull:** `npm run db:migrate` (`0011`), `npm run db:seed` (regras) e reiniciar o `npm run worker:dev`.
 - **E2E contra `next start`:** `BETTER_AUTH_URL` precisa ser a porta usada, e o limite de login vale; rodar poucos specs por vez ou aguardar 1 minuto.
