@@ -12,7 +12,7 @@ import {
 import { useTheme } from "next-themes";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { QuickCreate, openQuickCreate } from "@/components/tasks/quick-create";
 import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
@@ -35,6 +35,11 @@ export type ShellProfile = {
 };
 
 const WIDE = "(min-width: 1024px)";
+const subscribeWide = (cb: () => void) => {
+  const mq = window.matchMedia(WIDE);
+  mq.addEventListener("change", cb);
+  return () => mq.removeEventListener("change", cb);
+};
 
 export function AppShell({
   profile,
@@ -99,7 +104,13 @@ export function AppShell({
   const online = useOnline();
   // < 768 px: o que não está na barra inferior vai para "Mais" (ADR-054)
   const more = groups.flatMap((g) => g.items).filter((i) => !BAR.has(i.href));
-  const expanded = overlay || !collapsed;
+  // < 1024 px a preferência não vale: o trilho só expande sobreposto (UI.md §6)
+  const wide = useSyncExternalStore(
+    subscribeWide,
+    () => window.matchMedia(WIDE).matches,
+    () => true,
+  );
+  const expanded = overlay || (wide && !collapsed);
 
   return (
     <div className="flex min-h-dvh">

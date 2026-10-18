@@ -209,7 +209,8 @@ export function MembersTable({ members, selfId }: { members: Member[]; selfId: s
   }
 
   return (
-    <Card className="overflow-x-auto">
+    // rola na horizontal no celular: focável pelo teclado mesmo sem botões na linha (axe)
+    <Card className="overflow-x-auto" tabIndex={0} role="region" aria-label="Membros">
       <table className="w-full text-sm">
         <thead className="text-left text-muted">
           <tr>

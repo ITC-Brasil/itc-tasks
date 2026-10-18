@@ -8,7 +8,7 @@ test.describe.configure({ timeout: 90_000 });
 test("cria um ciclo planejado", async ({ page }) => {
   await login(page);
   await page.goto("/ciclos");
-  await page.getByRole("button", { name: "Novo ciclo" }).click();
+  await page.getByRole("button", { name: "Novo ciclo" }).first().click();
   const dialog = page.getByRole("dialog", { name: "Novo ciclo" });
   await dialog.getByLabel("Início").fill("2099-01-05");
   await dialog.getByLabel("Fim").fill("2099-01-16");
