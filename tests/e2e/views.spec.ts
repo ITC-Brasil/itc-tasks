@@ -1,17 +1,8 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { axeBothThemes, login } from "./session";
 
 const email = process.env.SEED_ADMIN_EMAIL;
 const password = process.env.SEED_ADMIN_PASSWORD;
-
-async function login(page: Page) {
-  await page.goto("/login");
-  await page.getByLabel("E-mail").fill(email!);
-  await page.getByLabel("Senha").fill(password!);
-  await page.getByRole("button", { name: "Entrar" }).click();
-  await page.waitForURL("/");
-  await page.waitForLoadState("networkidle");
-}
 
 async function createTask(page: Page, title: string, project: string) {
   const dialog = page.getByRole("dialog", { name: "Criar tarefa" });
@@ -25,15 +16,6 @@ async function createTask(page: Page, title: string, project: string) {
   await page.keyboard.press("Escape");
   await dialog.getByLabel("Título").press("Control+Enter");
   await expect(dialog).toBeHidden();
-}
-
-async function axe(page: Page) {
-  for (const theme of ["light", "dark"]) {
-    await page.evaluate((t) => document.documentElement.setAttribute("data-theme", t), theme);
-    await page.waitForTimeout(300);
-    const { violations } = await new AxeBuilder({ page }).analyze();
-    expect(violations, theme).toEqual([]);
-  }
 }
 
 test.beforeEach(({ isMobile }) => {
@@ -96,7 +78,7 @@ test("Kanban move o card, filtros vão para a URL e a Lista atualiza em massa", 
   await expect(
     page.getByRole("region", { name: "Em andamento" }).getByRole("link", { name: title }),
   ).toBeVisible();
-  await axe(page);
+  await axeBothThemes(page);
 
   // mouse pela alça: volta para "A fazer"
   const done = page.getByRole("region", { name: "A fazer" });
@@ -133,5 +115,5 @@ test("Kanban move o card, filtros vão para a URL e a Lista atualiza em massa", 
   await page.getByRole("option", { name: "Urgente" }).click();
   await expect(page.getByText("1 tarefa atualizada").last()).toBeVisible();
   await expect(row).toContainText("Urgente");
-  await axe(page);
+  await axeBothThemes(page);
 });

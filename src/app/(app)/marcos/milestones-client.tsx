@@ -14,6 +14,7 @@ import { shortDate, todayISO } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import { saveMilestoneAction, setMilestoneClosedAction } from "@/server/actions/planning";
 import type { MilestoneRow } from "@/server/services/planning";
+import { Card } from "@/components/ui/card";
 
 type Option = { value: string; label: string };
 
@@ -125,12 +126,11 @@ export function MilestonesView({
       {milestones.map((m) => {
         const late = !m.closedAt && m.dueOn && m.dueOn < today;
         return (
-          <li
+          <Card
+            as="li"
+            padding="md"
             key={m.id}
-            className={cn(
-              "flex flex-col gap-3 rounded-xl bg-surface p-4 shadow-1",
-              m.closedAt && "opacity-70",
-            )}
+            className={cn("flex flex-col gap-3", m.closedAt && "opacity-70")}
           >
             <div className="flex items-start gap-2">
               <Flag
@@ -165,7 +165,7 @@ export function MilestonesView({
               <MilestoneDialog milestone={m} projects={projects} />
               <CloseButton milestone={m} />
             </div>
-          </li>
+          </Card>
         );
       })}
     </ul>

@@ -1527,3 +1527,95 @@ planeja, o que acontece sem próximo ciclo e como medir o painel.
 **Consequences**
 Encerrar pede um ciclo planejado antes. O painel faz agregações na hora; com o volume de 4 pessoas
 não precisa de cache.
+
+---
+
+## ADR-054 — PWA com service worker próprio e telas mobile (Módulo 11; altera o ADR-016)
+
+**Status:** Accepted
+**Date:** 2026-10-18
+**Module:** 11 — PWA, mobile e acabamento
+
+**Context**
+O ADR-016 escolheu o Serwist (`@serwist/turbopack`) e deixou o service worker manual em
+`public/sw.js` como alternativa. O `@serwist/turbopack` 9.5.13 traz `@swc/core` (binário nativo),
+`@serwist/build` e um passo de build com esbuild só para gerar um worker que, no escopo do MVP
+(shell e última lista vista, sem edição offline), cabe em ~70 linhas. O worker de push do Módulo 08
+(`public/push-sw.js`) já é manual.
+
+**Decision**
+- **Service worker manual em `public/sw.js`** (escopo `/`), registrado pelo shell em toda tela; ele
+  absorve o push do `push-sw.js`, que sai. Registrar `/sw.js` no mesmo escopo atualiza a
+  registration antiga, e a assinatura de push continua valendo.
+- **Cache:** navegação (HTML) em rede primeiro, guardando a última resposta 200 de cada URL;
+  sem rede → a mesma URL do cache → `/` do cache → página "Sem conexão" simples. `/_next/static`,
+  `/icons`, `/brand`, `/splash` e fontes em cache primeiro. Nunca passa pelo cache: não-GET,
+  `/api`, `/mcp`, `/login` e as requisições RSC (cabeçalho `RSC`). Versão do cache no nome; o
+  `activate` apaga as antigas. **Sair apaga os caches** (HTML tem dados da pessoa).
+- **Offline na tela** (UI.md §3): faixa "Sem conexão — mostrando a última versão salva" e o
+  conteúdo dentro de `<fieldset disabled>`, que desabilita todo botão e campo sem tocar em cada
+  componente; links continuam navegando para o que estiver em cache.
+- **Manifest** em `src/app/manifest.ts` (do `docs/brand/manifest.webmanifest`); atalhos "Criar
+  tarefa" → `/?criar=1` (abre a criação rápida) e "Minhas tarefas" → `/` (as rotas `/tarefas/nova`
+  e `/minhas` do pacote não existem). `theme-color` por tema no `viewport`; splash iOS pelo
+  `appleWebApp.startupImage`.
+- **Prompt de instalação:** só abaixo de 768 px e fora do modo instalado; Android/Chrome usa o
+  `beforeinstallprompt`, iOS mostra "Compartilhar › Adicionar à Tela de Início". "Agora não" grava
+  no `localStorage` do aparelho e o banner não volta.
+- **Mobile (< 768 px):** barra inferior Minhas, Tarefas, Criar, Ciclo, Mais; "Mais" lista as outras
+  telas da navegação, tema, atalhos e Sair. Kanban uma coluna por vez com `scroll-snap`; criação
+  rápida como painel inferior; detalhe em tela cheia (o detalhe já é rota própria).
+
+**Alternatives considered**
+- `@serwist/turbopack` (ADR-016) — dependência nativa e passo de build para pouco código.
+- Cache das respostas RSC — a navegação do cliente cai em navegação completa quando a rede falha,
+  e o HTML em cache já atende; cachear RSC duplica o conteúdo por URL.
+- Desabilitar escrita componente a componente — muitos pontos de toque para o mesmo efeito do
+  `fieldset`.
+
+**Consequences**
+Sem precache: uma tela só abre offline se já foi vista online naquele aparelho. Atualizar o
+worker é trocar `CACHE_VERSION` em `public/sw.js`, o que também zera o `static-*` (que só cresce
+até lá). Se o escopo offline crescer (edição offline), reavaliar o Serwist.
+
+Exceção à regra "nunca hex em componente": os hex da página "Sem conexão" do `public/sw.js` e do
+`viewport.themeColor` em `src/app/layout.tsx` ficam fora do CSS (o worker não carrega os tokens; o
+`theme-color` é meta do navegador) e repetem `--bg-base`, `--text-base` e o fundo do escuro.
+
+---
+
+## ADR-055 — E2E no CI (Módulo 11; complementa o ADR-029)
+
+**Status:** Accepted
+**Date:** 2026-10-18
+**Module:** 11 — PWA, mobile e acabamento
+
+**Context**
+O E2E ficou fora do CI desde a M-007, por precisar de banco semeado e servidor rodando. No Módulo 11
+a suíte passou a entrar uma vez (`tests/e2e/auth.setup.ts`) e a rodar contra o build de produção.
+O Matheus pediu o E2E no CI agora (M-066).
+
+**Decision**
+- Job `e2e` no `ci.yml`, em paralelo ao Quality Check, com Postgres 18.6 de serviço e banco próprio
+  `itc_tasks_e2e` (o `itc_tasks_test` continua só para a integração).
+- Passos: `npm ci`, `db:migrate`, `db:seed`, `next build`, `next start -p 3000` em segundo plano,
+  espera do `/api/health`, `npx playwright install --with-deps chromium` e `npx playwright test`.
+  `BETTER_AUTH_URL` e `E2E_BASE_URL` em `http://localhost:3000`.
+- **Credenciais do seed geradas a cada execução:** e-mail fixo de teste (`e2e@itcbr.test`) e senha
+  `openssl rand` mascarada (`::add-mask::`) e passada por `$GITHUB_ENV`. Nada em arquivo nem em
+  secret, porque o banco morre com o job.
+- Falhou → `playwright-report/` e `test-results/` (traces) como artefato por 7 dias, com
+  `actions/upload-artifact` fixada por SHA.
+- Worker pg-boss (`npm run worker:build`, `node dist/worker.mjs`) junto do servidor: ele cria o
+  schema `pgboss`, de que dependem o `/api/health` e as escritas (fila na transação, ADR-050).
+
+**Alternatives considered**
+- Secret do repositório com a senha do seed — mais um segredo para girar, sem ganho num banco
+  descartável.
+- Passo no Quality Check — somaria build e navegador ao caminho crítico e misturaria os bancos.
+- `node .next/standalone/server.js` — exige copiar `public/` e `.next/static/` como o Dockerfile;
+  o `next start` serve o mesmo build para o teste.
+
+**Consequences**
+O CI fica mais longo, mas roda em paralelo ao Quality Check. Os logs do servidor e do worker
+entram no artefato quando o job falha.

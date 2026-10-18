@@ -1,27 +1,14 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { axe, login } from "./session";
 
 const email = process.env.SEED_ADMIN_EMAIL;
 const password = process.env.SEED_ADMIN_PASSWORD;
-
-async function login(page: Page) {
-  await page.goto("/login");
-  await page.getByLabel("E-mail").fill(email!);
-  await page.getByLabel("Senha").fill(password!);
-  await page.getByRole("button", { name: "Entrar" }).click();
-  await page.waitForURL("/");
-}
 
 // espera a server action gravar a preferência antes de recarregar ou sair
 async function press(page: Page, key: string) {
   const saved = page.waitForResponse((r) => r.request().method() === "POST");
   await page.keyboard.press(key);
   await saved;
-}
-
-async function axe(page: Page) {
-  const { violations } = await new AxeBuilder({ page }).analyze();
-  expect(violations).toEqual([]);
 }
 
 test.beforeEach(() => test.skip(!email || !password, "SEED_ADMIN_* não definidos"));
@@ -69,6 +56,8 @@ test("tema claro e escuro pelo menu da conta, sem violações do axe", async ({ 
     await page.getByRole("menuitem", { name: /Usar tema/ }).click();
     await expect(html).not.toHaveAttribute("data-theme", before!);
     await saved;
+    // o menu ainda some animado: o axe leria o texto dele semitransparente
+    await expect(page.getByRole("menu")).toBeHidden();
     await axe(page);
   }
 });

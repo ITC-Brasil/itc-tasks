@@ -33,6 +33,7 @@ import {
   setTemplateArchivedAction,
 } from "@/server/actions/templates";
 import type { TaskFormOptions } from "@/server/actions/tasks";
+import { Card } from "@/components/ui/card";
 
 type TaskPayload = {
   title?: string;
@@ -309,9 +310,11 @@ function Detail({ template, options }: { template: Template; options: TaskFormOp
   const list = tasksOf(template);
   const labelOf = (id: string) => options.labels.find((l) => l.id === id);
   return (
-    <section
+    <Card
+      as="section"
+      padding="lg"
       aria-label={template.name}
-      className="flex min-w-0 flex-[999_1_480px] flex-col gap-4 rounded-xl bg-surface p-5 shadow-1"
+      className="flex min-w-0 flex-[999_1_480px] flex-col gap-4"
     >
       <div className="flex flex-wrap items-center gap-2.5">
         <h2 className="text-h3 font-bold">{template.name}</h2>
@@ -387,7 +390,7 @@ function Detail({ template, options }: { template: Template; options: TaskFormOp
           )}
         </div>
       ))}
-    </section>
+    </Card>
   );
 }
 
@@ -402,7 +405,7 @@ export function TemplatesView({
   const selected = templates.find((t) => t.id === selectedId) ?? templates[0];
   if (!selected)
     return (
-      <div className="rounded-xl bg-surface shadow-1">
+      <Card>
         <EmptyState
           icon={LayoutTemplate}
           title="Nenhum template"
@@ -410,11 +413,14 @@ export function TemplatesView({
         >
           Tarefas que se repetem viram template: subtarefas, prazo e etiquetas prontos.
         </EmptyState>
-      </div>
+      </Card>
     );
   return (
     <div className="flex flex-wrap items-start gap-5">
-      <ul className="flex min-w-0 flex-[1_1_320px] flex-col divide-y divide-border overflow-hidden rounded-xl bg-surface shadow-1 md:max-w-120">
+      <Card
+        as="ul"
+        className="flex min-w-0 flex-[1_1_320px] flex-col divide-y divide-border overflow-hidden md:max-w-120"
+      >
         {templates.map((t) => (
           <li key={t.id}>
             <button
@@ -422,12 +428,18 @@ export function TemplatesView({
               aria-current={t.id === selected.id ? "true" : undefined}
               onClick={() => setSelectedId(t.id)}
               className={cn(
-                "flex w-full flex-col gap-0.5 px-4 py-3 text-left",
+                "group flex w-full flex-col gap-0.5 px-4 py-3 text-left",
                 t.id === selected.id ? "bg-accent-light" : "hover:bg-muted",
               )}
             >
               <span className={cn("font-medium", t.archivedAt && "text-muted")}>{t.name}</span>
-              <span className="text-small text-muted tabular-nums">
+              {/* text-muted sobre accent-light (escuro, 4,23:1) ou bg-muted (claro, 4,27:1) não passa: M-069 */}
+              <span
+                className={cn(
+                  "text-small tabular-nums",
+                  t.id === selected.id ? "text-base" : "text-muted group-hover:text-base",
+                )}
+              >
                 {t.kind === "task"
                   ? `Tarefa · ${tasksOf(t)[0]?.checklist?.length ?? 0} subtarefas`
                   : `Projeto · ${tasksOf(t).length} tarefas`}{" "}
@@ -437,7 +449,7 @@ export function TemplatesView({
             </button>
           </li>
         ))}
-      </ul>
+      </Card>
       <Detail template={selected} options={options} />
     </div>
   );

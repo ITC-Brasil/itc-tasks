@@ -1,5 +1,5 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { axe, login } from "./session";
 
 const email = process.env.SEED_ADMIN_EMAIL;
 const password = process.env.SEED_ADMIN_PASSWORD;
@@ -7,14 +7,6 @@ const password = process.env.SEED_ADMIN_PASSWORD;
 // o PushDevice só troca "Verificando…" pelo estado final no efeito: sinal de que a tela hidratou
 const hydrated = (page: Page) =>
   expect(page.getByRole("status").filter({ hasText: /dispositivo|navegador/ })).toBeVisible();
-
-async function login(page: Page) {
-  await page.goto("/login");
-  await page.getByLabel("E-mail").fill(email!);
-  await page.getByLabel("Senha").fill(password!);
-  await page.getByRole("button", { name: "Entrar" }).click();
-  await page.waitForURL("/");
-}
 
 test.describe.configure({ mode: "serial" }); // mexe nas preferências do admin do seed
 test.beforeEach(({ isMobile }) => {
@@ -33,8 +25,7 @@ test("central de notificações: abas e sem violações de acessibilidade", asyn
       "page",
     );
   }
-  const { violations } = await new AxeBuilder({ page }).analyze();
-  expect(violations).toEqual([]);
+  await axe(page);
 });
 
 test("preferências: canal e horário ficam gravados", async ({ page }) => {
@@ -42,8 +33,7 @@ test("preferências: canal e horário ficam gravados", async ({ page }) => {
   await page.goto("/config/preferencias");
   await expect(page.getByRole("heading", { name: "Minhas preferências", level: 1 })).toBeVisible();
   await hydrated(page);
-  const { violations } = await new AxeBuilder({ page }).analyze();
-  expect(violations).toEqual([]);
+  await axe(page);
 
   const box = page.getByRole("checkbox", { name: "E-mail: Comentário em tarefa minha" });
   const was = (await box.getAttribute("aria-checked")) === "true";

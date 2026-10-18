@@ -7,6 +7,7 @@ import { listAgentActivity, listAgentKeys } from "@/server/services/agents";
 import { listMembers } from "@/server/services/members";
 import { AdminConfigPage } from "../admin-only";
 import { AgentKeysTable, NewAgentKeyDialog } from "./agents-client";
+import { Card } from "@/components/ui/card";
 
 export const metadata: Metadata = { title: "Agentes e MCP · ITC Tasks" };
 
@@ -60,7 +61,7 @@ export default function AgentsPage() {
                   {activity.length === 0 ? (
                     <p className="text-sm text-muted">Nenhuma ação de agente ainda.</p>
                   ) : (
-                    <ul className="flex flex-col divide-y divide-border rounded-xl bg-surface text-sm shadow-1">
+                    <Card as="ul" className="flex flex-col divide-y divide-border text-sm">
                       {activity.map((a) => (
                         <li key={a.id} className="flex flex-wrap gap-x-1.5 px-4 py-2.5">
                           <span className="font-medium">{a.tokenName}</span>
@@ -77,7 +78,7 @@ export default function AgentsPage() {
                           </span>
                         </li>
                       ))}
-                    </ul>
+                    </Card>
                   )}
                 </section>
                 <section className="flex flex-col gap-2">
@@ -85,9 +86,9 @@ export default function AgentsPage() {
                   <p className="text-sm text-muted">
                     No cliente MCP (Claude Code, Claude Desktop, Cowork), use o endereço e o token:
                   </p>
-                  <pre className="overflow-x-auto rounded-xl bg-surface p-4 text-xs shadow-1">
+                  <Card as="pre" padding="md" className="overflow-x-auto text-xs">
                     {MCP_CONFIG}
-                  </pre>
+                  </Card>
                 </section>
               </>
             ),

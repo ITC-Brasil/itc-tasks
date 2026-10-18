@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { requireUser } from "@/server/actor";
 import { type InboxTab, listNotifications } from "@/server/services/notifications";
 import { MarkAllRead, NotificationLink } from "./notifications-client";
+import { Card } from "@/components/ui/card";
 
 export const metadata: Metadata = { title: "Notificações · ITC Tasks" };
 
@@ -71,7 +72,7 @@ async function Inbox({ searchParams }: PageProps<"/notificacoes">) {
             <h2 id={`g-${label}`} className="text-caption text-muted uppercase">
               {label}
             </h2>
-            <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-xl bg-surface shadow-1">
+            <Card as="ul" className="flex flex-col divide-y divide-border overflow-hidden">
               {list.map((n) => {
                 const data = n.data as NotificationData;
                 return (
@@ -113,7 +114,7 @@ async function Inbox({ searchParams }: PageProps<"/notificacoes">) {
                   </li>
                 );
               })}
-            </ul>
+            </Card>
           </section>
         ))
       )}

@@ -22,7 +22,7 @@ navegadores por SSE.
 | Dados | PostgreSQL 18.6, Drizzle 0.45, driver `pg` 8.23 |
 | Jobs | pg-boss 12.38 em processo `worker` |
 | Notificações | SSE, Web Push (VAPID), SMTP |
-| PWA | `app/manifest.ts` + Serwist 9.5 |
+| PWA | `app/manifest.ts` + service worker próprio em `public/sw.js` (ADR-054) |
 | Infra | Docker no `glpi-srv` (Dell R250) + túnel `itcbr-tunnel` já existente |
 
 ## Decisões estruturais

@@ -91,6 +91,7 @@ export function PriorityIcon({ priority, className }: { priority: Priority; clas
   );
 }
 
+// chips neutros fixam text-base: herdar text-muted sobre bg-muted dá 4,27:1 (axe)
 const chip =
   "inline-flex h-[22px] max-w-full items-center gap-1 rounded-sm px-1.5 text-xs font-medium [&>span]:truncate";
 
@@ -107,7 +108,7 @@ export function ProjectChip({ code, name }: { code: string; name: string }) {
 
 export function UnitChip({ code }: { code: string }) {
   return (
-    <span className={cn(chip, "bg-muted")} title={code}>
+    <span className={cn(chip, "bg-muted text-base")} title={code}>
       <Truck className="size-3.5 flex-none" aria-hidden="true" />
       <span className="tabular-nums">{code}</span>
     </span>
@@ -117,7 +118,7 @@ export function UnitChip({ code }: { code: string }) {
 /** Chip só de texto (tipo de notificação). */
 export function TextChip({ children }: { children: React.ReactNode }) {
   return (
-    <span className={cn(chip, "bg-muted")}>
+    <span className={cn(chip, "bg-muted text-base")}>
       <span>{children}</span>
     </span>
   );
@@ -130,7 +131,7 @@ export function GlpiChip({ ticket, href }: { ticket: number; href: string }) {
       href={href}
       target="_blank"
       rel="noreferrer"
-      className={cn(chip, "bg-muted hover:underline")}
+      className={cn(chip, "bg-muted text-base hover:underline")}
       title={`Abrir o chamado ${ticket} no GLPI`}
     >
       <Ticket className="size-3.5 flex-none" aria-hidden="true" />
@@ -142,7 +143,7 @@ export function GlpiChip({ ticket, href }: { ticket: number; href: string }) {
 // ADR-041: a cor da etiqueta é só o ponto; o nome usa a cor de texto normal
 export function LabelChip({ name, colorToken }: { name: string; colorToken: string }) {
   return (
-    <span className={cn(chip, "bg-muted")} title={name}>
+    <span className={cn(chip, "bg-muted text-base")} title={name}>
       <span
         aria-hidden="true"
         className="size-2 flex-none rounded-full"

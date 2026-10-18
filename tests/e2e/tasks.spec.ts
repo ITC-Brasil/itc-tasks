@@ -1,17 +1,8 @@
-import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { axeBothThemes, login } from "./session";
 
 const email = process.env.SEED_ADMIN_EMAIL;
 const password = process.env.SEED_ADMIN_PASSWORD;
-
-async function login(page: Page) {
-  await page.goto("/login");
-  await page.getByLabel("E-mail").fill(email!);
-  await page.getByLabel("Senha").fill(password!);
-  await page.getByRole("button", { name: "Entrar" }).click();
-  await page.waitForURL("/");
-  await page.waitForLoadState("networkidle");
-}
 
 test.beforeEach(({ isMobile }) => {
   test.skip(!email || !password, "SEED_ADMIN_* não definidos");
@@ -84,12 +75,7 @@ test("criação rápida exige Projeto/Cliente e abre o detalhe da tarefa", async
   await expect(page.getByRole("button", { name: `${title} editada` })).toBeVisible();
   await expect(page.getByRole("heading", { name: /Subtarefas\s*1\/1/ })).toBeVisible();
 
-  for (const theme of ["light", "dark"]) {
-    await page.evaluate((t) => document.documentElement.setAttribute("data-theme", t), theme);
-    await page.waitForTimeout(300); // transition-colors dos campos
-    const { violations } = await new AxeBuilder({ page }).analyze();
-    expect(violations, theme).toEqual([]);
-  }
+  await axeBothThemes(page);
 });
 
 test("tarefa inexistente mostra a página de não encontrado", async ({ page }) => {

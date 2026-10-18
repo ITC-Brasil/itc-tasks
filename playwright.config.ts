@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { STORAGE } from "./tests/e2e/session";
 
 try {
   process.loadEnvFile(); // SEED_ADMIN_* para o teste de login
@@ -6,12 +7,26 @@ try {
   // sem .env: o teste de login é pulado
 }
 
+// E2E_BASE_URL: roda contra outro servidor (ex.: o build de produção com `next start`)
+const baseURL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
+
 export default defineConfig({
   testDir: "tests/e2e",
-  use: { baseURL: "http://localhost:3000", trace: "on-first-retry" },
+  // CI: relatório HTML para o artefato do job e2e (ADR-055)
+  reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
+  use: { baseURL, trace: "on-first-retry" },
   projects: [
-    { name: "desktop", use: { ...devices["Desktop Chrome"] } },
-    { name: "mobile", use: { ...devices["Pixel 7"] } },
+    { name: "setup", testMatch: /auth\.setup\.ts/ },
+    {
+      name: "desktop",
+      use: { ...devices["Desktop Chrome"], storageState: STORAGE },
+      dependencies: ["setup"],
+    },
+    {
+      name: "mobile",
+      use: { ...devices["Pixel 7"], storageState: STORAGE },
+      dependencies: ["setup"],
+    },
   ],
-  webServer: { command: "npm run dev", url: "http://localhost:3000", reuseExistingServer: true },
+  webServer: { command: "npm run dev", url: baseURL, reuseExistingServer: true },
 });

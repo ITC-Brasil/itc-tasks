@@ -32,7 +32,7 @@ PRD N1 (central com não lidas, todas e menções; "Marcar todas como lidas"), N
 - `src/app/api/push/subscribe/route.ts` (`POST` 201 / 400, `DELETE` 204) e `src/app/api/push/test/route.ts` (`POST` 202 `{ sent }`).
 - `src/app/api/events/route.ts` — `notification.created` só para a aba da própria pessoa, sem o `userId`; `src/server/realtime.ts` escuta também `notification_created`.
 - `src/server/actions/notifications.ts` — `markNotificationsReadAction`, `setNotificationChannelAction`, `setNotificationScheduleAction`.
-- `public/push-sw.js` — service worker mínimo (`push` → `showNotification`; clique abre/foca a tarefa). `public/sw.js` fica livre para o Serwist (está no `.gitignore`). `src/proxy.ts` não redireciona `push-sw.js`.
+- `public/push-sw.js` — (removido no Módulo 11; o push foi para `public/sw.js`, ADR-054) service worker mínimo (`push` → `showNotification`; clique abre/foca a tarefa). `public/sw.js` fica livre para o Serwist (está no `.gitignore`). `src/proxy.ts` não redireciona `push-sw.js`.
 
 ### Telas
 - `/notificacoes` (`src/app/(app)/notificacoes/`) — abas Não lidas / Todas / Menções, grupos Hoje / Ontem / Antes, ponto e fundo de não lida, citação do comentário, `TextChip` do tipo, tempo relativo; abrir marca como lida; "Marcar todas como lidas"; EmptyState "Tudo em dia".

@@ -11,6 +11,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { authClient } from "@/lib/auth-client";
+import type { NavItem } from "./nav";
+import { clearPageCache } from "./pwa";
 import { setThemeAction } from "@/server/actions/preferences";
 import { savePreference } from "./save-preference";
 
@@ -27,10 +29,13 @@ export function UserMenu({
   trigger,
   onShowShortcuts,
   side = "right",
+  links = [],
 }: {
   trigger: React.ReactElement;
   onShowShortcuts: () => void;
   side?: "right" | "top";
+  /** mobile: telas fora da barra inferior */
+  links?: NavItem[];
 }) {
   const router = useRouter();
   const toggleTheme = useToggleTheme();
@@ -39,6 +44,7 @@ export function UserMenu({
 
   async function signOut() {
     await authClient.signOut();
+    await clearPageCache().catch(() => {});
     router.replace("/login");
   }
 
@@ -46,6 +52,13 @@ export function UserMenu({
     <DropdownMenu>
       <DropdownMenuTrigger render={trigger} />
       <DropdownMenuContent side={side} align="end" className="w-56">
+        {links.map((item) => (
+          <DropdownMenuItem key={item.href} onClick={() => router.push(item.href)}>
+            <item.icon />
+            {item.label}
+          </DropdownMenuItem>
+        ))}
+        {links.length > 0 && <DropdownMenuSeparator />}
         <DropdownMenuItem onClick={toggleTheme}>
           {dark ? <Sun /> : <Moon />}
           {dark ? "Usar tema claro" : "Usar tema escuro"}

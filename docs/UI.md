@@ -127,4 +127,5 @@ Atalhos de uma tecla não disparam com foco em campo de texto.
 
 - Manifest e ícones do pacote de identidade (`docs/brand/manifest.webmanifest` → `src/app/manifest.ts`; ícones em `public/icons/`); `theme_color` `#F5F0E8` (claro) e `#141918` (escuro) via meta.
 - Splash iOS: tags de `docs/brand/head.html` no `<head>` do layout raiz.
-- Prompt de instalação: banner discreto na primeira visita pelo celular; no iOS, instrução "Compartilhar › Adicionar à Tela de Início".
+- Prompt de instalação: banner discreto na primeira visita pelo celular; no iOS, instrução "Compartilhar › Adicionar à Tela de Início". "Agora não" não volta naquele aparelho.
+- Service worker `public/sw.js` (ADR-054): guarda a última versão vista de cada tela; Sair apaga as telas guardadas.

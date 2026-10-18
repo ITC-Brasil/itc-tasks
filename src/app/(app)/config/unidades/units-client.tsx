@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { saveMobileUnitAction, setMobileUnitArchivedAction } from "@/server/actions/catalog";
 import { ArchiveButton, FieldLabel, FormDialog, FormSelect, Situation } from "../config-ui";
+import { Card } from "@/components/ui/card";
 
 type MobileUnit = {
   id: string;
@@ -80,7 +81,7 @@ export function MobileUnitDialog({ unit, clients }: { unit?: MobileUnit; clients
 
 export function MobileUnitsTable({ units, clients }: { units: MobileUnit[]; clients: Option[] }) {
   return (
-    <div className="overflow-x-auto rounded-xl bg-surface shadow-1">
+    <Card className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead className="text-left text-muted">
           <tr>
@@ -120,6 +121,6 @@ export function MobileUnitsTable({ units, clients }: { units: MobileUnit[]; clie
           ))}
         </tbody>
       </table>
-    </div>
+    </Card>
   );
 }

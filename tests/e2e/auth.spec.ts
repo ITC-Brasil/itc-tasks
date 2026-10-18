@@ -1,12 +1,14 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
+import { axe } from "./session";
+
+// testa o próprio login: sem a sessão do auth.setup.ts
+test.use({ storageState: { cookies: [], origins: [] } });
 
 test("rota protegida sem sessão vai para Entrar", async ({ page }) => {
   await page.goto("/config/membros");
   await expect(page).toHaveURL(/\/login$/);
   await expect(page.getByRole("heading", { name: "Entrar" })).toBeVisible();
-  const { violations } = await new AxeBuilder({ page }).analyze();
-  expect(violations).toEqual([]);
+  await axe(page);
 });
 
 test("senha errada mostra o erro", async ({ page }) => {
@@ -29,6 +31,5 @@ test("admin entra e abre Membros", async ({ page }) => {
   await page.waitForURL("/");
   await page.goto("/config/membros");
   await expect(page.getByRole("heading", { name: "Membros" })).toBeVisible();
-  const { violations } = await new AxeBuilder({ page }).analyze();
-  expect(violations).toEqual([]);
+  await axe(page);
 });

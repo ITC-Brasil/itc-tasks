@@ -4,6 +4,7 @@ import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
+import { useOnline } from "@/components/layout/pwa";
 import { useShortcut } from "@/components/layout/shortcuts";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -67,10 +68,14 @@ export function QuickCreate() {
   const [another, setAnother] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const online = useOnline();
   const titleRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
   const show = useCallback((e?: Event) => {
+    // offline: a criação fica fora do fieldset do shell; todas as entradas passam por aqui (ADR-054)
+    if (!navigator.onLine)
+      return void toast.error("Sem conexão. Crie a tarefa quando a rede voltar.");
     const preset = (e as CustomEvent<{ statusId?: string; templateId?: string } | undefined>)
       ?.detail;
     if (preset?.statusId) setForm((f) => ({ ...f, statusId: preset.statusId! }));
@@ -86,6 +91,13 @@ export function QuickCreate() {
   }, []);
   useEffect(() => {
     window.addEventListener(EVENT, show);
+    // atalho "Criar tarefa" do app instalado (manifest → /?criar=1, ADR-054)
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("criar")) {
+      url.searchParams.delete("criar");
+      window.history.replaceState(null, "", url);
+      openQuickCreate();
+    }
     return () => window.removeEventListener(EVENT, show);
   }, [show]);
   useShortcut(
@@ -153,7 +165,11 @@ export function QuickCreate() {
         if (!next) setError(null);
       }}
     >
-      <DialogContent initialFocus={titleRef} className="sm:max-w-xl">
+      <DialogContent
+        initialFocus={titleRef}
+        // < 768 px: painel inferior (UI.md §6)
+        className="sm:max-w-xl max-md:top-auto max-md:bottom-0 max-md:max-h-[90dvh] max-md:max-w-full max-md:translate-y-0 max-md:overflow-y-auto max-md:rounded-b-none max-md:pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
+      >
         <DialogHeader>
           <DialogTitle>Criar tarefa</DialogTitle>
         </DialogHeader>
@@ -265,7 +281,7 @@ export function QuickCreate() {
             </label>
             <Button
               type="submit"
-              disabled={pending || !items}
+              disabled={pending || !items || !online}
               aria-keyshortcuts="Meta+Enter Control+Enter"
             >
               {pending ? "Criando…" : "Criar tarefa"}

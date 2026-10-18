@@ -6,6 +6,7 @@ import { Pick } from "@/components/tasks/fields";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { shortDate } from "@/lib/dates";
 import { DASHBOARD_DAYS } from "@/lib/validation/planning";
+import { Card } from "@/components/ui/card";
 
 export function DashboardFilters({
   projects,
@@ -47,7 +48,7 @@ const config = { done: { label: "Concluídas", color: "var(--accent)" } };
 export function WeeklyChart({ weeks }: { weeks: { week: string; done: number }[] }) {
   const data = weeks.map((w) => ({ ...w, label: shortDate(w.week) }));
   return (
-    <section className="rounded-xl bg-surface p-4 shadow-1">
+    <Card as="section" padding="md">
       <h2 className="mb-3 text-sm font-medium">Concluídas por semana</h2>
       <ChartContainer config={config} className="aspect-auto h-56 w-full">
         <BarChart data={data} accessibilityLayer>
@@ -69,6 +70,6 @@ export function WeeklyChart({ weeks }: { weeks: { week: string; done: number }[]
           ))}
         </tbody>
       </table>
-    </section>
+    </Card>
   );
 }

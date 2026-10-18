@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { relativeTime } from "@/lib/dates";
 import { createApiKeyAction, revokeApiKeyAction } from "@/server/actions/agents";
 import { FieldLabel, FormSelect } from "../config-ui";
+import { Card } from "@/components/ui/card";
 
 type AgentKey = {
   id: string;
@@ -146,11 +147,11 @@ export function AgentKeysTable({ keys, showOwner }: { keys: AgentKey[]; showOwne
 
   if (keys.length === 0)
     return (
-      <div className="rounded-xl bg-surface shadow-1">
+      <Card>
         <EmptyState icon={Bot} title="Nenhum agente conectado">
           Crie um token para que um agente opere o ITC Tasks pelo MCP.
         </EmptyState>
-      </div>
+      </Card>
     );
 
   function revoke(k: AgentKey) {
@@ -162,7 +163,7 @@ export function AgentKeysTable({ keys, showOwner }: { keys: AgentKey[]; showOwne
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl bg-surface shadow-1">
+    <Card className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead className="text-left text-muted">
           <tr>
@@ -207,6 +208,6 @@ export function AgentKeysTable({ keys, showOwner }: { keys: AgentKey[]; showOwne
           ))}
         </tbody>
       </table>
-    </div>
+    </Card>
   );
 }

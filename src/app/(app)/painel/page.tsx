@@ -7,23 +7,24 @@ import { requireActor } from "@/server/actor";
 import { listProjects } from "@/server/services/catalog";
 import { projectDashboard } from "@/server/services/planning";
 import { DashboardFilters, WeeklyChart } from "./dashboard-client";
+import { Card } from "@/components/ui/card";
 
 export const metadata: Metadata = { title: "Painel · ITC Tasks" };
 
 function Tile({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="flex flex-col gap-1 rounded-xl bg-surface p-4 shadow-1">
+    <Card padding="md" className="flex flex-col gap-1">
       <span className="text-sm text-muted">{label}</span>
       <span className="text-h2 font-bold tabular-nums">{value}</span>
       {hint && <span className="text-xs text-muted">{hint}</span>}
-    </div>
+    </Card>
   );
 }
 
 function Bars({ title, rows }: { title: string; rows: { name: string; n: number }[] }) {
   const max = Math.max(1, ...rows.map((r) => r.n));
   return (
-    <section className="rounded-xl bg-surface p-4 shadow-1">
+    <Card as="section" padding="md">
       <h2 className="mb-3 text-sm font-medium">{title}</h2>
       {rows.length ? (
         <ul className="flex flex-col gap-1.5">
@@ -46,7 +47,7 @@ function Bars({ title, rows }: { title: string; rows: { name: string; n: number 
       ) : (
         <p className="text-sm text-muted">Nada aberto.</p>
       )}
-    </section>
+    </Card>
   );
 }
 

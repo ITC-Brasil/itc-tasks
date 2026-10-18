@@ -21,11 +21,6 @@ test-results/
 .env.*
 !.env.example
 
-# PWA gerado pelo Serwist
-public/sw.js
-public/sw.js.map
-public/swe-worker-*.js
-
 # Sistema e editores
 .DS_Store
 Thumbs.db
