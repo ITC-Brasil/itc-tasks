@@ -25,19 +25,27 @@ async function startBoss() {
   return boss;
 }
 
-const boss = await startBoss();
-await boss.work<FanoutJob>(QUEUES.fanout, async ([job]) => fanout(job.data.eventIds));
-await boss.work<PushJob>(QUEUES.push, async ([job]) => pushNotification(job.data.notificationId));
-await boss.work(QUEUES.daily, async () => daily());
-await boss.schedule(QUEUES.daily, "0 8 * * *", null, { tz: env.APP_TIMEZONE });
-// ADR-052: automações fora da requisição; a virada do dia dispara `task.overdue`
-await boss.work<EvaluateJob>(QUEUES.evaluate, async ([job]) => evaluate(job.data));
-await boss.work(QUEUES.overdue, async () => overdue());
-await boss.schedule(QUEUES.overdue, "5 0 * * *", null, { tz: env.APP_TIMEZONE, retryLimit: 0 });
-console.log("worker: pronto");
+// sem top-level await: o `tsx watch` do worker:dev roda o arquivo como CommonJS
+async function main() {
+  const boss = await startBoss();
+  await boss.work<FanoutJob>(QUEUES.fanout, async ([job]) => fanout(job.data.eventIds));
+  await boss.work<PushJob>(QUEUES.push, async ([job]) => pushNotification(job.data.notificationId));
+  await boss.work(QUEUES.daily, async () => daily());
+  await boss.schedule(QUEUES.daily, "0 8 * * *", null, { tz: env.APP_TIMEZONE });
+  // ADR-052: automações fora da requisição; a virada do dia dispara `task.overdue`
+  await boss.work<EvaluateJob>(QUEUES.evaluate, async ([job]) => evaluate(job.data));
+  await boss.work(QUEUES.overdue, async () => overdue());
+  await boss.schedule(QUEUES.overdue, "5 0 * * *", null, { tz: env.APP_TIMEZONE, retryLimit: 0 });
+  console.log("worker: pronto");
 
-for (const sig of ["SIGTERM", "SIGINT"] as const)
-  process.once(sig, async () => {
-    await boss.stop({ graceful: true });
-    process.exit(0);
-  });
+  for (const sig of ["SIGTERM", "SIGINT"] as const)
+    process.once(sig, async () => {
+      await boss.stop({ graceful: true });
+      process.exit(0);
+    });
+}
+
+main().catch((err) => {
+  console.error("worker:", err);
+  process.exit(1);
+});
