@@ -94,7 +94,7 @@ Não há `package.json` ainda: ao criar o projeto, fixar exatamente estas versõ
 | `web-push` | 3.6.7 | Web Push com VAPID (ADR-017) |
 | `nodemailer` | 10.1.2 | E-mail (SMTP) |
 | `pino` | 10.4.0 | Logs estruturados |
-| `@serwist/next` / `@serwist/turbopack` / `serwist` | 9.5.13 | Service worker do PWA (ADR-016) |
+| — | — | Service worker do PWA próprio em `public/sw.js`, sem Serwist (ADR-054, altera o ADR-016) |
 
 ### Qualidade
 
@@ -146,7 +146,6 @@ itc-tasks/
 │   │   │   └── health/route.ts
 │   │   ├── mcp/route.ts           ← servidor MCP (Streamable HTTP)
 │   │   ├── manifest.ts            ← Web App Manifest
-│   │   └── sw.ts                  ← service worker (Serwist)
 │   ├── components/
 │   │   ├── ui/                    ← gerados pelo shadcn (Base UI)
 │   │   └── tasks/ board/ layout/  ← componentes do Design System ITC Tasks
@@ -262,6 +261,8 @@ action; checagens no cliente são só de interface.
 
 **Módulo 10 — Ciclos, marcos e painel (18/10/2026).** ADR-053 antes do código, sem migração (tabelas do `0005_tasks`). `src/server/services/planning.ts` cria e inicia ciclos (um ativo, defendido pelo índice `cycles_one_active_uq`) e os encerra numa transação: com um ciclo planejado obrigatório, as pendências marcadas vão para ele e as desmarcadas ficam sem ciclo, cada uma com `field_changed`. Marcos têm Projeto/Cliente, prazo opcional, progresso pelas tarefas ligadas e são concluídos/reabertos, nunca excluídos. `tasksService` aceita `cycleId`/`milestoneId` (ciclo não encerrado; marco aberto de um dos projetos da tarefa), a Lista muda ciclo em massa, as visões filtram por `ciclo` e o MCP aceita `cycle: 'current' | number`. Telas `/ciclos` (progresso, carga por pessoa, encerramento revisável), `/marcos`, `/painel` (indicadores, concluídas por semana com o Chart do shadcn sobre Recharts 3.10.1, abertas por status e UM), marcos no calendário e atalho `G C`. Details: docs/modules/10-ciclos-marcos-painel.md
 
+**Módulo 11 — PWA, mobile e acabamento (18/10/2026).** ADR-054 antes do código: service worker próprio em `public/sw.js` no lugar do Serwist, que absorve o push do `push-sw.js` e guarda a última versão vista de cada tela (navegação em rede primeiro; estáticos em cache primeiro; `/api`, `/mcp`, `/login` e RSC fora), apagada ao Sair. `src/app/manifest.ts`, 38 splash iOS e `theme-color` no `src/app/layout.tsx`, convite de instalação no celular (`src/components/layout/pwa.tsx`), faixa offline com o conteúdo num `fieldset` desabilitado. Mobile: barra inferior Minhas, Tarefas, Criar, Ciclo, Mais (com as outras telas), criação rápida como painel inferior e Kanban uma coluna por vez com snap. Axe nos dois temas nas telas do UI.md §8 e no planejamento; dois ajustes de acessibilidade (nome do item no trilho, cor dos chips neutros). O E2E entra uma vez (`auth.setup.ts`, contornando o limite de login do Better Auth) e passa inteiro contra o build de produção. Details: docs/modules/11-pwa-mobile.md
+
 Plano de módulos (`PROMPT_CLAUDE_CODE.md`):
 
 | Nº | Módulo | Status |
@@ -275,9 +276,9 @@ Plano de módulos (`PROMPT_CLAUDE_CODE.md`):
 | 06 | Comentários, histórico, anexos e busca ⌘K | Concluído (17/10/2026) |
 | 07 | Servidor MCP e tokens de agentes | Concluído (17/10/2026) |
 | 08 | Notificações (in-app, push, e-mail) | Concluído (17/10/2026) |
-| 09 | Automações e templates | Em revisão (17/10/2026) |
-| 10 | Ciclos, marcos e painel | Planejado |
-| 11 | PWA, mobile e acabamento | Planejado |
+| 09 | Automações e templates | Concluído (17/10/2026) |
+| 10 | Ciclos, marcos e painel | Concluído (18/10/2026) |
+| 11 | PWA, mobile e acabamento | Em revisão (18/10/2026) |
 | 12 | Migração do Windshift e implantação | Planejado |
 
 Cada módulo concluído ganha aqui um parágrafo denso terminado em

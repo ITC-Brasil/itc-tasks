@@ -4,7 +4,7 @@ ITC Tasks é o gestor de tarefas do dia a dia do time de TI do Grupo ITC Brasil 
 substituto do Windshift. Toda tarefa tem Projeto/Cliente (obrigatório), Unidade Móvel e
 Chamado GLPI (opcionais), e agentes operam o app por um servidor MCP embutido em `/mcp`.
 
-**Estado:** Módulos 00 a 08 na `main`; Módulo 09 (automações e templates) em revisão em 17/10/2026. Próximo: Módulo 10, após a aprovação.
+**Estado:** Módulos 00 a 10 na `main`; Módulo 11 (PWA, mobile e acabamento) em revisão em 18/10/2026. Próximo: Módulo 12, após a aprovação.
 
 ## Stack (versões exatas — após o scaffold, a fonte é o `package.json`)
 
@@ -21,7 +21,7 @@ Chamado GLPI (opcionais), e agentes operam o app por um servidor MCP embutido em
 | TanStack Query / Table | 5.104.3 / 9.3.1 |
 | dnd-kit / cmdk / Tiptap / Recharts | `@dnd-kit/react` 0.5.1 / 1.1.1 / 3.32.0 / 3.10.1 |
 | lucide-react / next-themes / motion / sonner | 1.58.0 / 0.4.6 / 14.3.0 / 2.0.8 |
-| Serwist / web-push / nodemailer | 9.5.13 / 3.6.7 / 10.1.2 |
+| Service worker / web-push / nodemailer | próprio em `public/sw.js` (ADR-054) / 3.6.7 / 10.1.2 |
 | Vitest / Playwright | 5.0.5 / 1.64.1 |
 
 ## Regras invioláveis
