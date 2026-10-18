@@ -1606,7 +1606,8 @@ O Matheus pediu o E2E no CI agora (M-066).
   secret, porque o banco morre com o job.
 - Falhou → `playwright-report/` e `test-results/` (traces) como artefato por 7 dias, com
   `actions/upload-artifact` fixada por SHA.
-- Sem worker pg-boss: nenhum spec depende de job assíncrono.
+- Worker pg-boss (`npm run worker:build`, `node dist/worker.mjs`) junto do servidor: ele cria o
+  schema `pgboss`, de que dependem o `/api/health` e as escritas (fila na transação, ADR-050).
 
 **Alternatives considered**
 - Secret do repositório com a senha do seed — mais um segredo para girar, sem ganho num banco
@@ -1616,5 +1617,5 @@ O Matheus pediu o E2E no CI agora (M-066).
   o `next start` serve o mesmo build para o teste.
 
 **Consequences**
-O CI fica mais longo, mas em paralelo. Um spec que dependa do worker precisa subir o
-`dist/worker.mjs` no job.
+O CI fica mais longo, mas roda em paralelo ao Quality Check. Os logs do servidor e do worker
+entram no artefato quando o job falha.

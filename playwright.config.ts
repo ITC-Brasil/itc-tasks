@@ -12,6 +12,8 @@ const baseURL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
 
 export default defineConfig({
   testDir: "tests/e2e",
+  // CI: relatório HTML para o artefato do job e2e (ADR-055)
+  reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
   use: { baseURL, trace: "on-first-retry" },
   projects: [
     { name: "setup", testMatch: /auth\.setup\.ts/ },
