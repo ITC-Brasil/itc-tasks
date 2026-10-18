@@ -14,14 +14,14 @@ const toKey = (base64: string) => {
 };
 
 async function registration() {
-  return navigator.serviceWorker.register("/push-sw.js");
+  return navigator.serviceWorker.register("/sw.js");
 }
 
 async function detect(publicKey: string | null): Promise<State> {
   if (!publicKey || !("serviceWorker" in navigator) || !("PushManager" in window))
     return "unsupported";
   if (Notification.permission === "denied") return "denied";
-  const reg = await navigator.serviceWorker.getRegistration("/push-sw.js").catch(() => undefined);
+  const reg = await navigator.serviceWorker.getRegistration("/sw.js").catch(() => undefined);
   return (await reg?.pushManager.getSubscription()) ? "on" : "off";
 }
 

@@ -8,5 +8,5 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   // tudo menos login, rotas de API (auth, health, mcp têm auth própria) e estáticos
-  matcher: ["/((?!login|api|mcp|_next|brand|icons|splash|favicon|manifest|push-sw.js).*)"],
+  matcher: ["/((?!login|api|mcp|_next|brand|icons|splash|favicon|manifest|sw.js).*)"],
 };

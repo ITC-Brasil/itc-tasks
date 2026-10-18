@@ -86,6 +86,13 @@ export function QuickCreate() {
   }, []);
   useEffect(() => {
     window.addEventListener(EVENT, show);
+    // atalho "Criar tarefa" do app instalado (manifest → /?criar=1, ADR-054)
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("criar")) {
+      url.searchParams.delete("criar");
+      window.history.replaceState(null, "", url);
+      openQuickCreate();
+    }
     return () => window.removeEventListener(EVENT, show);
   }, [show]);
   useShortcut(
@@ -153,7 +160,11 @@ export function QuickCreate() {
         if (!next) setError(null);
       }}
     >
-      <DialogContent initialFocus={titleRef} className="sm:max-w-xl">
+      <DialogContent
+        initialFocus={titleRef}
+        // < 768 px: painel inferior (UI.md §6)
+        className="sm:max-w-xl max-md:top-auto max-md:bottom-0 max-md:max-h-[90dvh] max-md:max-w-full max-md:translate-y-0 max-md:overflow-y-auto max-md:rounded-b-none max-md:pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
+      >
         <DialogHeader>
           <DialogTitle>Criar tarefa</DialogTitle>
         </DialogHeader>

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Archivo, Inter } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import "@/styles/globals.css";
@@ -6,9 +6,57 @@ import "@/styles/globals.css";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const archivo = Archivo({ subsets: ["latin"], weight: ["600", "800"], variable: "--font-archivo" });
 
+const SPLASH = [
+  [440, 956, 3],
+  [402, 874, 3],
+  [430, 932, 3],
+  [393, 852, 3],
+  [428, 926, 3],
+  [390, 844, 3],
+  [375, 812, 3],
+  [414, 896, 3],
+  [414, 896, 2],
+  [414, 736, 3],
+  [375, 667, 2],
+  [320, 568, 2],
+  [1024, 1366, 2],
+  [834, 1194, 2],
+  [820, 1180, 2],
+  [834, 1112, 2],
+  [810, 1080, 2],
+  [744, 1133, 2],
+  [768, 1024, 2],
+] as const;
+
 export const metadata: Metadata = {
   title: "ITC Tasks",
   description: "Gestor de tarefas do time de TI do Grupo ITC Brasil",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "48x48" },
+      { url: "/favicon.svg", type: "image/svg+xml" },
+    ],
+    apple: "/icons/apple-touch-icon.png",
+  },
+  appleWebApp: {
+    capable: true,
+    title: "ITC Tasks",
+    statusBarStyle: "default",
+    // splash iOS do pacote de marca (docs/brand/head.html): [largura, altura, densidade] em pontos
+    startupImage: SPLASH.flatMap(([w, h, dpr]) =>
+      (["light", "dark"] as const).map((scheme) => ({
+        url: `/splash/splash-${scheme === "light" ? "claro" : "escuro"}-${w * dpr}x${h * dpr}.png`,
+        media: `(device-width: ${w}px) and (device-height: ${h}px) and (-webkit-device-pixel-ratio: ${dpr}) and (orientation: portrait) and (prefers-color-scheme: ${scheme})`,
+      })),
+    ),
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#F5F0E8" },
+    { media: "(prefers-color-scheme: dark)", color: "#141918" },
+  ],
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

@@ -1,6 +1,14 @@
 "use client";
 
-import { Ellipsis, PanelLeftClose, PanelLeftOpen, Plus } from "lucide-react";
+import {
+  Columns3,
+  Ellipsis,
+  House,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Plus,
+  RefreshCw,
+} from "lucide-react";
 import { useTheme } from "next-themes";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -9,10 +17,11 @@ import { QuickCreate, openQuickCreate } from "@/components/tasks/quick-create";
 import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { setSidebarCollapsedAction } from "@/server/actions/preferences";
-import { NAV, isActive } from "./nav";
+import { NAV, type NavItem, isActive } from "./nav";
 import { savePreference } from "./save-preference";
 import { CommandPalette } from "./command-palette";
 import { LiveRefresh } from "./live-refresh";
+import { OfflineBanner, Pwa, useOnline } from "./pwa";
 import { ShortcutsDialog, useGoTo, useShortcut } from "./shortcuts";
 import { UserMenu } from "./user-menu";
 
@@ -87,7 +96,9 @@ export function AppShell({
     ...g,
     items: g.items.filter((i) => (profile.role === "admin" ? !i.memberOnly : !i.adminOnly)),
   })).filter((g) => g.items.length);
-  const home = groups[0].items[0];
+  const online = useOnline();
+  // < 768 px: o que não está na barra inferior vai para "Mais" (ADR-054)
+  const more = groups.flatMap((g) => g.items).filter((i) => !BAR.has(i.href));
   const expanded = overlay || !collapsed;
 
   return (
@@ -138,7 +149,6 @@ export function AppShell({
                   key={item.href}
                   href={item.href}
                   aria-current={active ? "page" : undefined}
-                  aria-label={expanded ? undefined : item.label}
                   title={expanded ? undefined : item.label}
                   className={cn(
                     "relative flex h-[34px] items-center gap-2.5 rounded-md px-2 text-sm hover:bg-muted",
@@ -151,7 +161,8 @@ export function AppShell({
                     aria-hidden="true"
                     className={cn("size-4", active ? "text-accent-text" : "text-muted")}
                   />
-                  {expanded && item.label}
+                  {/* recolhida: nome em sr-only, para conter o contador visível (axe label-content-name-mismatch) */}
+                  {expanded ? item.label : <span className="sr-only">{item.label}</span>}
                   {item.href === "/notificacoes" && unread > 0 && (
                     <span
                       className={cn(
@@ -227,39 +238,43 @@ export function AppShell({
         />
       )}
 
-      <div className="flex min-w-0 flex-1 flex-col pb-16 md:pb-0">{children}</div>
+      <div className="flex min-w-0 flex-1 flex-col pb-16 md:pb-0">
+        {!online && <OfflineBanner />}
+        {/* offline: desabilita todo botão e campo de uma vez; links seguem para o que está em cache */}
+        <fieldset disabled={!online} className="contents">
+          {children}
+        </fieldset>
+      </div>
 
-      {/* < 768 px: barra inferior; Tarefas e Ciclo entram com os Módulos 05 e 10 */}
+      {/* < 768 px: barra inferior (UI.md §6) */}
       <nav
         aria-label="Navegação"
-        className="fixed inset-x-0 bottom-0 z-30 flex h-16 items-center justify-around border-t bg-surface pb-[env(safe-area-inset-bottom)] md:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 flex h-[calc(4rem+env(safe-area-inset-bottom))] items-start justify-around border-t bg-surface pb-[env(safe-area-inset-bottom)] md:hidden"
       >
-        <Link
-          href={home.href}
-          aria-current={isActive(pathname, home) ? "page" : undefined}
-          className={cn(
-            "flex min-h-11 min-w-14 flex-col items-center justify-center gap-0.5 text-[11px] font-medium text-muted",
-            isActive(pathname, home) && "font-semibold text-accent-text",
-          )}
-        >
-          <home.icon className="size-[22px]" aria-hidden="true" />
-          Minhas
-        </Link>
+        {BAR_ITEMS.slice(0, 2).map((item) => (
+          <BarLink key={item.href} item={item} active={isActive(pathname, item)} />
+        ))}
         <button
           type="button"
+          disabled={!online}
           onClick={() => openQuickCreate()}
-          className="flex min-h-11 min-w-14 flex-col items-center justify-center gap-0.5 text-[11px] font-medium text-muted"
+          className={cn(BAR_CLASS, "disabled:opacity-50")}
         >
           <Plus className="size-[22px]" aria-hidden="true" />
           Criar
         </button>
+        <BarLink item={BAR_ITEMS[2]} active={isActive(pathname, BAR_ITEMS[2])} />
         <UserMenu
           side="top"
           onShowShortcuts={showShortcuts}
+          links={more}
           trigger={
             <button
               type="button"
-              className="flex min-h-11 min-w-14 flex-col items-center justify-center gap-0.5 text-[11px] font-medium text-muted"
+              className={cn(
+                BAR_CLASS,
+                more.some((i) => isActive(pathname, i)) && "font-semibold text-accent-text",
+              )}
             >
               <Ellipsis className="size-[22px]" aria-hidden="true" />
               Mais
@@ -272,7 +287,30 @@ export function AppShell({
       <QuickCreate />
       <CommandPalette isAdmin={profile.role === "admin"} />
       <LiveRefresh userId={profile.id} />
+      <Pwa />
     </div>
+  );
+}
+
+const BAR_CLASS =
+  "flex h-16 min-w-14 flex-col items-center justify-center gap-0.5 text-[11px] font-medium text-muted";
+const BAR_ITEMS: NavItem[] = [
+  { href: "/", label: "Minhas", icon: House },
+  { href: "/tarefas", label: "Tarefas", icon: Columns3 },
+  { href: "/ciclos", label: "Ciclo", icon: RefreshCw },
+];
+const BAR = new Set(BAR_ITEMS.map((i) => i.href));
+
+function BarLink({ item, active }: { item: NavItem; active: boolean }) {
+  return (
+    <Link
+      href={item.href}
+      aria-current={active ? "page" : undefined}
+      className={cn(BAR_CLASS, active && "font-semibold text-accent-text")}
+    >
+      <item.icon className="size-[22px]" aria-hidden="true" />
+      {item.label}
+    </Link>
   );
 }
 
