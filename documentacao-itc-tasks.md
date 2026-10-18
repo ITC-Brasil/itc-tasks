@@ -258,6 +258,8 @@ action; checagens no cliente são só de interface.
 
 **Módulo 04 — Tarefas: núcleo (17/10/2026).** ADR-042 antes do código. `src/db/schema/tasks.ts` e `planning.ts` (migração `0005_tasks`) criam as tabelas de tarefa e, sem tela, `cycles`, `milestones` e `templates`; `position` usa `COLLATE "C"` para o índice fracionário do `fractional-indexing` 4.0.0. `src/server/services/tasks.ts` faz create/update/move/complete/bulk, subtarefas e vínculos em transação, recusa Projeto/Cliente ausente (`PROJECT_REQUIRED`) e referências arquivadas (`ARCHIVED_REFERENCE`), controla `completedAt` pela categoria `done` e grava um `task_events` por mudança. A criação rápida (`C`, "Criar outra", template) fica em `src/components/tasks/quick-create.tsx`; o detalhe `/tarefas/<n>` tem edição inline, descrição em Tiptap, subtarefas, vínculos e link do GLPI. Details: docs/modules/04-tarefas.md
 
+**Módulo 09 — Automações e templates (17/10/2026).** ADR-052 antes do código. `0011_automations` cria `automation_rules` e `automation_runs`, o tipo de aviso `automation` e `templates.archived_at`. `record()` enfileira `automation.evaluate` na mesma transação quando o evento é gatilho; `src/server/services/automations.ts` avalia no worker as regras ligadas sobre um retrato da tarefa, executa as ações pelos services com o ator `automation` (que carrega a profundidade, limite 3) e grava `automation_runs`; `automation.overdue` às 00:05 dispara o gatilho de prazo vencido. Configurações › Automações (só admin) lista, liga/desliga e edita; o seed traz as 6 regras da tela. `src/server/services/templates.ts` cuida dos templates de tarefa (pela criação rápida, com `{UM}` e prazo em dias úteis) e de projeto (várias tarefas numa transação), na tela `/templates`. Details: docs/modules/09-automacoes-templates.md
+
 Plano de módulos (`PROMPT_CLAUDE_CODE.md`):
 
 | Nº | Módulo | Status |
@@ -266,12 +268,12 @@ Plano de módulos (`PROMPT_CLAUDE_CODE.md`):
 | 01 | Autenticação e membros | Concluído (17/10/2026) |
 | 02 | Layout, navegação e tema | Concluído (17/10/2026) |
 | 03 | Cadastros (Projetos/Clientes, UMs, workflow, etiquetas) | Concluído (17/10/2026) |
-| 04 | Tarefas: núcleo, detalhe e criação rápida | Em revisão (17/10/2026) |
-| 05 | Visões: Kanban, Lista, Calendário, Minhas tarefas, filtros | Planejado |
-| 06 | Comentários, histórico, anexos e busca ⌘K | Planejado |
-| 07 | Servidor MCP e tokens de agentes | Planejado |
-| 08 | Notificações (in-app, push, e-mail) | Planejado |
-| 09 | Automações e templates | Planejado |
+| 04 | Tarefas: núcleo, detalhe e criação rápida | Concluído (17/10/2026) |
+| 05 | Visões: Kanban, Lista, Calendário, Minhas tarefas, filtros | Concluído (17/10/2026) |
+| 06 | Comentários, histórico, anexos e busca ⌘K | Concluído (17/10/2026) |
+| 07 | Servidor MCP e tokens de agentes | Concluído (17/10/2026) |
+| 08 | Notificações (in-app, push, e-mail) | Concluído (17/10/2026) |
+| 09 | Automações e templates | Em revisão (17/10/2026) |
 | 10 | Ciclos, marcos e painel | Planejado |
 | 11 | PWA, mobile e acabamento | Planejado |
 | 12 | Migração do Windshift e implantação | Planejado |

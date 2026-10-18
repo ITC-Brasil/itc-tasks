@@ -198,9 +198,9 @@ Sequencial, um módulo por vez. Cada módulo começa numa sessão nova do Claude
 - [ ] Preferências evento × canal — `feat(notifications): add preferences`
 
 ### Módulo 09 — Automações e templates
-- [ ] Schema e `automationService` com proteção de laço (profundidade 3) — `feat(automation): add rules engine`
-- [ ] Tela Automações + 6 regras iniciais — `feat(automation): add automations screen`
-- [ ] Templates de tarefa e projeto — `feat(templates): add templates`
+- [x] Schema e `automationService` com proteção de laço (profundidade 3) — `feat(automation): add rules engine`
+- [x] Tela Automações + 6 regras iniciais — `feat(automation): add automations screen`
+- [x] Templates de tarefa e projeto — `feat(templates): add templates`
 
 ### Módulo 10 — Ciclos, marcos e painel
 - [ ] Ciclos (um ativo, encerrar levando pendências) — `feat(planning): add cycles`

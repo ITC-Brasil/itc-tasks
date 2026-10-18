@@ -203,7 +203,8 @@ Não são rotas públicas; listadas para mapear UI → service.
 | `searchTasksAction` | `searchTasks` em `src/server/services/tasks.ts` |
 | `createProjectAction`, `archiveProjectAction`, `createMobileUnitAction`, `archiveMobileUnitAction` | `catalogService` |
 | `startCycleAction`, `closeCycleAction`, `createMilestoneAction` | `planningService` |
-| `saveAutomationRuleAction`, `toggleAutomationRuleAction` | `automationService` |
+| `saveAutomationRuleAction`, `setAutomationRuleEnabledAction` (`src/server/actions/automations.ts`) | `src/server/services/automations.ts` (Módulo 09, só admin) |
+| `saveTemplateAction`, `setTemplateArchivedAction`, `applyProjectTemplateAction` (`src/server/actions/templates.ts`); `createTaskAction` com `templateId` | `src/server/services/templates.ts` e `insertTask` (Módulo 09) |
 | `markNotificationsReadAction`, `updateNotificationPreferencesAction` | `notificationsService` |
 | `createApiKeyAction`, `revokeApiKeyAction` (`src/server/actions/agents.ts`) | `agentsService` (`src/server/services/agents.ts`) sobre o Better Auth `apiKey` |
 | `updateUserPreferencesAction` (tema, sidebar) | `usersService` |
