@@ -4,12 +4,13 @@ import { db } from "@/db";
 import { cycles, taskEvents, tasks } from "@/db/schema";
 import type { Actor } from "@/server/actor";
 import { listActivity } from "@/server/services/activity";
-import { createProject } from "@/server/services/catalog";
+import { createProject, setProjectArchived } from "@/server/services/catalog";
 import { createMember } from "@/server/services/members";
 import {
   closeCycle,
   createCycle,
   listMilestones,
+  onUnique,
   projectDashboard,
   saveMilestone,
   setMilestoneClosed,
@@ -102,6 +103,17 @@ it("marco: do projeto da tarefa, aberto, com progresso", async () => {
   await expect(saveMilestone(ana, m.id, { name: "x", projectId: otherProjectId })).rejects.toThrow(
     "não muda de Projeto/Cliente",
   );
+  // M-061: editar para Projeto/Cliente arquivado é recusado
+  const archived = await createProject(system, {
+    code: `A${run}`,
+    name: `Arq ${run}`,
+    kind: "client",
+  });
+  await setProjectArchived(system, archived.id, true);
+  const solo = await saveMilestone(ana, null, { name: `Solo ${run}`, projectId });
+  await expect(
+    saveMilestone(ana, solo.id, { name: "Solo", projectId: archived.id }),
+  ).rejects.toThrow("está arquivado");
   await setMilestoneClosed(ana, m.id, true);
   await expect(
     createTask(ana, { title: "M3", projectIds: [projectId], milestoneId: m.id }),
@@ -127,4 +139,16 @@ it("painel: abertas, vencidas, concluídas no período e por semana", async () =
   expect(d.weeks.at(-1)?.done).toBe(1);
   expect(d.byStatus.reduce((n, s) => n + s.n, 0)).toBe(2);
   expect(typeof d.avgDays).toBe("number");
+});
+
+it("violação de unique numa corrida vira TaskError (M-061)", async () => {
+  const pg = Object.assign(new Error("duplicate key"), { cause: { code: "23505" } });
+  await expect(
+    onUnique(() => Promise.reject(pg), "Já existe um ciclo ativo"),
+  ).rejects.toMatchObject({
+    code: "VALIDATION",
+    message: "Já existe um ciclo ativo",
+  });
+  const other = new Error("outro");
+  await expect(onUnique(() => Promise.reject(other), "x")).rejects.toBe(other);
 });

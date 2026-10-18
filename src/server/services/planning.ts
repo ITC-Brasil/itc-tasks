@@ -30,6 +30,17 @@ function assertPerson(actor: Actor) {
     throw new TaskError("VALIDATION", "Só pessoas e agentes planejam ciclos e marcos");
 }
 
+/** M-061: 23505 (unique_violation) de uma corrida vira TaskError; o Drizzle embrulha em `cause`. */
+export async function onUnique<T>(fn: () => Promise<T>, message: string) {
+  try {
+    return await fn();
+  } catch (error) {
+    const e = error as { code?: string; cause?: { code?: string } };
+    if (e.code === "23505" || e.cause?.code === "23505") throw new TaskError("VALIDATION", message);
+    throw error;
+  }
+}
+
 // ── Ciclos ──────────────────────────────────────────────────────────
 
 /** Ciclos com progresso (tarefas não arquivadas), os mais novos primeiro. */
@@ -65,15 +76,19 @@ export async function activeCycle() {
 export async function createCycle(actor: Actor, input: CycleInput) {
   assertPerson(actor);
   const data = cycleSchema.parse(input);
-  return db.transaction(async (tx) => {
-    // ponytail: o unique de `number` segura a corrida entre dois cadastros simultâneos
-    const [{ last }] = await tx.select({ last: max(cycles.number) }).from(cycles);
-    const [row] = await tx
-      .insert(cycles)
-      .values({ ...data, number: (last ?? 0) + 1 })
-      .returning();
-    return row;
-  });
+  // o unique de `number` segura a corrida entre dois cadastros simultâneos
+  return onUnique(
+    () =>
+      db.transaction(async (tx) => {
+        const [{ last }] = await tx.select({ last: max(cycles.number) }).from(cycles);
+        const [row] = await tx
+          .insert(cycles)
+          .values({ ...data, number: (last ?? 0) + 1 })
+          .returning();
+        return row;
+      }),
+    "Outro ciclo foi criado ao mesmo tempo. Tente de novo.",
+  );
 }
 
 async function openCycle(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], id: string) {
@@ -97,19 +112,26 @@ export async function updateCycle(actor: Actor, id: string, input: CycleInput) {
 /** Só sem outro ativo; o índice `cycles_one_active_uq` é a defesa contra a corrida. */
 export async function startCycle(actor: Actor, id: string) {
   assertPerson(actor);
-  return db.transaction(async (tx) => {
-    const c = await openCycle(tx, id);
-    if (c.state === "active") return c;
-    const [other] = await tx.select().from(cycles).where(eq(cycles.state, "active"));
-    if (other)
-      throw new TaskError("VALIDATION", `Encerre o Ciclo ${other.number} antes de iniciar outro`);
-    const [row] = await tx
-      .update(cycles)
-      .set({ state: "active" })
-      .where(eq(cycles.id, id))
-      .returning();
-    return row;
-  });
+  return onUnique(
+    () =>
+      db.transaction(async (tx) => {
+        const c = await openCycle(tx, id);
+        if (c.state === "active") return c;
+        const [other] = await tx.select().from(cycles).where(eq(cycles.state, "active"));
+        if (other)
+          throw new TaskError(
+            "VALIDATION",
+            `Encerre o Ciclo ${other.number} antes de iniciar outro`,
+          );
+        const [row] = await tx
+          .update(cycles)
+          .set({ state: "active" })
+          .where(eq(cycles.id, id))
+          .returning();
+        return row;
+      }),
+    "Já existe um ciclo ativo",
+  );
 }
 
 /** Tarefas não concluídas e não arquivadas do ciclo (lista de revisão do encerramento). */
@@ -216,13 +238,14 @@ export async function saveMilestone(actor: Actor, id: string | null, input: Mile
   return db.transaction(async (tx) => {
     const [p] = await tx.select().from(projects).where(eq(projects.id, data.projectId));
     if (!p) throw new TaskError("NOT_FOUND", "Projeto/Cliente não encontrado");
+    // M-061: arquivado só passa se já era o projeto do marco
+    const [current] = id ? await tx.select().from(milestones).where(eq(milestones.id, id)) : [];
+    if (p.archivedAt && current?.projectId !== p.id)
+      throw new TaskError("ARCHIVED_REFERENCE", `Projeto/Cliente ${p.code} está arquivado`);
     if (!id) {
-      if (p.archivedAt)
-        throw new TaskError("ARCHIVED_REFERENCE", `Projeto/Cliente ${p.code} está arquivado`);
       const [row] = await tx.insert(milestones).values(data).returning();
       return row;
     }
-    const [current] = await tx.select().from(milestones).where(eq(milestones.id, id));
     if (!current) throw new TaskError("NOT_FOUND", "Marco não encontrado");
     // trocar o projeto deixaria tarefas ligadas a um marco de outro Projeto/Cliente
     if (data.projectId !== current.projectId) {
@@ -311,7 +334,8 @@ export async function projectDashboard(input: { projectId: string; days?: unknow
       .where(
         and(
           base,
-          sql`${tasks.completedAt} >= date_trunc('week', now()) - make_interval(weeks => ${WEEKS - 1})`,
+          // M-061: mesmo fuso do agrupamento, senão domingo à noite cai na semana errada
+          sql`${tasks.completedAt} AT TIME ZONE 'America/Sao_Paulo' >= date_trunc('week', now() AT TIME ZONE 'America/Sao_Paulo') - make_interval(weeks => ${WEEKS - 1})`,
         ),
       )
       .groupBy(sql`1`),
