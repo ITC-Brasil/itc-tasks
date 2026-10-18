@@ -4,7 +4,7 @@
 
 > Sobrescrito a cada passagem de sessão. Não é registro permanente.
 
-- **Fase:** Módulo 08 — Notificações aprovado com ajustes (M-048); ajustes feitos em 17/10/2026, na `develop`, aguardando o "aprovado" final. Módulos 00 a 07 na `main`.
+- **Fase:** Módulo 08 — Notificações aprovado (M-050); PR `develop → main` aberto. Módulos 00 a 07 na `main`.
 - **Próximo passo:** revisão do Cowork; Módulo 09 só depois do "aprovado" e do "pode iniciar" do Matheus.
 - **Depois do pull:** `npm run db:migrate` (migração `0010`) e `npm run worker:dev` ao lado do `npm run dev`.
 - **Pendência do Módulo 11 (M-041):** investigar o detalhe em branco intermitente de `tasks.spec.ts`/`activity.spec.ts` com os workers em paralelo (hipótese: rebuild do `next dev` no meio da navegação), quando o E2E rodar contra o build de produção. Detalhes: `docs/modules/06-comentarios-busca.md`, Pontos de atenção.

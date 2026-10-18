@@ -1,6 +1,6 @@
 # Módulo 08 — Notificações
 
-**Status:** aprovado com ajustes na M-048; ajustes feitos em 17/10/2026, na `develop`. ADR-050 escrito antes do código; ADR-051 (dono do token avisado) antes do ajuste.
+**Status:** aprovado na M-050 (ajustes da M-048 feitos). ADR-050 escrito antes do código; ADR-051 (dono do token avisado) antes do ajuste.
 
 PRD N1 (central com não lidas, todas e menções; "Marcar todas como lidas"), N2 (os 7 eventos), N3 (canais no app, push e e-mail; silêncio de push fora do expediente; resumo diário) e N4 (ações do próprio usuário não notificam ele mesmo).
 
