@@ -137,6 +137,20 @@ export function optionItems(o: TaskFormOptions) {
       o.units
         .filter((u) => !u.projectId || projectIds.includes(u.projectId))
         .map((u) => ({ value: u.id, label: u.code })),
+    cycles: [
+      { value: "", label: "Sem ciclo" },
+      ...o.cycles.map((c) => ({
+        value: c.id,
+        label: `Ciclo ${c.number}${c.state === "active" ? " (atual)" : ""}`,
+      })),
+    ],
+    // ADR-053: só marcos dos projetos da tarefa
+    milestones: (projectIds: string[]) => [
+      { value: "", label: "Sem marco" },
+      ...o.milestones
+        .filter((m) => projectIds.includes(m.projectId))
+        .map((m) => ({ value: m.id, label: m.name })),
+    ],
     labels: o.labels.map((l) => ({
       value: l.id,
       label: l.name,

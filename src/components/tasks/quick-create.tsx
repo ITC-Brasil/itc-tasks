@@ -62,6 +62,8 @@ export function QuickCreate() {
   const [form, setForm] = useState(EMPTY);
   const [projectIds, setProjectIds] = useState<string[]>([]);
   const [mobileUnitIds, setMobileUnitIds] = useState<string[]>([]);
+  // UI.md: "Criar outra" mantém Projeto/Cliente, UM e ciclo (fora do `form`, que é limpo)
+  const [cycleId, setCycleId] = useState("");
   const [another, setAnother] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -127,7 +129,7 @@ export function QuickCreate() {
     event.preventDefault();
     if (!projectIds.length) return setError(PROJECT_REQUIRED);
     startTransition(async () => {
-      const result = await createTaskAction({ ...form, projectIds, mobileUnitIds });
+      const result = await createTaskAction({ ...form, projectIds, mobileUnitIds, cycleId });
       if (!result.ok) return setError(result.error);
       const { number } = result.data;
       toast.success(`TI-${number} criada`, {
@@ -227,6 +229,7 @@ export function QuickCreate() {
                   value={form.glpiTicket}
                   onChange={(e) => set("glpiTicket", e.target.value)}
                 />
+                <Pick label="Ciclo" items={items.cycles} value={cycleId} onChange={setCycleId} />
                 <Input
                   type="date"
                   aria-label="Prazo"

@@ -1,8 +1,7 @@
-import { and, count, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   apikey,
-  cycles,
   labels,
   mobileUnits,
   projects,
@@ -24,6 +23,7 @@ import type { CreateTaskInput, UpdateTaskInput } from "@/lib/validation/tasks";
 import { type Actor, ForbiddenError, type Role, isAdmin } from "@/server/permissions";
 import { auth } from "@/server/auth";
 import { listComments } from "./comments";
+import { activeCycle, getCycleByNumber, listCycles } from "./planning";
 import { TaskError, docText, getTaskByNumber, listTasks } from "./tasks";
 
 // ADR-049: tokens MCP e tradução entre o contrato do MCP (códigos legíveis) e os services
@@ -224,18 +224,23 @@ export async function markdownToDoc(md: string) {
   };
 }
 
-/** M-044: `cycle` está no contrato, mas o service de ciclos é do Módulo 10; recusa em vez de ignorar. */
-function noCycle(cycle: unknown) {
-  if (cycle !== undefined)
-    throw new TaskError("VALIDATION", "Ciclo ainda não suportado (entra no Módulo 10)");
+/** ADR-053: `'current'` = ciclo ativo; número = "Ciclo N". */
+async function cycleId(cycle: "current" | number) {
+  const c = cycle === "current" ? await activeCycle() : await getCycleByNumber(cycle);
+  if (!c)
+    throw new TaskError(
+      "NOT_FOUND",
+      cycle === "current" ? "Nenhum ciclo ativo" : `Ciclo ${cycle} não encontrado`,
+    );
+  return c.id;
 }
 
 type Fields = Omit<McpCreateTask, "title" | "checklist">;
 
 /** Campos do MCP → entrada do tasksService; só os enviados. */
 async function serviceFields(actor: AgentActor, input: Fields) {
-  noCycle(input.cycle);
   const out: UpdateTaskInput = {};
+  if (input.cycle !== undefined) out.cycleId = await cycleId(input.cycle);
   if (input.projectIds)
     out.projectIds = await idsByCode(projects, input.projectIds, "Projeto/Cliente");
   if (input.mobileUnitIds)
@@ -353,8 +358,8 @@ export async function taskIdOf(number: number) {
 
 // ponytail: filtra em memória sobre o listTasks das visões (time de 4); consulta paginada se crescer
 export async function listTasksForAgent(actor: AgentActor, input: McpListTasks) {
-  noCycle(input.cycle);
   const filters = {
+    cycleIds: input.cycle !== undefined ? [await cycleId(input.cycle)] : [],
     statusIds: input.status ? await idsByName(workflowStatuses, input.status, "Status") : [],
     projectIds: input.project ? await idsByCode(projects, [input.project], "Projeto/Cliente") : [],
     mobileUnitIds: input.mobileUnit
@@ -404,19 +409,12 @@ export async function listTasksForAgent(actor: AgentActor, input: McpListTasks) 
 }
 
 export async function listCyclesForAgent(state?: "planned" | "active" | "closed") {
-  const rows = await db
-    .select({
-      number: cycles.number,
-      startsOn: cycles.startsOn,
-      endsOn: cycles.endsOn,
-      state: cycles.state,
-      total: count(tasks.id),
-      done: count(sql`CASE WHEN ${tasks.completedAt} IS NOT NULL THEN 1 END`),
-    })
-    .from(cycles)
-    .leftJoin(tasks, and(eq(tasks.cycleId, cycles.id), isNull(tasks.archivedAt)))
-    .where(state ? eq(cycles.state, state) : undefined)
-    .groupBy(cycles.id)
-    .orderBy(desc(cycles.number));
-  return rows;
+  return (await listCycles(state)).map(({ number, startsOn, endsOn, state, done, total }) => ({
+    number,
+    startsOn,
+    endsOn,
+    state,
+    done,
+    total,
+  }));
 }

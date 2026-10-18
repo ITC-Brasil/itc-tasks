@@ -1482,3 +1482,48 @@ template de projeto cria.
 **Consequences**
 Uma escrita que é gatilho insere um job a mais na transação. Regras mal configuradas param em 3
 níveis e ficam visíveis em `automation_runs`. Ações novas são um caso a mais no executor e no Zod.
+
+## ADR-053 — Ciclos, marcos e painel: regras de planejamento (Módulo 10)
+
+**Status:** Accepted
+**Date:** 2026-10-17
+**Module:** 10 — Ciclos, marcos e painel
+
+**Context**
+O PRD (P1–P3, V3–V5) e o FLOWS §7 pedem ciclos com um ativo por vez, encerramento que leva as
+pendências, marcos com progresso e um painel por Projeto/Cliente. O schema (`cycles`, `milestones`,
+`tasks.cycle_id`, `tasks.milestone_id`) existe desde o Módulo 04 (ADR-042). Faltava fixar quem
+planeja, o que acontece sem próximo ciclo e como medir o painel.
+
+**Decision**
+- **Quem:** `admin` e `member` (tabela de Papéis do CLAUDE.md), tudo pelo `planningService` com
+  `Actor`. Ciclos e marcos não são excluídos: ciclo termina `closed`, marco é concluído (`closed_at`) e
+  pode ser reaberto.
+- **Ciclo:** número sequencial (`max + 1`), início e fim obrigatórios (fim ≥ início); datas editáveis
+  enquanto não encerrado. Iniciar só sem outro ativo (o índice `cycles_one_active_uq` é a defesa).
+- **Encerrar:** exige um ciclo `planned` (o de menor número é o "próximo"); sem ele, o service recusa
+  com "Crie o próximo ciclo antes de encerrar". A tela lista as tarefas não concluídas e não
+  arquivadas, todas marcadas; as marcadas vão para o próximo ciclo, as desmarcadas ficam sem ciclo.
+  Tudo numa transação, com `field_changed` (`field: "cycle"`) por tarefa. O próximo não é iniciado
+  automaticamente.
+- **Tarefa:** `cycleId` e `milestoneId` entram em criar, alterar e na ação em massa (V3, "mudar
+  ciclo"). Não aceita ciclo encerrado nem marco concluído; o marco precisa ser de um dos
+  Projetos/Clientes da tarefa. Filtro `ciclo` nas visões (V5) e `G C` abre o ciclo ativo.
+- **MCP:** `cycle: 'current' | number` passa a valer (fim do `VALIDATION` da M-044); `'current'` sem
+  ciclo ativo → `NOT_FOUND`.
+- **Marco:** nome, descrição, Projeto/Cliente e prazo opcional; progresso = concluídas ÷ tarefas não
+  arquivadas ligadas. Aparece no calendário (V4) no dia do prazo.
+- **Painel** (`/painel?projeto=…&dias=30`): abertas, concluídas no período, vencidas (abertas com
+  prazo < hoje), tempo médio até concluir (`completed_at − created_at` das concluídas no período),
+  concluídas por semana (12 semanas), abertas por status e por UM. "Do projeto" = qualquer vínculo em
+  `task_projects` (ADR-045). Gráficos com o Chart do shadcn (Recharts 3.10.1), cores por token.
+- **Sem migração:** as tabelas e colunas já existem.
+
+**Alternatives considered**
+- Criar o próximo ciclo automaticamente ao encerrar — inventa datas sem pedido.
+- Deixar as pendências no ciclo encerrado — some do quadro do ciclo ativo sem ninguém ver.
+- Só admin planeja — contraria a tabela de Papéis.
+
+**Consequences**
+Encerrar pede um ciclo planejado antes. O painel faz agregações na hora; com o volume de 4 pessoas
+não precisa de cache.

@@ -3,7 +3,7 @@
 import { Ellipsis, PanelLeftClose, PanelLeftOpen, Plus } from "lucide-react";
 import { useTheme } from "next-themes";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { QuickCreate, openQuickCreate } from "@/components/tasks/quick-create";
 import { Avatar } from "@/components/ui/avatar";
@@ -13,7 +13,7 @@ import { NAV, isActive } from "./nav";
 import { savePreference } from "./save-preference";
 import { CommandPalette } from "./command-palette";
 import { LiveRefresh } from "./live-refresh";
-import { ShortcutsDialog, useShortcut } from "./shortcuts";
+import { ShortcutsDialog, useGoTo, useShortcut } from "./shortcuts";
 import { UserMenu } from "./user-menu";
 
 export type ShellProfile = {
@@ -38,6 +38,7 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { resolvedTheme, setTheme } = useTheme();
   const [collapsed, setCollapsed] = useState(profile.sidebarCollapsed);
   // 768–1023 px: trilho; expandir sobrepõe o conteúdo e não muda a preferência (UI.md §6)
@@ -77,6 +78,10 @@ export function AppShell({
   const showShortcuts = useCallback(() => setShortcutsOpen(true), []);
   useShortcut("[", toggle);
   useShortcut("?", showShortcuts);
+  useGoTo(
+    "c",
+    useCallback(() => router.push("/ciclos"), [router]),
+  );
 
   const groups = NAV.map((g) => ({
     ...g,

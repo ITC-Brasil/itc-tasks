@@ -19,7 +19,9 @@ import { db } from "@/db";
 import {
   checklistItems,
   comments,
+  cycles,
   labels,
+  milestones,
   mobileUnits,
   projects,
   taskEvents,
@@ -259,6 +261,23 @@ async function assertLabels(tx: Tx, ids: string[]) {
     throw new TaskError("ARCHIVED_REFERENCE", "Etiqueta arquivada");
 }
 
+/** ADR-053: ciclo existente e não encerrado. */
+async function assertCycle(tx: Tx, id: string) {
+  const [c] = await tx.select().from(cycles).where(eq(cycles.id, id));
+  if (!c) throw new TaskError("NOT_FOUND", "Ciclo não encontrado");
+  if (c.state === "closed")
+    throw new TaskError("ARCHIVED_REFERENCE", `Ciclo ${c.number} já foi encerrado`);
+}
+
+/** ADR-053: marco aberto, de um dos Projetos/Clientes da tarefa. */
+async function assertMilestone(tx: Tx, id: string, projectIds: string[]) {
+  const [m] = await tx.select().from(milestones).where(eq(milestones.id, id));
+  if (!m) throw new TaskError("NOT_FOUND", "Marco não encontrado");
+  if (m.closedAt) throw new TaskError("ARCHIVED_REFERENCE", `Marco “${m.name}” já foi concluído`);
+  if (!projectIds.includes(m.projectId))
+    throw new TaskError("VALIDATION", "O marco é de outro Projeto/Cliente");
+}
+
 async function assertAssignee(tx: Tx, id: string) {
   const [row] = await tx.select({ banned: user.banned }).from(user).where(eq(user.id, id));
   if (!row) throw new TaskError("NOT_FOUND", "Responsável não encontrado");
@@ -356,6 +375,8 @@ export async function insertTask(
   const assigneeId = data.assigneeId ?? null;
   if (assigneeId) await assertAssignee(tx, assigneeId);
   await assertLabels(tx, data.labelIds);
+  if (data.cycleId) await assertCycle(tx, data.cycleId);
+  if (data.milestoneId) await assertMilestone(tx, data.milestoneId, data.projectIds);
   const status = data.statusId
     ? await assertStatus(tx, data.statusId)
     : await firstStatus(tx, "todo");
@@ -371,6 +392,8 @@ export async function insertTask(
       mobileUnitId: data.mobileUnitIds[0] ?? null,
       glpiTicket: data.glpiTicket,
       dueDate: data.dueDate,
+      cycleId: data.cycleId ?? null,
+      milestoneId: data.milestoneId ?? null,
       descriptionJson: data.descriptionJson,
       descriptionText: docText(data.descriptionJson),
       creatorId: await creatorFor(tx, actor),
@@ -420,6 +443,16 @@ async function applyUpdate(
   }
   if (data.assigneeId && data.assigneeId !== current.assigneeId)
     await assertAssignee(tx, data.assigneeId);
+  if (data.cycleId && data.cycleId !== current.cycleId) await assertCycle(tx, data.cycleId);
+  const milestoneAfter = "milestoneId" in data ? (data.milestoneId ?? null) : current.milestoneId;
+  if (milestoneAfter && milestoneAfter !== current.milestoneId)
+    await assertMilestone(tx, milestoneAfter, projectsAfter);
+  else if (milestoneAfter && data.projectIds) {
+    // marco mantido: tirar o projeto dele da tarefa não pode deixá-lo órfão
+    const [m] = await tx.select().from(milestones).where(eq(milestones.id, milestoneAfter));
+    if (m && !projectsAfter.includes(m.projectId))
+      throw new TaskError("VALIDATION", "Tire o marco antes de remover o Projeto/Cliente dele");
+  }
 
   const set: Partial<typeof tasks.$inferInsert> = {};
   const events: Parameters<typeof record>[3] = [];
@@ -458,6 +491,18 @@ async function applyUpdate(
   if ("assigneeId" in data && data.assigneeId !== current.assigneeId) {
     set.assigneeId = data.assigneeId;
     events.push({ type: "assigned", payload: { from: current.assigneeId, to: data.assigneeId } });
+  }
+  for (const [key, field] of [
+    ["cycleId", "cycle"],
+    ["milestoneId", "milestone"],
+  ] as const) {
+    if (!(key in data)) continue;
+    /* eslint-disable security/detect-object-injection -- chaves da lista fixa acima */
+    const [from, to] = [current[key], data[key] ?? null];
+    /* eslint-enable security/detect-object-injection */
+    if (to === from) continue;
+    Object.assign(set, { [key]: to });
+    events.push({ type: "field_changed", payload: { field, from, to } });
   }
   if (
     "descriptionJson" in data &&
@@ -737,11 +782,15 @@ export async function getTaskByNumber(_actor: Actor, number: number) {
         category: workflowStatuses.category,
         creatorName: user.name,
         assigneeName: assignee.name,
+        cycleNumber: cycles.number,
+        milestoneName: milestones.name,
       })
       .from(tasks)
       .innerJoin(workflowStatuses, eq(workflowStatuses.id, tasks.statusId))
       .innerJoin(user, eq(user.id, tasks.creatorId))
       .leftJoin(assignee, eq(assignee.id, tasks.assigneeId))
+      .leftJoin(cycles, eq(cycles.id, tasks.cycleId))
+      .leftJoin(milestones, eq(milestones.id, tasks.milestoneId))
       .where(eq(tasks.id, task.id)),
     // ADR-045: o principal primeiro
     db
@@ -851,6 +900,7 @@ export async function listTasks(
           any(f.statusIds, (ids) => inArray(tasks.statusId, ids)),
           any(f.assigneeIds, (ids) => inArray(tasks.assigneeId, ids)),
           any(f.priorities, (ids) => inArray(tasks.priority, ids)),
+          any(f.cycleIds, (ids) => inArray(tasks.cycleId, ids)),
           // ADR-045: qualquer vínculo, não só o principal
           any(f.projectIds, (ids) =>
             inArray(

@@ -8,6 +8,7 @@ export const SHORTCUTS: { keys: string[]; label: string }[] = [
   { keys: ["⌘", "K"], label: "Busca e comandos" },
   { keys: ["C"], label: "Criar tarefa" },
   { keys: ["⌘", "↵"], label: "Enviar (criar)" },
+  { keys: ["G", "C"], label: "Ir para o ciclo atual" },
   { keys: ["["], label: "Recolher/expandir menu" },
   { keys: ["?"], label: "Mostrar atalhos" },
   { keys: ["Esc"], label: "Fechar modal/painel" },
@@ -29,6 +30,28 @@ export function useShortcut(key: string, handler: () => void) {
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
+  }, [key, handler]);
+}
+
+/**
+ * Sequência `G` + tecla (UI.md §5). Escuta na captura e para a propagação, para a segunda tecla não
+ * disparar também o atalho de uma tecla (ex.: `C` = criar).
+ */
+export function useGoTo(key: string, handler: () => void) {
+  useEffect(() => {
+    let gAt = 0;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.ctrlKey || e.metaKey || e.altKey || e.repeat || isTyping(e.target)) return;
+      if (e.key === "g") gAt = Date.now();
+      else if (e.key === key && Date.now() - gAt < 1000) {
+        gAt = 0;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        handler();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown, { capture: true });
+    return () => window.removeEventListener("keydown", onKeyDown, { capture: true });
   }, [key, handler]);
 }
 

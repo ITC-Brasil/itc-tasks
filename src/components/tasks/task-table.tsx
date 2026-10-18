@@ -180,6 +180,14 @@ export function TaskTable({
               onChange={(v) => bulk({ priority: v as never })}
             />
           </div>
+          <div className="w-44" key={`c${pending}`}>
+            <Pick
+              label="Mudar ciclo…"
+              items={items.cycles}
+              value="__"
+              onChange={(v) => bulk({ cycleId: v || null })}
+            />
+          </div>
         </div>
       )}
       <div className="overflow-x-auto rounded-md border bg-surface">

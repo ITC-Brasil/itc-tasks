@@ -136,6 +136,7 @@ export function FilterBar({
       )}
       {pick("Prioridade", "priorities", items.priorities)}
       {pick("Etiqueta", "labelIds", items.labels)}
+      {pick("Ciclo", "cycleIds", items.cycles.slice(1))}
       {current && (
         <Button variant="ghost" size="sm" onClick={() => router.replace(pathname)}>
           <X aria-hidden="true" /> Limpar filtros
