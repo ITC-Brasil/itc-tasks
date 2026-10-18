@@ -4,7 +4,7 @@
 
 > Sobrescrito a cada passagem de sessão. Não é registro permanente.
 
-- **Fase:** Módulo 09 — Automações e templates pronto para revisão. Módulos 00 a 08 na `main`.
+- **Fase:** Módulo 09 — Automações e templates aprovado; PR `develop → main` aberto. Módulos 00 a 08 na `main`.
 - **Próximo passo:** revisão do Cowork; Módulo 10 só depois do "aprovado" e do "pode iniciar" do Matheus.
 - **Depois do pull:** `npm run db:migrate` (migração `0011`), `npm run db:seed` (6 regras), reiniciar `npm run dev` e `npm run worker:dev`.
 - **Regra "Avisar quem criou quando concluir" (M-053):** nasce desligada no seed, mas bancos já semeados (dev) a mantêm ligada; desligar em Configurações › Automações, se quiser.

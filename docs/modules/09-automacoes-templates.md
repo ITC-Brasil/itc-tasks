@@ -1,6 +1,6 @@
 # Módulo 09 — Automações e templates
 
-**Status:** pronto para revisão. ADR-052 escrito antes do código (`3d37cfb`).
+**Status:** aprovado (ajustes da M-053 feitos). ADR-052 escrito antes do código (`3d37cfb`).
 
 PRD A1 (regras "Quando → Se → Então" com liga/desliga, contador e última execução), A2 (5 gatilhos), A3 (ações; "topo da coluna" acrescentado por decisão do Matheus), A4 (6 regras no seed; "Etiquetar tarefas de UM" e, pela M-053, "Avisar quem criou quando concluir" desligadas) e P4 (templates de tarefa e de projeto; usar pede Projeto/Cliente e UM).
 
