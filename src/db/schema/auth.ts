@@ -19,6 +19,7 @@ export const user = pgTable("user", {
   initials: text("initials"),
   theme: text("theme").default("light"),
   sidebarCollapsed: boolean("sidebar_collapsed").default(false),
+  // expediente: push só dentro de [início, fim); fora, silêncio (ADR-050)
   quietHoursStart: text("quiet_hours_start").default("08:00"),
   quietHoursEnd: text("quiet_hours_end").default("18:00"),
   emailDigest: boolean("email_digest").default(true),

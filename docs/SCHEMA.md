@@ -49,7 +49,7 @@ erDiagram
 | `initials` | `text` (2 letras) | derivado do nome | Avatar |
 | `theme` | `text` (`light` \| `dark`) | `light` | ADR-013 |
 | `sidebarCollapsed` | `boolean` | `false` | Sidebar recolhida |
-| `quietHoursStart` / `quietHoursEnd` | `text` `HH:mm` | `08:00` / `18:00` | Silêncio de push |
+| `quietHoursStart` / `quietHoursEnd` | `text` `HH:mm` | `08:00` / `18:00` | Expediente: push só dentro de [início, fim); fora dele, silêncio (ADR-050) |
 | `emailDigest` | `boolean` | `true` | Resumo diário |
 
 ## Schema de domínio (Drizzle)

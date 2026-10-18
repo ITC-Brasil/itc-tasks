@@ -40,6 +40,7 @@ export const auth = betterAuth({
       initials: { type: "string", required: false, input: false },
       theme: pref("string", "light"),
       sidebarCollapsed: pref("boolean", false),
+      // expediente: push só dentro de [início, fim) (ADR-050)
       quietHoursStart: pref("string", "08:00"),
       quietHoursEnd: pref("string", "18:00"),
       emailDigest: pref("boolean", true),
