@@ -1,6 +1,6 @@
 # Módulo 08 — Notificações
 
-**Status:** pronto para revisão em 17/10/2026, na `develop`. ADR-050 escrito antes do código.
+**Status:** aprovado com ajustes na M-048; ajustes feitos em 17/10/2026, na `develop`. ADR-050 escrito antes do código; ADR-051 (dono do token avisado) antes do ajuste.
 
 PRD N1 (central com não lidas, todas e menções; "Marcar todas como lidas"), N2 (os 7 eventos), N3 (canais no app, push e e-mail; silêncio de push fora do expediente; resumo diário) e N4 (ações do próprio usuário não notificam ele mesmo).
 
@@ -21,8 +21,8 @@ PRD N1 (central com não lidas, todas e menções; "Marcar todas como lidas"), N
 
 ### Service
 `src/server/services/notifications.ts`:
-- `fanout(eventIds)` — tabela de destinatários do ADR-050 numa transação; autor excluído (`actor_user_id`, o que inclui o agente do dono); `actorLabel` = primeiro nome, nome do token para agente, "Automação"/"Sistema". `deliver()` filtra pessoas ativas, aplica a preferência, insere, faz `pg_notify('notification_created', { id, userId, event, unreadCount })` se `in_app` e enfileira `notification.push` se `push`.
-- `pushNotification(id, now)` — `"quiet"` fora de `[quietHoursStart, quietHoursEnd)` (`withinHours`, fuso `APP_TIMEZONE`); senão `web-push` para cada assinatura (`TTL: 3600`), 404/410 apaga a assinatura. Sem VAPID o envio é ignorado.
+- `fanout(eventIds)` — tabela de destinatários do ADR-050 numa transação; autor excluído (`actor_user_id`), exceto que, em escrita de agente, o dono do token recebe `agent_action` (ADR-051); `actorLabel` = primeiro nome, nome do token para agente, "Automação"/"Sistema". `deliver()` filtra pessoas ativas, aplica a preferência, insere, faz `pg_notify('notification_created', { id, userId, event, unreadCount })` se `in_app` e enfileira `notification.push` se `push`.
+- `pushNotification(id, now)` — `"quiet"` fora de `[quietHoursStart, quietHoursEnd)` (`withinHours`, fuso `APP_TIMEZONE`); senão `web-push` para cada assinatura (`TTL: 3600`), 404/410 apaga a assinatura. Sem VAPID o envio é ignorado. Outro erro numa assinatura é registrado (`console.error`) e o envio segue para as próximas, sem falhar o job (M-048: o retry reenviaria a quem já recebeu).
 - `daily(now)` — `reminders` (abertas, não arquivadas, `due_date` = hoje → `due_today`, = ontem → `overdue`, sem repetir em 20 h) e depois `digest` (um e-mail por pessoa com `emailDigest` e notificações `email` das últimas 24 h sem `emailed_at`; texto e HTML com links `BETTER_AUTH_URL/tarefas/<n>`).
 - Tela: `listNotifications(actor, "unread" | "all" | "mentions")` (até 200), `unreadCount`, `markRead(actor, ids?)` (só as próprias), `getPreferences`, `setChannel`, `setSchedule`, `subscribePush` (upsert por endpoint), `unsubscribePush`, `sendTestPush`.
 - `src/lib/validation/notifications.ts` — `notificationPreferencesSchema`, `quietHoursSchema` (`HH:mm`, início ≠ fim), `pushSubscriptionSchema` (endpoint `https://`), `markReadSchema`.
@@ -47,16 +47,18 @@ PRD N1 (central com não lidas, todas e menções; "Marcar todas como lidas"), N
 | Atribuir avisa o responsável; autor não recebe; atribuir a si não avisa | idem | ✅ |
 | Comentário com menção: mencionado `mentioned` com citação, criador `commented` | idem | ✅ `quote: "@Bia veja o rack"`, `actorLabel: "Caio"` |
 | Descrição: só mencionados novos | idem | ✅ |
-| Status → criador com nomes; agente → responsável/criador `agent_action` com nome do token; agente do dono não avisa o dono | idem | ✅ |
+| Status → criador com nomes; agente → responsável/criador `agent_action` com nome do token; o dono do token também recebe só `agent_action` | idem | ✅ |
 | Preferência desligada não grava; pessoa desativada não recebe | idem | ✅ |
 | Marcar uma (de outra pessoa não mexe), marcar todas, contador | idem | ✅ |
 | Push às 22:00 com expediente 08–18 | idem | ✅ `"quiet"`; às 10:00 `"sent"` |
 | 08:00 duas vezes: prazo hoje e vencida uma vez; um e-mail com as duas | idem (nodemailer mockado) | ✅ |
 | Assinatura `http://` recusada; teste entregue; 410 apaga a assinatura | idem (web-push mockado) | ✅ |
+| Erro 500 numa assinatura não interrompe as outras nem lança (M-048) | `tests/integration/notifications.test.ts` | ✅ `sent: 1` |
+| Agente da Ana em tarefa dela → `agent_action` para a Ana, padrão só no app (ADR-051) | idem | ✅ |
 | Expediente atravessando a meia-noite | `src/lib/notifications.test.ts` | ✅ |
 | Central (abas, axe) e Preferências (canal e horário persistem após recarregar, axe) | `tests/e2e/notifications.spec.ts` (desktop, 3 rodadas) | ✅ |
 | Worker sobe contra o banco de dev | `npm run worker:build` + `node --env-file=.env dist/worker.mjs` | ✅ "worker: pronto" |
-| Suíte | `npm test` | ✅ 17 arquivos, 87 testes |
+| Suíte | `npm test` | ✅ 17 arquivos, 89 testes |
 | E2E desktop completo | `npx playwright test --project=desktop` | ✅ 18 passaram |
 | Lint, tipos, formato | `npm run lint`, `npm run typecheck`, `npm run format:check` | ✅ 0 erros |
 
@@ -68,6 +70,10 @@ aaedbb8 feat(jobs): add worker
 c787974 feat(notifications): add inbox
 949225f feat(notifications): add web push
 2eaf36e feat(notifications): add preferences
+34c5e3a docs: document module 08 notifications
+091f592 docs: add adr-051 agent owner notified
+e15e5a0 docs(schema): quiet hours are the push work hours
+0b41e5f fix(notifications): notify agent owner and keep pushing after a failed subscription
 ```
 
 O resumo diário e os lembretes (tarefa "E-mail e resumo diário 08:00; lembrete de prazo e vencidas") saíram no `feat(jobs): add worker`: são o job `daily.morning` do mesmo service e do mesmo worker.
@@ -81,7 +87,8 @@ O resumo diário e os lembretes (tarefa "E-mail e resumo diário 08:00; lembrete
 - Automações como destinatários ("notificar time") — Módulo 09.
 
 ## Pontos de atenção
-- **N4 e o agente:** o agente conta como o dono do token, então o agente do Matheus não avisa o Matheus. Se o time quiser ver as ações dos próprios agentes, é trocar o `author` no `fanout` (decisão de produto, perguntada na M-047).
+- **N4 e o agente (ADR-051, decisão do Matheus na M-048):** o dono do token recebe `agent_action` do que o próprio agente fez, nunca os outros tipos; o que a pessoa faz na UI continua sem aviso.
+- **`quietHoursStart`/`quietHoursEnd`** são o expediente (push só dentro), não o período de silêncio; SCHEMA corrigido na M-048.
 - **Banco de dev:** depois do pull, `npm run db:migrate` (sem a `0010`, o layout quebra no `unreadCount`). Sem `npm run worker:dev`, os jobs ficam na fila e são processados quando o worker subir.
 - **VAPID:** trocar as chaves depois do go-live invalida as assinaturas (`docs/INFRA.md`).
 - **E2E:** `toBeHidden()` passa na hora se a página ainda nem carregou depois do `reload()`; o spec espera o estado final do "Push neste dispositivo" como sinal de hidratação.
