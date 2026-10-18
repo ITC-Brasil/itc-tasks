@@ -1,6 +1,6 @@
 # Módulo 11 — PWA, mobile e acabamento
 
-**Data:** 18/10/2026 · **ADR:** ADR-054 (escrito antes do código; altera o ADR-016) · **Migração:** nenhuma · **Dependência nova:** nenhuma
+**Data:** 18/10/2026 · **ADR:** ADR-054 (escrito antes do código; altera o ADR-016), ADR-055 (E2E no CI, revisão) · **Migração:** nenhuma · **Dependência nova:** nenhuma
 
 ## O que foi implementado
 
@@ -64,14 +64,34 @@ Não verificado em aparelho real: instalação no Android e no iPhone, splash e 
 8962284 fix(a11y): set text color on neutral chips
 cb7c4ff test(e2e): log in once and run against production build
 dc0e6eb test(planning): add cycles, milestones and dashboard e2e
+4a081ba fix(pwa): block quick create offline
+8e450ea refactor(ui): extract card component
+adfd312 docs: add ADR-055 for e2e in ci
+95821c8 ci: add e2e job against production build
+2f1790c fix(ui): collapse rail below 1024px and focusable members table
 ```
 
 O `4dd37bb` traz também a barra inferior e o painel inferior, que estão nos mesmos arquivos do shell e da criação rápida.
 
+## Revisão (M-066)
+
+Decisões da M-065 confirmadas pelo Matheus. Ajustes:
+
+- **Criação rápida offline** (`4a081ba`): o `QuickCreate` fica fora do `fieldset` do shell. O `show()` de `src/components/tasks/quick-create.tsx`, por onde passam o atalho `C`, o `?criar=1`, a paleta e os botões, recusa sem rede com o toast "Sem conexão. Crie a tarefa quando a rede voltar."; o "Criar" do diálogo fica desabilitado se a rede cair com ele aberto. `mobile.spec.ts` cobre o atalho `C` offline. No mesmo commit: o ADR-054 registra que trocar `CACHE_VERSION` zera o `static-*` e que os hex do `sw.js` e do `themeColor` são exceção à regra "nunca hex".
+- **`Card`** (`8e450ea`): `src/components/ui/card.tsx` com `as` (tag renderizada, padrão `div`) e `padding` `none` / `sm` (`px-4 py-3`) / `md` (`p-4`) / `lg` (`p-5`). Substitui os 25 blocos `rounded-xl bg-surface shadow-1` de 16 arquivos; `md:p-5` das Preferências fica no `className`. O painel de login (`shadow-2`, `p-8`) não é card do app e ficou como está. E2E inteiro no `next dev`: 40 passaram.
+- **E2E no CI** (ADR-055, `95821c8`): job `e2e` no `.github/workflows/ci.yml`, em paralelo ao Quality Check. Postgres 18.6 com banco `itc_tasks_e2e`, `db:migrate`, `db:seed` com `SEED_ADMIN_EMAIL=e2e@itcbr.test` e senha `openssl rand -hex 16` mascarada via `$GITHUB_ENV`, `next build`, worker (`dist/worker.mjs`) e `next start -p 3000`, espera do `/api/health`, Chromium e `npx playwright test`. Falhou → `playwright-report/`, `test-results/`, `next.log` e `worker.log` como artefato (`actions/upload-artifact` v7.0.2 por SHA, 7 dias). `playwright.config.ts` gera o relatório HTML quando `CI` está definido.
+- **O banco vazio do CI revelou dois defeitos** (`2f1790c`):
+  - Com a preferência "expandida" (padrão de admin novo), o trilho de 64 px do tablet mostrava os rótulos e não tinha "Expandir menu". `app-shell.tsx` só considera a preferência a partir de 1024 px (`useSyncExternalStore` no `matchMedia`).
+  - A tabela de Membros só com o admin rolava na horizontal no celular sem nada focável (axe `scrollable-region-focusable`). O contêiner virou `role="region"` com `tabIndex={0}`.
+  - Também: `planning.spec` usa o primeiro "Novo ciclo" (o estado vazio tem outro).
+
+| Cenário | Como | Resultado |
+|---|---|---|
+| Job do CI reproduzido com banco novo (`itc_tasks_e2e` local, seed com senha gerada, `next start -p 3200`) | `CI=1 E2E_BASE_URL=http://localhost:3200 npx playwright test` | ✅ 40 |
+| CI na `develop` em `2f1790c` | run 39100813752 (Quality Check + E2E), Security 39100813731 | ✅ E2E 40 passaram |
+
 ## Ficou de fora
 
-- **Componente `Card`** (observação da M-061): são 26 blocos `rounded-xl bg-surface shadow-1` em `ul`, `section`, `div` e `pre`, com paddings diferentes. Extrair o componente não muda comportamento; decisão para o Cowork e o Matheus.
-- E2E fora do CI (como desde a M-007): exige banco semeado e servidor.
 - Precache: uma tela só abre offline se já foi vista online naquele aparelho (ADR-054).
 
 ## Pontos de atenção
@@ -80,4 +100,6 @@ O `4dd37bb` traz também a barra inferior e o painel inferior, que estão nos me
 - Hex no `sw.js` (página offline) e no `themeColor` são exceção registrada no ADR-054: ficam fora do CSS.
 - `next start` avisa que não combina com `output: standalone`, mas serve para o E2E local; produção usa `node .next/standalone/server.js` (Dockerfile).
 - O E2E contra outra porta precisa de `BETTER_AUTH_URL` nela, senão o login recusa com "Invalid origin".
+- O worker não lê o `.env` (no CI as variáveis vêm do `env` do job). Rodando `dist/worker.mjs` à mão, passe `--env-file=.env`.
+- O E2E do CI começa de banco vazio: um spec que suponha dados existentes (outro membro, ciclo, tarefa) falha lá e passa no dev.
 - O `fieldset` desabilitado não bloqueia links. Uma escrita que escape offline ainda falha no servidor e mostra o toast de erro.
