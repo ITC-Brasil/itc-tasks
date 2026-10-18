@@ -23,6 +23,10 @@ test("sem rede: faixa e escrita desabilitada", async ({ page, context }) => {
   await context.setOffline(true);
   await expect(page.getByText(/Sem conexão — mostrando a última versão salva/)).toBeVisible();
   await expect(page.getByRole("button", { name: "Criar tarefa" }).first()).toBeDisabled();
+  // o atalho C também não abre a criação rápida
+  await page.keyboard.press("c");
+  await expect(page.getByText("Sem conexão. Crie a tarefa quando a rede voltar.")).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Criar tarefa" })).toBeHidden();
   await context.setOffline(false);
   await expect(page.getByText(/Sem conexão/)).toBeHidden();
 });

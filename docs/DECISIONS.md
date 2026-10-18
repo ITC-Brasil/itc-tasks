@@ -1575,5 +1575,9 @@ O ADR-016 escolheu o Serwist (`@serwist/turbopack`) e deixou o service worker ma
 
 **Consequences**
 Sem precache: uma tela só abre offline se já foi vista online naquele aparelho. Atualizar o
-worker é trocar `CACHE_VERSION` em `public/sw.js`. Se o escopo offline crescer (edição offline),
-reavaliar o Serwist.
+worker é trocar `CACHE_VERSION` em `public/sw.js`, o que também zera o `static-*` (que só cresce
+até lá). Se o escopo offline crescer (edição offline), reavaliar o Serwist.
+
+Exceção à regra "nunca hex em componente": os hex da página "Sem conexão" do `public/sw.js` e do
+`viewport.themeColor` em `src/app/layout.tsx` ficam fora do CSS (o worker não carrega os tokens; o
+`theme-color` é meta do navegador) e repetem `--bg-base`, `--text-base` e o fundo do escuro.

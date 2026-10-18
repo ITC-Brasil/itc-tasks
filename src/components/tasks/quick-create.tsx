@@ -4,6 +4,7 @@ import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
+import { useOnline } from "@/components/layout/pwa";
 import { useShortcut } from "@/components/layout/shortcuts";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -67,10 +68,14 @@ export function QuickCreate() {
   const [another, setAnother] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const online = useOnline();
   const titleRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
   const show = useCallback((e?: Event) => {
+    // offline: a criação fica fora do fieldset do shell; todas as entradas passam por aqui (ADR-054)
+    if (!navigator.onLine)
+      return void toast.error("Sem conexão. Crie a tarefa quando a rede voltar.");
     const preset = (e as CustomEvent<{ statusId?: string; templateId?: string } | undefined>)
       ?.detail;
     if (preset?.statusId) setForm((f) => ({ ...f, statusId: preset.statusId! }));
@@ -276,7 +281,7 @@ export function QuickCreate() {
             </label>
             <Button
               type="submit"
-              disabled={pending || !items}
+              disabled={pending || !items || !online}
               aria-keyshortcuts="Meta+Enter Control+Enter"
             >
               {pending ? "Criando…" : "Criar tarefa"}

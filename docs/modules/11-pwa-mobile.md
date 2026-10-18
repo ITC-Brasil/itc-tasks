@@ -76,7 +76,8 @@ O `4dd37bb` traz também a barra inferior e o painel inferior, que estão nos me
 
 ## Pontos de atenção
 
-- Mudou o `sw.js`? Troque `CACHE_VERSION`, senão telas antigas continuam no `pages-*`.
+- Mudou o `sw.js`? Troque `CACHE_VERSION`, senão telas antigas continuam no `pages-*`. A troca também zera o `static-*`, que até lá só cresce (cada build novo acrescenta arquivos de `/_next/static/`).
+- Hex no `sw.js` (página offline) e no `themeColor` são exceção registrada no ADR-054: ficam fora do CSS.
 - `next start` avisa que não combina com `output: standalone`, mas serve para o E2E local; produção usa `node .next/standalone/server.js` (Dockerfile).
 - O E2E contra outra porta precisa de `BETTER_AUTH_URL` nela, senão o login recusa com "Invalid origin".
 - O `fieldset` desabilitado não bloqueia links. Uma escrita que escape offline ainda falha no servidor e mostra o toast de erro.
