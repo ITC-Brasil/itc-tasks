@@ -6,6 +6,8 @@ import { LimitNotice } from "@/components/tasks/no-results";
 import { FilterBar } from "@/components/tasks/filter-bar";
 import { filtersQuery } from "@/lib/validation/tasks";
 import { CreateTaskButton } from "@/components/tasks/quick-create";
+import { monthGrid } from "@/lib/dates";
+import { milestonesDue } from "@/server/services/planning";
 import { loadView } from "@/server/views";
 
 export const metadata: Metadata = { title: "Calendário · ITC Tasks" };
@@ -15,11 +17,21 @@ async function View({ searchParams }: PageProps<"/tarefas/calendario">) {
   const mes = (await searchParams).mes;
   const month =
     typeof mes === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(mes) ? mes : today.slice(0, 7);
+  const days = monthGrid(month);
+  const marks = (await milestonesDue(days[0], days.at(-1)!)).filter(
+    (m) => !filters.projectIds.length || filters.projectIds.includes(m.projectId),
+  );
   return (
     <main className="flex min-w-0 flex-1 flex-col">
       <FilterBar view="calendar" filters={filters} options={options} saved={saved} />
       <LimitNotice truncated={truncated} />
-      <MonthCalendar month={month} tasks={tasks} today={today} query={filtersQuery(filters)} />
+      <MonthCalendar
+        month={month}
+        tasks={tasks}
+        milestones={marks}
+        today={today}
+        query={filtersQuery(filters)}
+      />
     </main>
   );
 }

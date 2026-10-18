@@ -191,6 +191,7 @@ export async function listMilestones(projectId?: string) {
       description: milestones.description,
       projectId: milestones.projectId,
       projectCode: projects.code,
+      projectName: projects.name,
       dueOn: milestones.dueOn,
       closedAt: milestones.closedAt,
       total: count(tasks.id),
@@ -200,7 +201,7 @@ export async function listMilestones(projectId?: string) {
     .innerJoin(projects, eq(projects.id, milestones.projectId))
     .leftJoin(tasks, and(eq(tasks.milestoneId, milestones.id), isNull(tasks.archivedAt)))
     .where(projectId ? eq(milestones.projectId, projectId) : undefined)
-    .groupBy(milestones.id, projects.code)
+    .groupBy(milestones.id, projects.code, projects.name)
     .orderBy(
       sql`${milestones.closedAt} IS NOT NULL`,
       sql`${milestones.dueOn} ASC NULLS LAST`,
