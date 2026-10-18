@@ -198,7 +198,7 @@ export function AppShell({
           aria-label={expanded ? undefined : "Expandir menu"}
           aria-keyshortcuts="["
           className={cn(
-            "flex h-[34px] items-center gap-2.5 rounded-md px-2 text-left text-sm text-muted hover:bg-muted",
+            "flex h-[34px] items-center gap-2.5 rounded-md px-2 text-left text-sm text-muted hover:bg-muted hover:text-base",
             !expanded && "h-10 w-11 justify-center px-0",
           )}
         >

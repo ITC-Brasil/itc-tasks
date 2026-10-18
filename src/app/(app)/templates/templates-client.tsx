@@ -428,12 +428,18 @@ export function TemplatesView({
               aria-current={t.id === selected.id ? "true" : undefined}
               onClick={() => setSelectedId(t.id)}
               className={cn(
-                "flex w-full flex-col gap-0.5 px-4 py-3 text-left",
+                "group flex w-full flex-col gap-0.5 px-4 py-3 text-left",
                 t.id === selected.id ? "bg-accent-light" : "hover:bg-muted",
               )}
             >
               <span className={cn("font-medium", t.archivedAt && "text-muted")}>{t.name}</span>
-              <span className="text-small text-muted tabular-nums">
+              {/* text-muted sobre accent-light (escuro, 4,23:1) ou bg-muted (claro, 4,27:1) não passa: M-069 */}
+              <span
+                className={cn(
+                  "text-small tabular-nums",
+                  t.id === selected.id ? "text-base" : "text-muted group-hover:text-base",
+                )}
+              >
                 {t.kind === "task"
                   ? `Tarefa · ${tasksOf(t)[0]?.checklist?.length ?? 0} subtarefas`
                   : `Projeto · ${tasksOf(t).length} tarefas`}{" "}
