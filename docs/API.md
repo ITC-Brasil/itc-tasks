@@ -149,8 +149,8 @@ Handler: `src/app/api/auth/[...all]/route.ts`.
 ### GET /api/events
 Auth: sessão ativa.
 Response 200: `text/event-stream`. Eventos:
-- `task.changed` — `{ id, number, fields: string[], by: string | null }` (`fields` = tipos de `task_events` da escrita; `by` = pessoa que escreveu, só para ator `user`; agente/automação/sistema → `null`). Implementado no Módulo 06 (`src/app/api/events/route.ts`); `notification.created` entra no Módulo 08.
-- `notification.created` — `{ id, event, unreadCount }`
+- `task.changed` — `{ id, number, fields: string[], by: string | null }` (`fields` = tipos de `task_events` da escrita; `by` = pessoa que escreveu, só para ator `user`; agente/automação/sistema → `null`). Implementado no Módulo 06 (`src/app/api/events/route.ts`).
+- `notification.created` — `{ id, event, unreadCount }`, só para as abas do destinatário (Módulo 08, ADR-050).
 - `ping` — a cada 25 s (heartbeat por causa do túnel, ADR-020)
 
 ---
@@ -166,7 +166,7 @@ Response 201: `{ id }` · Response 400: assinatura inválida.
 Auth: sessão ativa. Body: `{ endpoint: string }` · Response 204.
 
 ### POST /api/push/test
-Auth: sessão ativa. Envia uma notificação de teste para as assinaturas do usuário. Response 202.
+Auth: sessão ativa. Envia uma notificação de teste para as assinaturas do usuário. Response 202 `{ sent }` (assinaturas que receberam). Implementado no Módulo 08; endpoint precisa ser `https://`; 404/410 do serviço de push apaga a assinatura.
 
 ---
 
@@ -187,7 +187,7 @@ Implementado no Módulo 06 (`src/app/api/attachments/`): 401 sem sessão; 400 ta
 
 ### GET /api/health
 Auth: pública. Response 200: `{ db: "ok", queue: "ok", version }` · 503 se o banco ou a fila falharem.
-Implementado no Módulo 00 (`src/app/api/health/route.ts`) sem `queue`: 200 `{ db: "ok", version }`, 503 `{ db: "down", version }`. `queue` entra com o pg-boss no Módulo 08.
+Implementado no Módulo 00; `queue` no Módulo 08 (`select 1 from pgboss.version`, ADR-050).
 
 ---
 

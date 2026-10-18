@@ -316,6 +316,9 @@ export const notifications = pgTable('notifications', {
   taskId: uuid('task_id').references(() => tasks.id, { onDelete: 'cascade' }),
   actorLabel: text('actor_label').notNull(),   // "Ana", "Triagem GLPI", "Prazo"
   data: jsonb('data').notNull(),               // trecho do comentário, status de/para
+  inApp: boolean('in_app').notNull().default(true),   // Módulo 08 (ADR-050): canais copiados da preferência
+  email: boolean('email').notNull().default(false),
+  emailedAt: timestamp('emailed_at', { withTimezone: true }), // o resumo diário não reenvia
   readAt: timestamp('read_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index('notifications_user_unread_idx').on(t.userId, t.readAt, t.createdAt)]);
@@ -363,7 +366,7 @@ CREATE SEQUENCE IF NOT EXISTS task_number_seq START 1;
 - **`cycles_one_active_uq`** — índice único parcial: no máximo um ciclo `active`.
 - **`task_events`** — só-inserção; nenhum service expõe update/delete.
 - **`labels.color_token`** — guarda o nome do token, nunca hex (Design System, princípio 5).
-- **`notification_preferences`** — o seed cria as 7 linhas por usuário com os padrões da tela de Preferências.
+- **`notification_preferences`** (Módulo 08, `0010_notifications`) — sem seed: linha ausente = `DEFAULT_CHANNELS` de `src/lib/notifications.ts`; a tela grava só o que muda (ADR-050).
 
 ## Seed planejado (`src/db/seed.ts`)
 

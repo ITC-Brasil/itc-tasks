@@ -11,3 +11,4 @@ Um arquivo por módulo concluído (`NN-nome.md`), no formato da skill project-do
 | 04 | Tarefas: núcleo | [04-tarefas.md](04-tarefas.md) |
 | 05 | Visões e filtros | [05-visoes.md](05-visoes.md) |
 | 06 | Comentários, histórico, anexos e busca | [06-comentarios-busca.md](06-comentarios-busca.md) |
+| 08 | Notificações | [08-notificacoes.md](08-notificacoes.md) |
