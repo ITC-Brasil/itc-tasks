@@ -159,7 +159,7 @@ export function TaskDetail({
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  className="ml-auto opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                  className="ml-auto group-hover:opacity-100 focus-visible:opacity-100 md:opacity-0"
                   aria-label={`Remover ${c.text}`}
                   onClick={() => act({}, () => removeChecklistItemAction(c.id, task.number))}
                 >

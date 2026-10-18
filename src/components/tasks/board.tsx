@@ -70,7 +70,7 @@ function Column({ status, tasks, today }: { status: Status; tasks: TaskRow[]; to
     <section
       aria-label={status.name}
       className={cn(
-        "flex w-72 flex-none flex-col rounded-lg border bg-base",
+        "flex w-72 flex-none snap-center flex-col rounded-lg border bg-base max-md:w-[calc(100vw-2rem)]",
         isDropTarget && "border-accent",
       )}
     >
@@ -149,7 +149,8 @@ export function Board({
         });
       }}
     >
-      <div className="flex flex-1 gap-3 overflow-x-auto p-4 md:p-6">
+      {/* < 768 px: uma coluna por vez, com snap (UI.md §6) */}
+      <div className="flex flex-1 snap-x snap-mandatory gap-3 overflow-x-auto p-4 md:snap-none md:p-6">
         {statuses.map((s) => (
           <Column key={s.id} status={s} tasks={Reflect.get(columns, s.id) ?? []} today={today} />
         ))}
