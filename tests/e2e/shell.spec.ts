@@ -1,6 +1,5 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { login } from "./session";
+import { axe, login } from "./session";
 
 const email = process.env.SEED_ADMIN_EMAIL;
 const password = process.env.SEED_ADMIN_PASSWORD;
@@ -10,11 +9,6 @@ async function press(page: Page, key: string) {
   const saved = page.waitForResponse((r) => r.request().method() === "POST");
   await page.keyboard.press(key);
   await saved;
-}
-
-async function axe(page: Page) {
-  const { violations } = await new AxeBuilder({ page }).analyze();
-  expect(violations).toEqual([]);
 }
 
 test.beforeEach(() => test.skip(!email || !password, "SEED_ADMIN_* não definidos"));

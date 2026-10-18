@@ -1,6 +1,5 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
-import { login } from "./session";
+import { axe, login } from "./session";
 
 const email = process.env.SEED_ADMIN_EMAIL;
 const password = process.env.SEED_ADMIN_PASSWORD;
@@ -18,8 +17,7 @@ test("cria token só-leitura, mostra uma vez, chama o /mcp e revoga", async ({ p
   await login(page);
   await page.goto("/config/agentes");
   await expect(page.getByRole("heading", { name: "Agentes e MCP", level: 1 })).toBeVisible();
-  const { violations } = await new AxeBuilder({ page }).analyze();
-  expect(violations).toEqual([]);
+  await axe(page);
 
   await page.getByRole("button", { name: "Novo token" }).click();
   await page.getByLabel("Nome").fill(name);

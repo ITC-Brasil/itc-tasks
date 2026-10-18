@@ -1,6 +1,5 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
-import { login } from "./session";
+import { axeBothThemes, login } from "./session";
 
 const email = process.env.SEED_ADMIN_EMAIL;
 const password = process.env.SEED_ADMIN_PASSWORD;
@@ -27,8 +26,9 @@ test("automações: regras do seed, liga/desliga e sem violações de acessibili
   await toggle.click();
   await expect(toggle).toHaveAttribute("aria-checked", before!);
 
-  const { violations } = await new AxeBuilder({ page }).analyze();
-  expect(violations).toEqual([]);
+  // M-069: o toast parado também passa no contraste, nos dois temas
+  await expect(page.getByText(/Automação (ligada|desligada)/).first()).toBeVisible();
+  await axeBothThemes(page);
 });
 
 test("automações: criar regra com duas ações", async ({ page }) => {

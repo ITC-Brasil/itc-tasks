@@ -23,6 +23,8 @@ test("busca ⌘K abre a tarefa; comentário com @menção vai para a aba Mençõ
   await dialog.getByLabel("Projeto/Cliente").click();
   await page.getByRole("option", { name: "BSBIA · BSBIA" }).click(); // QMPR é do views.spec, que roda em paralelo
   await page.keyboard.press("Escape");
+  // sob carga, o Ctrl+Enter saía antes de o projeto entrar no campo e a criação era recusada (M-069)
+  await expect(dialog.getByLabel("Projeto/Cliente")).toContainText("BSBIA");
   await dialog.getByLabel("Título").press("Control+Enter");
   await expect(dialog).toBeHidden();
 
