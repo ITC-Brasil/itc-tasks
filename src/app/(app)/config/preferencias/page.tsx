@@ -30,8 +30,8 @@ export default function PreferencesPage() {
                       Notificações
                     </h2>
                     <p className="text-sm text-muted">
-                      Escolha o que chega e por onde. Ações feitas por você mesmo (ou pelo seu
-                      agente) nunca geram aviso.
+                      Escolha o que chega e por onde. Ações feitas por você mesmo nunca geram aviso;
+                      as do seu agente chegam como “Ação de agente”.
                     </p>
                   </div>
                   <ChannelMatrix channels={prefs.channels} />
