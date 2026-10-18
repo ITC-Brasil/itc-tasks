@@ -13,7 +13,7 @@ import { ArchiveButton, FieldLabel, FormDialog, FormSelect, Situation, useRun } 
 type Category = "backlog" | "todo" | "in_progress" | "done";
 type Status = { id: string; name: string; category: Category; archivedAt: Date | null };
 
-const CATEGORIES: { value: Category; label: string }[] = [
+export const CATEGORIES: { value: Category; label: string }[] = [
   { value: "backlog", label: "Backlog" },
   { value: "todo", label: "A fazer" },
   { value: "in_progress", label: "Em andamento" },
