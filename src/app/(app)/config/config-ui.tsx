@@ -30,6 +30,7 @@ const TABS = [
   { href: "/config/workflow", label: "Workflow" },
   { href: "/config/etiquetas", label: "Etiquetas" },
   { href: "/config/membros", label: "Membros" },
+  { href: "/config/automacoes", label: "Automações" },
   { href: "/config/agentes", label: "Agentes e MCP" },
   { href: "/config/preferencias", label: "Minhas preferências" },
 ];

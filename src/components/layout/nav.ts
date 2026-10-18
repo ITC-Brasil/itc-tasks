@@ -3,6 +3,7 @@ import {
   Bot,
   Columns3,
   House,
+  LayoutTemplate,
   Settings,
   SlidersHorizontal,
   type LucideIcon,
@@ -27,6 +28,7 @@ export const NAV: NavGroup[] = [
       { href: "/", label: "Minhas tarefas", icon: House },
       { href: "/tarefas", label: "Tarefas", icon: Columns3 },
       { href: "/notificacoes", label: "Notificações", icon: Bell },
+      { href: "/templates", label: "Templates", icon: LayoutTemplate },
     ],
   },
   {

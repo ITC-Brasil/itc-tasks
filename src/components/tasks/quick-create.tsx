@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { addBusinessDays, todayISO } from "@/lib/dates";
 import { PROJECT_REQUIRED, type Priority } from "@/lib/validation/tasks";
 import {
   type TaskFormOptions,
@@ -25,8 +26,11 @@ import { Pick, PickMany, optionItems } from "./fields";
 
 const EVENT = "itc:quick-create";
 
-/** Abre a criação rápida de qualquer lugar (botões, atalho `C`); o Kanban passa o status da coluna. */
-export const openQuickCreate = (preset?: { statusId?: string }) =>
+/**
+ * Abre a criação rápida de qualquer lugar (botões, atalho `C`); o Kanban passa o status da coluna,
+ * a tela Templates passa o template.
+ */
+export const openQuickCreate = (preset?: { statusId?: string; templateId?: string }) =>
   window.dispatchEvent(new CustomEvent(EVENT, { detail: preset }));
 
 export function CreateTaskButton() {
@@ -47,6 +51,7 @@ const EMPTY = {
   labelIds: [] as string[],
   checklist: [] as string[],
   descriptionJson: null as { type: "doc" } | null,
+  templateId: undefined as string | undefined,
 };
 
 /** UI.md §4: abre focada no título; ⌘↵ cria; "Criar outra" mantém Projeto/Cliente e UM. */
@@ -64,13 +69,17 @@ export function QuickCreate() {
   const formRef = useRef<HTMLFormElement>(null);
 
   const show = useCallback((e?: Event) => {
-    const statusId = (e as CustomEvent<{ statusId?: string } | undefined> | undefined)?.detail
-      ?.statusId;
-    if (statusId) setForm((f) => ({ ...f, statusId }));
+    const preset = (e as CustomEvent<{ statusId?: string; templateId?: string } | undefined>)
+      ?.detail;
+    if (preset?.statusId) setForm((f) => ({ ...f, statusId: preset.statusId! }));
     setOpen(true);
     // recarrega a cada abertura: cadastros podem ter mudado
-    getTaskFormOptionsAction().then(setOptions, () =>
-      toast.error("Não foi possível carregar os campos"),
+    getTaskFormOptionsAction().then(
+      (o) => {
+        setOptions(o);
+        if (preset?.templateId) applyTemplate(o, preset.templateId);
+      },
+      () => toast.error("Não foi possível carregar os campos"),
     );
   }, []);
   useEffect(() => {
@@ -98,11 +107,14 @@ export function QuickCreate() {
     setMobileUnitIds((units) => units.filter((id) => fits.has(id)));
   }
 
-  function applyTemplate(id: string) {
-    const t = options?.templates.find((x) => x.id === id)?.payload;
+  // ADR-052: o service conta o uso e troca `{UM}` pelo código da UM escolhida
+  function applyTemplate(o: TaskFormOptions | null, id: string) {
+    const t = o?.templates.find((x) => x.id === id)?.payload;
     if (!t) return;
     setForm((f) => ({
       ...f,
+      templateId: id,
+      dueDate: t.dueInDays !== undefined ? addBusinessDays(todayISO(), t.dueInDays) : f.dueDate,
       title: t.title ?? f.title,
       priority: t.priority ?? f.priority,
       labelIds: t.labelIds ?? f.labelIds,
@@ -159,7 +171,7 @@ export function QuickCreate() {
               label="Usar template"
               items={options.templates.map((t) => ({ value: t.id, label: t.name }))}
               value=""
-              onChange={applyTemplate}
+              onChange={(id) => applyTemplate(options, id)}
             />
           )}
           <Input

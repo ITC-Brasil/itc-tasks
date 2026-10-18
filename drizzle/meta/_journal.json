@@ -78,6 +78,13 @@
       "when": 1792280408839,
       "tag": "0010_notifications",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792285507856,
+      "tag": "0011_automations",
+      "breakpoints": true
     }
   ]
 }

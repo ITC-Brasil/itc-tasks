@@ -21,7 +21,7 @@ import {
   createAgentKeySchema,
 } from "@/lib/validation/agents";
 import type { CreateTaskInput, UpdateTaskInput } from "@/lib/validation/tasks";
-import { type Actor, ForbiddenError, type Role, isAdmin } from "@/server/actor";
+import { type Actor, ForbiddenError, type Role, isAdmin } from "@/server/permissions";
 import { auth } from "@/server/auth";
 import { listComments } from "./comments";
 import { TaskError, docText, getTaskByNumber, listTasks } from "./tasks";

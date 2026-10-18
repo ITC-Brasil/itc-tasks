@@ -48,8 +48,9 @@ export const templates = pgTable("templates", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
   kind: templateKind("kind").notNull(),
-  payload: jsonb("payload").notNull(), // validado por templatePayloadSchema (Zod)
+  payload: jsonb("payload").notNull(), // taskTemplatePayloadSchema ou projectTemplatePayloadSchema
   usageCount: integer("usage_count").notNull().default(0),
+  archivedAt: timestamp("archived_at", { withTimezone: true }), // ADR-052: arquivar, nunca excluir
   createdById: text("created_by_id")
     .notNull()
     .references(() => user.id),

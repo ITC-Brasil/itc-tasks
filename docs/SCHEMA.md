@@ -69,7 +69,7 @@ export const linkKind       = pgEnum('link_kind', ['blocks', 'relates']);
 export const cycleState     = pgEnum('cycle_state', ['planned', 'active', 'closed']);
 export const templateKind   = pgEnum('template_kind', ['task', 'project']);
 export const notificationEvent = pgEnum('notification_event', [
-  'assigned', 'mentioned', 'commented', 'due_today', 'overdue', 'status_changed', 'agent_action',
+  'assigned', 'mentioned', 'commented', 'due_today', 'overdue', 'status_changed', 'agent_action', 'automation', // 'automation': Módulo 09 (ADR-052)
 ]);
 ```
 
@@ -261,6 +261,7 @@ export const templates = pgTable('templates', {
   kind: templateKind('kind').notNull(),
   payload: jsonb('payload').notNull(),         // validado por templatePayloadSchema (Zod)
   usageCount: integer('usage_count').notNull().default(0),
+  archivedAt: timestamp('archived_at', { withTimezone: true }),   // Módulo 09 (ADR-052): arquivar, nunca excluir
   createdById: text('created_by_id').notNull().references(() => user.id),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
@@ -276,7 +277,10 @@ export const savedFilters = pgTable('saved_filters', {
 ```
 
 ```ts
-// src/db/schema/automation.ts
+// src/db/schema/automation.ts — implementado no Módulo 09 (`0011_automations`, ADR-052)
+// conditions: { statusCategory?, priority?, hasGlpi?, hasMobileUnit? } · actions: notify | setStatus |
+// moveToActiveCycle | moveToTop | addLabel | comment (src/lib/validation/automations.ts)
+// automation_runs ganhou o índice automation_runs_rule_created_idx (rule_id, created_at)
 import { pgTable, uuid, text, integer, boolean, timestamp, jsonb } from 'drizzle-orm/pg-core';
 import { tasks } from './tasks';
 

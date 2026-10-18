@@ -7,7 +7,7 @@ import {
   passwordSchema,
   roleSchema,
 } from "@/lib/validation/members";
-import { type Actor, assertAdmin } from "@/server/actor";
+import { type Actor, assertAdmin } from "@/server/permissions";
 import { auth } from "@/server/auth";
 
 export class MemberError extends Error {}

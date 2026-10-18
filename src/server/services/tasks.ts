@@ -47,6 +47,7 @@ import {
   updateTaskSchema,
 } from "@/lib/validation/tasks";
 import type { Actor } from "@/server/actor";
+import { type EvaluateJob, triggerOf } from "@/lib/validation/automations";
 import { type FanoutJob, QUEUES, enqueue } from "@/server/jobs";
 
 // Toda escrita de tarefa passa aqui com um Actor e grava task_events (ADR-003, ADR-042)
@@ -110,7 +111,14 @@ export async function record(
     )
     .returning({ id: taskEvents.id });
   // ADR-050: o fanout entra na fila na mesma transação
-  await enqueue(tx, QUEUES.fanout, { eventIds: inserted.map((r) => r.id) } satisfies FanoutJob);
+  const eventIds = inserted.map((r) => r.id);
+  await enqueue(tx, QUEUES.fanout, { eventIds } satisfies FanoutJob);
+  // ADR-052: só escritas que são gatilho; a profundidade cresce a cada automação na cadeia
+  if (events.some((e) => triggerOf(e)))
+    await enqueue(tx, QUEUES.evaluate, {
+      eventIds,
+      depth: actor.kind === "automation" ? actor.depth : 0,
+    } satisfies EvaluateJob);
   // ADR-048: o Postgres só entrega o NOTIFY no commit; /api/events repassa às abas
   // `by` só para pessoa: a aba ignora as próprias escritas, mas não as do agente dela (M-039)
   const fields = JSON.stringify([...new Set(events.map((e) => e.type))]);
@@ -258,7 +266,7 @@ async function assertAssignee(tx: Tx, id: string) {
 }
 
 /** Primeiro status ativo da categoria, pela ordem do workflow. */
-async function firstStatus(tx: Tx, category: "todo" | "done") {
+export async function firstStatus(tx: Tx, category: "todo" | "done") {
   const [row] = await tx
     .select()
     .from(workflowStatuses)
@@ -278,7 +286,7 @@ async function lastPosition(tx: Tx, statusId: string, exceptId?: string) {
 }
 
 /** user/agent: a própria pessoa; automação/sistema: o primeiro admin ativo (ADR-045). */
-async function creatorFor(tx: Tx, actor: Actor) {
+export async function creatorFor(tx: Tx, actor: Actor) {
   if (actor.kind === "user" || actor.kind === "agent") return actor.userId;
   const [admin] = await tx
     .select({ id: user.id })
@@ -296,55 +304,94 @@ export async function lockTask(tx: Tx, id: string) {
   return row;
 }
 
+/** ADR-052: conta um uso do template (ativo e do tipo certo). */
+export async function countTemplateUse(tx: Tx, id: string, kind: "task" | "project") {
+  const [row] = await tx
+    .update(templates)
+    .set({ usageCount: sql`${templates.usageCount} + 1` })
+    .where(and(eq(templates.id, id), eq(templates.kind, kind), isNull(templates.archivedAt)))
+    .returning();
+  if (!row) throw new TaskError("NOT_FOUND", "Template não encontrado ou arquivado");
+  return row;
+}
+
+/** `{UM}` no título de template vira o código da primeira UM (sem UM, some). */
+export async function unitTitle(tx: Tx, title: string, unitIds: string[]) {
+  if (!title.includes("{UM}")) return title;
+  const [unit] = unitIds.length
+    ? await tx
+        .select({ code: mobileUnits.code })
+        .from(mobileUnits)
+        .where(eq(mobileUnits.id, unitIds[0]))
+    : [];
+  const out = title
+    .replaceAll("{UM}", unit?.code ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!out) throw new TaskError("VALIDATION", "Informe o título");
+  return out;
+}
+
 // ── Escrita ─────────────────────────────────────────────────────────
 
 export async function createTask(actor: Actor, input: CreateTaskInput) {
   const data = createTaskSchema.parse(input);
-  return db.transaction(async (tx) => {
-    await assertActive(tx, projects, data.projectIds, "Projeto/Cliente");
-    await assertActive(tx, mobileUnits, data.mobileUnitIds, "Unidade Móvel");
-    await assertUnitsFit(tx, data.mobileUnitIds, data.projectIds, []);
-    // ADR-045: sem responsável automático; omitido = sem responsável
-    const assigneeId = data.assigneeId ?? null;
-    if (assigneeId) await assertAssignee(tx, assigneeId);
-    await assertLabels(tx, data.labelIds);
-    const status = data.statusId
-      ? await assertStatus(tx, data.statusId)
-      : await firstStatus(tx, "todo");
+  return db.transaction((tx) => insertTask(tx, actor, data));
+}
 
-    const [task] = await tx
-      .insert(tasks)
-      .values({
-        title: data.title,
-        projectId: data.projectIds[0], // principal (ADR-045)
-        statusId: status.id,
-        priority: data.priority,
-        assigneeId,
-        mobileUnitId: data.mobileUnitIds[0] ?? null,
-        glpiTicket: data.glpiTicket,
-        dueDate: data.dueDate,
-        descriptionJson: data.descriptionJson,
-        descriptionText: docText(data.descriptionJson),
-        creatorId: await creatorFor(tx, actor),
-        createdVia: actor.kind,
-        position: await lastPosition(tx, status.id),
-        completedAt: status.category === "done" ? new Date() : null,
-      })
-      .returning();
+/** Cria dentro da transação recebida (templates criam várias de uma vez, ADR-052). */
+export async function insertTask(
+  tx: Tx,
+  actor: Actor,
+  data: ReturnType<typeof createTaskSchema.parse>,
+) {
+  if (data.templateId) {
+    await countTemplateUse(tx, data.templateId, "task");
+    data = { ...data, title: await unitTitle(tx, data.title, data.mobileUnitIds) };
+  }
+  await assertActive(tx, projects, data.projectIds, "Projeto/Cliente");
+  await assertActive(tx, mobileUnits, data.mobileUnitIds, "Unidade Móvel");
+  await assertUnitsFit(tx, data.mobileUnitIds, data.projectIds, []);
+  // ADR-045: sem responsável automático; omitido = sem responsável
+  const assigneeId = data.assigneeId ?? null;
+  if (assigneeId) await assertAssignee(tx, assigneeId);
+  await assertLabels(tx, data.labelIds);
+  const status = data.statusId
+    ? await assertStatus(tx, data.statusId)
+    : await firstStatus(tx, "todo");
 
-    await writeLinks(tx, task.id, data.projectIds, data.mobileUnitIds);
-    if (data.labelIds.length)
-      await tx
-        .insert(taskLabels)
-        .values(data.labelIds.map((labelId) => ({ taskId: task.id, labelId })));
-    let pos: string | null = null;
-    for (const text of data.checklist) {
-      pos = generateKeyBetween(pos, null);
-      await tx.insert(checklistItems).values({ taskId: task.id, text, position: pos });
-    }
-    await record(tx, actor, task.id, [{ type: "created" }]);
-    return task;
-  });
+  const [task] = await tx
+    .insert(tasks)
+    .values({
+      title: data.title,
+      projectId: data.projectIds[0], // principal (ADR-045)
+      statusId: status.id,
+      priority: data.priority,
+      assigneeId,
+      mobileUnitId: data.mobileUnitIds[0] ?? null,
+      glpiTicket: data.glpiTicket,
+      dueDate: data.dueDate,
+      descriptionJson: data.descriptionJson,
+      descriptionText: docText(data.descriptionJson),
+      creatorId: await creatorFor(tx, actor),
+      createdVia: actor.kind,
+      position: await lastPosition(tx, status.id),
+      completedAt: status.category === "done" ? new Date() : null,
+    })
+    .returning();
+
+  await writeLinks(tx, task.id, data.projectIds, data.mobileUnitIds);
+  if (data.labelIds.length)
+    await tx
+      .insert(taskLabels)
+      .values(data.labelIds.map((labelId) => ({ taskId: task.id, labelId })));
+  let pos: string | null = null;
+  for (const text of data.checklist) {
+    pos = generateKeyBetween(pos, null);
+    await tx.insert(checklistItems).values({ taskId: task.id, text, position: pos });
+  }
+  await record(tx, actor, task.id, [{ type: "created" }]);
+  return task;
 }
 
 const FIELDS = ["title", "priority", "glpiTicket", "dueDate"] as const;
@@ -739,12 +786,12 @@ export async function listAssignees() {
     .orderBy(asc(user.name));
 }
 
-/** Templates de tarefa válidos, os mais usados primeiro (tela no Módulo 09). */
+/** Templates de tarefa ativos e válidos, os mais usados primeiro (criação rápida). */
 export async function listTaskTemplates() {
   const rows = await db
     .select({ id: templates.id, name: templates.name, payload: templates.payload })
     .from(templates)
-    .where(eq(templates.kind, "task"))
+    .where(and(eq(templates.kind, "task"), isNull(templates.archivedAt)))
     .orderBy(desc(templates.usageCount));
   return rows.flatMap((t) => {
     const payload = taskTemplatePayloadSchema.safeParse(t.payload);

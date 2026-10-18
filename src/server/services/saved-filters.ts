@@ -2,7 +2,7 @@ import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { savedFilters } from "@/db/schema";
 import { savedFilterSchema, taskFiltersSchema } from "@/lib/validation/tasks";
-import { type Actor, ForbiddenError } from "@/server/actor";
+import { type Actor, ForbiddenError } from "@/server/permissions";
 import { TaskError } from "./tasks";
 
 // ADR-046: cada pessoa vê e apaga só os seus

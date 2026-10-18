@@ -16,4 +16,5 @@ export const notificationEvent = pgEnum("notification_event", [
   "overdue",
   "status_changed",
   "agent_action",
+  "automation",
 ]);

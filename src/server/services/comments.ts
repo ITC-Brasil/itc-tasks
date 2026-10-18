@@ -2,17 +2,17 @@ import { and, asc, eq, inArray, isNull, or } from "drizzle-orm";
 import { db } from "@/db";
 import { apikey, comments, user } from "@/db/schema";
 import { commentBodySchema, taskIdSchema } from "@/lib/validation/tasks";
-import { type Actor, ForbiddenError } from "@/server/actor";
-import { TaskError, docText, lockTask, mentionIds, record } from "./tasks";
+import { type Actor, ForbiddenError } from "@/server/permissions";
+import { TaskError, creatorFor, docText, lockTask, mentionIds, record } from "./tasks";
 
 export { mentionIds };
 
 // ADR-048: comentário com @menção; o autor edita o próprio, sem exclusão
 
 function author(actor: Actor) {
-  if (actor.kind !== "user" && actor.kind !== "agent")
-    throw new TaskError("VALIDATION", "Só pessoas e agentes comentam");
-  return actor.userId;
+  if (actor.kind === "system") throw new TaskError("VALIDATION", "Só pessoas e agentes comentam");
+  // ADR-052: comentário de automação fica com o primeiro admin ativo, como criador
+  return actor.kind === "automation" ? null : actor.userId;
 }
 
 async function parse(input: unknown) {
@@ -43,8 +43,8 @@ export async function addComment(actor: Actor, taskId: string, body: unknown) {
       .insert(comments)
       .values({
         taskId: id,
-        authorId,
-        actorKind: actor.kind === "agent" ? "agent" : "user",
+        authorId: authorId ?? (await creatorFor(tx, actor)),
+        actorKind: actor.kind === "system" ? "user" : actor.kind,
         apiKeyId: actor.kind === "agent" ? actor.apiKeyId : null,
         ...data,
       })

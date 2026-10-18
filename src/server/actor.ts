@@ -2,21 +2,9 @@ import { headers } from "next/headers";
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { auth } from "@/server/auth";
+import type { Actor } from "./permissions";
 
-export type Role = "admin" | "member";
-
-// ADR-003: toda escrita recebe um Actor; agent/automation/system chegam nos Módulos 07 e 08
-export type Actor =
-  | { kind: "user"; userId: string; role: Role }
-  | { kind: "agent"; userId: string; role: Role; apiKeyId: string }
-  | { kind: "automation"; automationId: string }
-  | { kind: "system" };
-
-export class ForbiddenError extends Error {
-  constructor() {
-    super("Você não tem acesso a esta área");
-  }
-}
+export * from "./permissions";
 
 /** Sessão válida → Actor + dados do perfil; sem sessão (ou conta desativada) → /login. */
 export const requireUser = cache(async () => {
@@ -41,14 +29,6 @@ export const requireUser = cache(async () => {
 
 export async function requireActor() {
   return (await requireUser()).actor;
-}
-
-export function isAdmin(actor: Actor) {
-  return actor.kind === "system" || ("role" in actor && actor.role === "admin");
-}
-
-export function assertAdmin(actor: Actor) {
-  if (!isAdmin(actor)) throw new ForbiddenError();
 }
 
 /** Rotas de API: sessão válida → Actor; senão null (a rota responde 401). */

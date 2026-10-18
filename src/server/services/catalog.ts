@@ -12,7 +12,7 @@ import {
   statusNameSchema,
   statusSchema,
 } from "@/lib/validation/catalog";
-import { type Actor, assertAdmin } from "@/server/actor";
+import { type Actor, assertAdmin } from "@/server/permissions";
 
 // Cadastros (ADR-018): leitura para qualquer actor, escrita só admin, nunca excluídos
 export class CatalogError extends Error {}
