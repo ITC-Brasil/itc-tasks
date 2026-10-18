@@ -1394,3 +1394,28 @@ TypeScript roda em produção.
 **Consequences**
 Toda escrita de tarefa insere um job do pg-boss na mesma transação (uma linha a mais). Sem o worker
 rodando, os jobs se acumulam e são processados quando ele subir. Ligar mais tipos de evento é acrescentar uma linha na tabela de destinatários.
+
+## ADR-051 — O dono do token é avisado do que o próprio agente fez (complementa o ADR-050)
+
+**Status:** Accepted
+**Date:** 2026-10-17
+**Module:** 08 — Notificações (revisão M-048)
+
+**Context**
+O ADR-050 tratou o agente como o dono do token no N4: o agente do Matheus não avisava o Matheus.
+O Matheus decidiu que a pessoa deve saber o que o próprio agente fez, para rastreabilidade.
+
+**Decision**
+- Numa escrita de agente, o dono do token recebe `agent_action` (só esse tipo; não recebe
+  `assigned`, `commented` etc. pela própria escrita do agente).
+- O resto do N4 continua: o que a pessoa faz na UI nunca a avisa.
+- Padrão de `agent_action`: só no app, sem push nem e-mail (já era o `DEFAULT_CHANNELS`);
+  configurável em Minhas preferências.
+
+**Alternatives considered**
+- Manter o dono excluído (ADR-050) — perde a rastreabilidade pedida.
+- Avisar o dono com todos os tipos (atribuída, comentário…) — repetiria o mesmo fato em vários avisos.
+
+**Consequences**
+Quem usa agente com frequência recebe um aviso no app por escrita do agente; se incomodar, desliga
+em Minhas preferências.
