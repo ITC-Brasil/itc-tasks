@@ -1527,3 +1527,53 @@ planeja, o que acontece sem próximo ciclo e como medir o painel.
 **Consequences**
 Encerrar pede um ciclo planejado antes. O painel faz agregações na hora; com o volume de 4 pessoas
 não precisa de cache.
+
+---
+
+## ADR-054 — PWA com service worker próprio e telas mobile (Módulo 11; altera o ADR-016)
+
+**Status:** Accepted
+**Date:** 2026-10-18
+**Module:** 11 — PWA, mobile e acabamento
+
+**Context**
+O ADR-016 escolheu o Serwist (`@serwist/turbopack`) e deixou o service worker manual em
+`public/sw.js` como alternativa. O `@serwist/turbopack` 9.5.13 traz `@swc/core` (binário nativo),
+`@serwist/build` e um passo de build com esbuild só para gerar um worker que, no escopo do MVP
+(shell e última lista vista, sem edição offline), cabe em ~70 linhas. O worker de push do Módulo 08
+(`public/push-sw.js`) já é manual.
+
+**Decision**
+- **Service worker manual em `public/sw.js`** (escopo `/`), registrado pelo shell em toda tela; ele
+  absorve o push do `push-sw.js`, que sai. Registrar `/sw.js` no mesmo escopo atualiza a
+  registration antiga, e a assinatura de push continua valendo.
+- **Cache:** navegação (HTML) em rede primeiro, guardando a última resposta 200 de cada URL;
+  sem rede → a mesma URL do cache → `/` do cache → página "Sem conexão" simples. `/_next/static`,
+  `/icons`, `/brand`, `/splash` e fontes em cache primeiro. Nunca passa pelo cache: não-GET,
+  `/api`, `/mcp`, `/login` e as requisições RSC (cabeçalho `RSC`). Versão do cache no nome; o
+  `activate` apaga as antigas. **Sair apaga os caches** (HTML tem dados da pessoa).
+- **Offline na tela** (UI.md §3): faixa "Sem conexão — mostrando a última versão salva" e o
+  conteúdo dentro de `<fieldset disabled>`, que desabilita todo botão e campo sem tocar em cada
+  componente; links continuam navegando para o que estiver em cache.
+- **Manifest** em `src/app/manifest.ts` (do `docs/brand/manifest.webmanifest`); atalhos "Criar
+  tarefa" → `/?criar=1` (abre a criação rápida) e "Minhas tarefas" → `/` (as rotas `/tarefas/nova`
+  e `/minhas` do pacote não existem). `theme-color` por tema no `viewport`; splash iOS pelo
+  `appleWebApp.startupImage`.
+- **Prompt de instalação:** só abaixo de 768 px e fora do modo instalado; Android/Chrome usa o
+  `beforeinstallprompt`, iOS mostra "Compartilhar › Adicionar à Tela de Início". "Agora não" grava
+  no `localStorage` do aparelho e o banner não volta.
+- **Mobile (< 768 px):** barra inferior Minhas, Tarefas, Criar, Ciclo, Mais; "Mais" lista as outras
+  telas da navegação, tema, atalhos e Sair. Kanban uma coluna por vez com `scroll-snap`; criação
+  rápida como painel inferior; detalhe em tela cheia (o detalhe já é rota própria).
+
+**Alternatives considered**
+- `@serwist/turbopack` (ADR-016) — dependência nativa e passo de build para pouco código.
+- Cache das respostas RSC — a navegação do cliente cai em navegação completa quando a rede falha,
+  e o HTML em cache já atende; cachear RSC duplica o conteúdo por URL.
+- Desabilitar escrita componente a componente — muitos pontos de toque para o mesmo efeito do
+  `fieldset`.
+
+**Consequences**
+Sem precache: uma tela só abre offline se já foi vista online naquele aparelho. Atualizar o
+worker é trocar `CACHE_VERSION` em `public/sw.js`. Se o escopo offline crescer (edição offline),
+reavaliar o Serwist.
