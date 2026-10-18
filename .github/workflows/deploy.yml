@@ -1,0 +1,38 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy no glpi-srv
+    runs-on: ubuntu-latest
+    timeout-minutes: 25 # build frio no servidor
+    steps:
+      # Sem action de terceiros para SSH (INFRA §7.2). O servidor ignora o comando enviado:
+      # a chave tem command= forçado (git pull + scripts/deploy.sh).
+      - name: Deploy
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          install -m 600 /dev/null key && printf '%s\n' "$KEY" > key
+          printf '%s\n' "$KNOWN_HOSTS" > known_hosts
+          ssh -i key -p "$PORT" \
+            -o UserKnownHostsFile=known_hosts -o StrictHostKeyChecking=yes -o IdentitiesOnly=yes \
+            "$USER@$HOST" \
+            'cd /home/glpissh/docker/itc-tasks && git pull --ff-only origin main && bash scripts/deploy.sh'
+      - name: Remove key
+        if: always()
+        run: rm -f key known_hosts
