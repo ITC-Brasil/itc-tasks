@@ -11,6 +11,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  unique,
   uuid,
 } from "drizzle-orm/pg-core";
 import { apikey, user } from "./auth";
@@ -203,3 +204,17 @@ export const attachments = pgTable("attachments", {
   storageKey: text("storage_key").notNull(), // uuid do arquivo no volume
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// origem de tarefas importadas — ADR-056; o único em (source, source_id) torna a importação idempotente
+export const taskImports = pgTable(
+  "task_imports",
+  {
+    taskId: uuid("task_id")
+      .primaryKey()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    source: text("source").notNull(), // "windshift"
+    sourceId: text("source_id").notNull(),
+    importedAt: timestamp("imported_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique("task_imports_source_uq").on(t.source, t.sourceId)],
+);

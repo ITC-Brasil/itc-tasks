@@ -64,6 +64,7 @@ export class TaskError extends Error {
   }
 }
 
+type StatusCategory = (typeof workflowStatuses.$inferSelect)["category"];
 export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type Task = typeof tasks.$inferSelect;
 type EventType =
@@ -79,7 +80,8 @@ type EventType =
   | "mobile_units_changed"
   | "commented"
   | "comment_edited"
-  | "attachment_added";
+  | "attachment_added"
+  | "imported";
 
 function actorColumns(actor: Actor) {
   switch (actor.kind) {
@@ -99,6 +101,8 @@ export async function record(
   actor: Actor,
   taskId: string,
   events: { type: EventType; payload?: Record<string, unknown> }[],
+  // ADR-056: importação não avisa ninguém nem dispara automações; o SSE continua
+  { silent = false }: { silent?: boolean } = {},
 ) {
   if (events.length === 0) return;
   const inserted = await tx
@@ -114,9 +118,9 @@ export async function record(
     .returning({ id: taskEvents.id });
   // ADR-050: o fanout entra na fila na mesma transação
   const eventIds = inserted.map((r) => r.id);
-  await enqueue(tx, QUEUES.fanout, { eventIds } satisfies FanoutJob);
+  if (!silent) await enqueue(tx, QUEUES.fanout, { eventIds } satisfies FanoutJob);
   // ADR-052: só escritas que são gatilho; a profundidade cresce a cada automação na cadeia
-  if (events.some((e) => triggerOf(e)))
+  if (!silent && events.some((e) => triggerOf(e)))
     await enqueue(tx, QUEUES.evaluate, {
       eventIds,
       depth: actor.kind === "automation" ? actor.depth : 0,
@@ -285,7 +289,7 @@ async function assertAssignee(tx: Tx, id: string) {
 }
 
 /** Primeiro status ativo da categoria, pela ordem do workflow. */
-export async function firstStatus(tx: Tx, category: "todo" | "done") {
+export async function firstStatus(tx: Tx, category: StatusCategory) {
   const [row] = await tx
     .select()
     .from(workflowStatuses)
@@ -363,6 +367,7 @@ export async function insertTask(
   tx: Tx,
   actor: Actor,
   data: ReturnType<typeof createTaskSchema.parse>,
+  opts: { silent?: boolean; events?: Parameters<typeof record>[3] } = {},
 ) {
   if (data.templateId) {
     await countTemplateUse(tx, data.templateId, "task");
@@ -413,7 +418,9 @@ export async function insertTask(
     pos = generateKeyBetween(pos, null);
     await tx.insert(checklistItems).values({ taskId: task.id, text, position: pos });
   }
-  await record(tx, actor, task.id, [{ type: "created" }]);
+  await record(tx, actor, task.id, [{ type: "created" }, ...(opts.events ?? [])], {
+    silent: opts.silent,
+  });
   return task;
 }
 

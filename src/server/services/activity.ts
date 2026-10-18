@@ -25,6 +25,8 @@ type Payload = {
   kind?: string;
   target?: number;
   fileName?: string;
+  key?: string;
+  sourceId?: string;
 };
 type Names = Map<string, string>;
 
@@ -105,6 +107,8 @@ export function describe(type: string, p: Payload, names: Names): string | null 
       return `desfez o vínculo: ${LINK.get(p.kind ?? "") ?? p.kind} TI-${p.target}`;
     case "attachment_added":
       return `anexou ${p.fileName ?? "um arquivo"}`;
+    case "imported":
+      return `importou do Windshift (${p.key ?? p.sourceId ?? "?"})`;
     default:
       return null; // commented/comment_edited: o próprio comentário aparece na linha do tempo
   }
