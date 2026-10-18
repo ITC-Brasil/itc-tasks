@@ -1419,3 +1419,60 @@ O Matheus decidiu que a pessoa deve saber o que o próprio agente fez, para rast
 **Consequences**
 Quem usa agente com frequência recebe um aviso no app por escrita do agente; se incomodar, desliga
 em Minhas preferências.
+
+## ADR-052 — Automações e templates: motor de regras, ações e uso de template (Módulo 09)
+
+**Status:** Accepted
+**Date:** 2026-10-17
+**Module:** 09 — Automações e templates
+
+**Context**
+O PRD (A1–A4, P4) e o FLOWS §5 descrevem regras "Quando → Se → Então" avaliadas fora da requisição,
+com proteção de laço, e templates de tarefa e de projeto. Faltava fixar como o evento chega ao motor,
+o formato de condições e ações, o que fazer com as ações da tela que não estão no A3 e o que um
+template de projeto cria.
+
+**Decision**
+- **Fila na transação:** `record()` enfileira `automation.evaluate` `{ eventIds, depth }` junto com o
+  fanout (mesma transação, ADR-050), só quando algum evento é gatilho. `depth` = 0 para pessoa,
+  agente e sistema; numa escrita de automação, a profundidade do job que a gerou + 1. O worker avalia;
+  com `depth ≥ 3` não executa e grava `automation_runs` com erro "Cadeia de automações passou de 3".
+- **Gatilhos:** `task.created` (`created`), `task.status_changed`, `task.assigned` (responsável novo
+  não nulo), `task.priority_changed` (`field_changed` de `priority`) e `task.overdue` (job
+  `automation.overdue` às 00:05 de `APP_TIMEZONE`, tarefas abertas com prazo ontem).
+- **Condições** (todas precisam bater, sobre a tarefa no momento da avaliação): categoria do status,
+  prioridade, tem Chamado GLPI, tem Unidade Móvel. "Status muda para Concluído" = gatilho
+  `task.status_changed` + condição "status é Concluído".
+- **Ações** (em ordem, cada uma pelo service, com `Actor` `automation` que carrega `automationId` e
+  `depth`): notificar (criador, responsável ou time), mover para status, mover para o ciclo ativo (sem
+  ciclo ativo, não faz nada — ciclos chegam no Módulo 10), mover para o topo da coluna, adicionar
+  etiqueta e comentar (texto com `{ID}` e `{GLPI}`). "Topo da coluna" entra além do A3 (decisão do
+  Matheus); "marcar vencida" sai da regra 4, porque vencida já é derivada do prazo.
+- **Notificar** cria o tipo novo `automation` em `notification_event` (padrão: só no app; configurável
+  em Minhas preferências), com o nome da regra. "Time" = todas as pessoas ativas. Não passa pelo N4.
+- **Comentário de automação:** autor = primeiro admin ativo (como o criador de tarefa de automação,
+  ADR-045), `actor_kind = 'automation'`; a tela mostra "Automação".
+- **Execução:** uma regra por vez; falha numa ação para a regra, grava `automation_runs` com o erro e
+  segue para as próximas regras. `runCount++` e `lastRunAt` em toda execução (ok ou erro).
+- **Tela:** Configurações › Automações (`/config/automacoes`), só admin: lista com liga/desliga,
+  contador e última execução; criar e editar em diálogo. Regras não são excluídas, só desligadas.
+- **Seed:** as 6 regras da tela de referência, "Etiquetar tarefas de UM" desligada, só se a tabela
+  estiver vazia.
+- **Templates:** de tarefa (título com `{UM}`, prioridade, etiquetas, subtarefas, descrição, prazo em
+  dias úteis) e de projeto (lista de tarefas com os mesmos campos). Usar pede Projeto/Cliente e UM
+  (opcional) e cria tudo numa transação só; template de projeto cria várias tarefas, não cria cadastro
+  (decisão do Matheus). Membros criam, editam e usam; arquivar em vez de excluir (`archived_at`,
+  coluna nova). Tela em `/templates`.
+- **Migração `0011`** só aditiva: `automation_rules`, `automation_runs`, valor `automation` no enum
+  `notification_event`, `templates.archived_at`.
+
+**Alternatives considered**
+- Avaliar regras na própria requisição — viola o ADR-010 e o timeout do túnel.
+- Condições sobre o payload do evento ("de/para") — mais exato em corridas, mas a tela e o PRD só
+  pedem o estado atual; a diferença só aparece se a tarefa mudar de novo antes do worker rodar.
+- Template de projeto criando também o cadastro de Projeto/Cliente — mais telas e regras sem pedido.
+- Gravar "vencida" na tarefa — duplica o que o prazo já diz.
+
+**Consequences**
+Uma escrita que é gatilho insere um job a mais na transação. Regras mal configuradas param em 3
+níveis e ficam visíveis em `automation_runs`. Ações novas são um caso a mais no executor e no Zod.
