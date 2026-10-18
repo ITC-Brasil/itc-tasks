@@ -14,3 +14,4 @@ data
 docs
 tests
 *.md
+playwright.config.ts
