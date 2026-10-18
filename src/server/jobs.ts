@@ -12,6 +12,8 @@ export const QUEUES = {
   overdue: "automation.overdue",
 } as const;
 
+export const NO_RETRY = new Set<string>([QUEUES.evaluate, QUEUES.overdue]);
+
 export type FanoutJob = { eventIds: string[] };
 export type PushJob = { notificationId: string };
 
@@ -54,6 +56,8 @@ export function toSql(text: string, values: unknown[] = []): SQL {
 export async function enqueue(tx: Tx, name: string, data: object) {
   const boss = await sender();
   await boss.send(name, data, {
+    // M-053: retry repetiria ações já feitas (avisos, comentários); automação falha uma vez só
+    ...(NO_RETRY.has(name) && { retryLimit: 0 }),
     db: {
       executeSql: async (text, values) => ({ rows: (await tx.execute(toSql(text, values))).rows }),
     },

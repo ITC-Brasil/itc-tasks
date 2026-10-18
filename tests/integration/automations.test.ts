@@ -99,6 +99,13 @@ it("só escrita que é gatilho enfileira automation.evaluate, na mesma transaç�
   expect(await count()).toBe(before + 1);
   await addChecklistItem(ana, t.id, "item");
   expect(await count()).toBe(before + 1);
+  // M-053: sem retry, para não repetir ações já feitas
+  const [job] = (
+    await db.execute<{ retry_limit: number }>(
+      sql`SELECT retry_limit FROM pgboss.job WHERE name = 'automation.evaluate' ORDER BY created_on DESC LIMIT 1`,
+    )
+  ).rows;
+  expect(job.retry_limit).toBe(0);
   await drain();
 });
 

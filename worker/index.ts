@@ -33,7 +33,7 @@ await boss.schedule(QUEUES.daily, "0 8 * * *", null, { tz: env.APP_TIMEZONE });
 // ADR-052: automações fora da requisição; a virada do dia dispara `task.overdue`
 await boss.work<EvaluateJob>(QUEUES.evaluate, async ([job]) => evaluate(job.data));
 await boss.work(QUEUES.overdue, async () => overdue());
-await boss.schedule(QUEUES.overdue, "5 0 * * *", null, { tz: env.APP_TIMEZONE });
+await boss.schedule(QUEUES.overdue, "5 0 * * *", null, { tz: env.APP_TIMEZONE, retryLimit: 0 });
 console.log("worker: pronto");
 
 for (const sig of ["SIGTERM", "SIGINT"] as const)

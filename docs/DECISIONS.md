@@ -1457,8 +1457,13 @@ template de projeto cria.
   segue para as próximas regras. `runCount++` e `lastRunAt` em toda execução (ok ou erro).
 - **Tela:** Configurações › Automações (`/config/automacoes`), só admin: lista com liga/desliga,
   contador e última execução; criar e editar em diálogo. Regras não são excluídas, só desligadas.
-- **Seed:** as 6 regras da tela de referência, "Etiquetar tarefas de UM" desligada, só se a tabela
-  estiver vazia.
+- **Seed:** as 6 regras da tela de referência, só se a tabela estiver vazia. Nascem desligadas
+  "Etiquetar tarefas de UM" e "Avisar quem criou quando concluir" (esta repete o `status_changed` do
+  N2; decisão do Matheus na M-053).
+- **Sem retry:** `automation.evaluate` e `automation.overdue` são enviados com `retryLimit: 0`
+  (`NO_RETRY` em `src/server/jobs.ts`, opção do job, vale também para filas já criadas). Repetir o job
+  repetiria as ações que já rodaram; uma falha de infraestrutura no meio perde o resto daquele job
+  (M-053).
 - **Templates:** de tarefa (título com `{UM}`, prioridade, etiquetas, subtarefas, descrição, prazo em
   dias úteis) e de projeto (lista de tarefas com os mesmos campos). Usar pede Projeto/Cliente e UM
   (opcional) e cria tudo numa transação só; template de projeto cria várias tarefas, não cria cadastro
