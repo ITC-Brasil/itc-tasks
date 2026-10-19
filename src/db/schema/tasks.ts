@@ -218,3 +218,14 @@ export const taskImports = pgTable(
   },
   (t) => [unique("task_imports_source_uq").on(t.source, t.sourceId)],
 );
+
+// rastro da exclusão definitiva — ADR-063; sem FK para `tasks`, sobrevive à tarefa
+export const taskDeletions = pgTable("task_deletions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  number: integer("number").notNull(), // TI-<number>, nunca reaproveitado
+  title: text("title").notNull(),
+  deletedBy: text("deleted_by")
+    .notNull()
+    .references(() => user.id),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }).notNull().defaultNow(),
+});

@@ -223,6 +223,14 @@ export const taskImports = pgTable('task_imports', {                // origem de
   importedAt: timestamp('imported_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [unique('task_imports_source_uq').on(t.source, t.sourceId)]);
 
+export const taskDeletions = pgTable('task_deletions', {            // rastro da exclusão — ADR-063, 0013_task_deletions
+  id: uuid('id').primaryKey().defaultRandom(),
+  number: integer('number').notNull(),        // TI-<number>; sem FK para tasks
+  title: text('title').notNull(),
+  deletedBy: text('deleted_by').notNull().references(() => user.id),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const attachments = pgTable('attachments', {                  // arquivo em UPLOADS_DIR — ADR-025
   id: uuid('id').primaryKey().defaultRandom(),
   taskId: uuid('task_id').notNull().references(() => tasks.id, { onDelete: 'cascade' }),
@@ -375,7 +383,8 @@ CREATE SEQUENCE IF NOT EXISTS task_number_seq START 1;
 - **`task_projects` / `task_mobile_units`** (Módulo 04, migração `0007`) — PK `(task_id, project_id)` / `(task_id, mobile_unit_id)`, `ON DELETE cascade` na tarefa; fonte de verdade dos vínculos com Projetos/Clientes e UMs. `default_assignee_id` de `projects` fica sem uso (ADR-045); `mobile_units.project_id` é exigido pelo Zod (ADR-044).
 - **`tasks.completed_at`** — preenchido pelo service quando o status entra em categoria `done`; limpo ao sair (ADR-022).
 - **`cycles_one_active_uq`** — índice único parcial: no máximo um ciclo `active`.
-- **`task_events`** — só-inserção; nenhum service expõe update/delete.
+- **`task_events`** — só-inserção; nenhum service expõe update/delete. Exceção: `deleteTasks` apaga a tarefa e o cascade leva os eventos dela (ADR-063).
+- **`task_deletions`** (Módulo 14, `0013_task_deletions`) — uma linha por tarefa excluída (`number`, `title`, quem, quando), sem FK para `tasks`. O `task_number_seq` não volta, então o número não é reaproveitado (ADR-063).
 - **`task_imports`** (Módulo 12, `0012_task_imports`) — único em `(source, source_id)`: a importação do Windshift pula o que já entrou (ADR-056).
 - **`labels.color_token`** — guarda o nome do token, nunca hex (Design System, princípio 5).
 - **`notification_preferences`** (Módulo 08, `0010_notifications`) — sem seed: linha ausente = `DEFAULT_CHANNELS` de `src/lib/notifications.ts`; a tela grava só o que muda (ADR-050).

@@ -35,3 +35,18 @@ export async function axeBothThemes(page: Page) {
     await axe(page, theme);
   }
 }
+
+/** Criação rápida (atalho C) com um Projeto/Cliente. */
+export async function createTask(page: Page, title: string, project: string) {
+  const dialog = page.getByRole("dialog", { name: "Criar tarefa" });
+  await expect(async () => {
+    await page.keyboard.press("c");
+    await expect(dialog).toBeVisible({ timeout: 1000 });
+  }).toPass();
+  await dialog.getByLabel("Título").fill(title);
+  await dialog.getByLabel("Projeto/Cliente").click();
+  await page.getByRole("option", { name: project }).click();
+  await page.keyboard.press("Escape");
+  await dialog.getByLabel("Título").press("Control+Enter");
+  await expect(dialog).toBeHidden();
+}

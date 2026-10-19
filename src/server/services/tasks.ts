@@ -17,6 +17,7 @@ import { alias } from "drizzle-orm/pg-core";
 import { generateKeyBetween } from "fractional-indexing";
 import { db } from "@/db";
 import {
+  attachments,
   checklistItems,
   comments,
   cycles,
@@ -24,6 +25,7 @@ import {
   milestones,
   mobileUnits,
   projects,
+  taskDeletions,
   taskEvents,
   templates,
   taskLabels,
@@ -39,6 +41,7 @@ import {
   type TaskFilters,
   type UpdateTaskInput,
   bulkUpdateSchema,
+  deleteTasksSchema,
   checklistItemSchema,
   checklistTextSchema,
   createTaskSchema,
@@ -48,9 +51,10 @@ import {
   taskFiltersSchema,
   updateTaskSchema,
 } from "@/lib/validation/tasks";
-import type { Actor } from "@/server/actor";
+import { type Actor, ForbiddenError, canDeleteTask } from "@/server/permissions";
 import { type EvaluateJob, triggerOf } from "@/lib/validation/automations";
 import { type FanoutJob, QUEUES, enqueue } from "@/server/jobs";
+import { removeStoredFiles } from "@/server/services/attachments";
 
 // Toda escrita de tarefa passa aqui com um Actor e grava task_events (ADR-003, ADR-042)
 export type TaskErrorCode =
@@ -666,6 +670,39 @@ export async function bulkUpdateTasks(
   });
 }
 
+/**
+ * ADR-063: exclusão definitiva, tudo ou nada. Rastro em `task_deletions`; o cascade leva checklist,
+ * vínculos, comentários, eventos, anexos e avisos. Os arquivos saem do volume depois do commit.
+ */
+export async function deleteTasks(actor: Actor, input: { taskIds: string[] }) {
+  if (actor.kind !== "user") throw new ForbiddenError();
+  const { taskIds } = deleteTasksSchema.parse(input);
+  const keys = await db.transaction(async (tx) => {
+    const rows = [];
+    for (const id of taskIds) {
+      const task = await lockTask(tx, id);
+      if (!canDeleteTask(actor, task)) throw new ForbiddenError();
+      rows.push(task);
+    }
+    const files = await tx
+      .select({ key: attachments.storageKey })
+      .from(attachments)
+      .where(inArray(attachments.taskId, taskIds));
+    await tx
+      .insert(taskDeletions)
+      .values(rows.map((t) => ({ number: t.number, title: t.title, deletedBy: actor.userId })));
+    // ADR-048: a aba com a tarefa aberta recarrega e cai no 404
+    for (const t of rows)
+      await tx.execute(
+        sql`SELECT pg_notify('task_changed', json_build_object('id', ${t.id}::text, 'number', ${t.number}::int, 'fields', '["deleted"]'::json, 'by', ${actor.userId}::text)::text)`,
+      );
+    await tx.delete(tasks).where(inArray(tasks.id, taskIds));
+    return files.map((f) => f.key);
+  });
+  await removeStoredFiles(keys);
+  return taskIds.length;
+}
+
 // ── Subtarefas (checklist) ──────────────────────────────────────────
 
 export async function addChecklistItem(actor: Actor, taskId: string, text: string) {
@@ -912,6 +949,8 @@ export async function listTasks(
         id: tasks.id,
         number: tasks.number,
         title: tasks.title,
+        creatorId: tasks.creatorId,
+        createdVia: tasks.createdVia,
         priority: tasks.priority,
         statusId: tasks.statusId,
         category: workflowStatuses.category,

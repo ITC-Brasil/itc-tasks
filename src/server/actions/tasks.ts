@@ -16,6 +16,7 @@ import {
   addLink,
   bulkUpdateTasks,
   createTask,
+  deleteTasks,
   listAssignees,
   listTaskTemplates,
   moveTask,
@@ -148,6 +149,12 @@ export async function moveTaskAction(
 export async function bulkUpdateTasksAction(input: { taskIds: string[]; patch: UpdateTaskInput }) {
   const actor = await requireActor();
   return run(() => bulkUpdateTasks(actor, input).then((t) => t.length));
+}
+
+/** ADR-063: exclusão definitiva (detalhe e Lista); o service confere quem pode. */
+export async function deleteTasksAction(input: { taskIds: string[] }) {
+  const actor = await requireActor();
+  return run(() => deleteTasks(actor, input), "/tarefas/lista");
 }
 
 export async function createSavedFilterAction(input: unknown) {
