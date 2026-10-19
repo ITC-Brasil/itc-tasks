@@ -1,18 +1,17 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect } from "react";
+import { SHORTCUTS } from "./shortcut-list";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-// UI.md §5. Cada módulo acrescenta aqui os atalhos que passa a atender.
-export const SHORTCUTS: { keys: string[]; label: string }[] = [
-  { keys: ["⌘", "K"], label: "Busca e comandos" },
-  { keys: ["C"], label: "Criar tarefa" },
-  { keys: ["⌘", "↵"], label: "Enviar (criar)" },
-  { keys: ["G", "C"], label: "Ir para o ciclo atual" },
-  { keys: ["["], label: "Recolher/expandir menu" },
-  { keys: ["?"], label: "Mostrar atalhos" },
-  { keys: ["Esc"], label: "Fechar modal/painel" },
-];
+export function Kbd({ children }: { children: React.ReactNode }) {
+  return (
+    <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded-sm border bg-base px-1 text-[11px] font-medium text-muted tabular-nums">
+      {children}
+    </kbd>
+  );
+}
 
 function isTyping(target: EventTarget | null) {
   const el = target as HTMLElement | null;
@@ -74,17 +73,19 @@ export function ShortcutsDialog({
               <dt>{s.label}</dt>
               <dd className="flex gap-1">
                 {s.keys.map((k) => (
-                  <kbd
-                    key={k}
-                    className="inline-flex h-5 min-w-5 items-center justify-center rounded-sm border bg-base px-1 text-[11px] font-medium text-muted tabular-nums"
-                  >
-                    {k}
-                  </kbd>
+                  <Kbd key={k}>{k}</Kbd>
                 ))}
               </dd>
             </div>
           ))}
         </dl>
+        <Link
+          href="/ajuda#atalhos"
+          onClick={() => onOpenChange(false)}
+          className="text-sm text-accent-text hover:underline"
+        >
+          Manual completo
+        </Link>
       </DialogContent>
     </Dialog>
   );
