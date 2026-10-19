@@ -114,7 +114,7 @@ Estas não são limites operacionais: elas moldaram decisões.
 - Sessões em cookie HTTP-only; tokens MCP por `Authorization: Bearer`, verificados pelo plugin `apiKey` e convertidos em `Actor`.
 - Permissões checadas no service, nunca só no cliente ou só na rota.
 - Rate limit: Better Auth nas rotas de auth; 60 req/min por token no `/mcp` (contador em Postgres).
-- CSP, `frame-ancestors 'none'`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin` em `next.config.ts`.
+- Cabeçalhos estáticos em `next.config.ts` (ADR-059): CSP sem nonce (`'unsafe-inline'` em script/style; `frame-ancestors 'none'`, `object-src 'none'`, `base-uri`/`form-action`/`connect-src 'self'`), `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Cross-Origin-Opener-Policy: same-origin`, `Permissions-Policy` e HSTS (só produção).
 - Segredos só em variáveis de ambiente validadas por `src/lib/env.ts`.
 
 ## Variáveis de ambiente (planejadas)

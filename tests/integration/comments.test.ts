@@ -98,3 +98,16 @@ it("mentionIds percorre o documento", () => {
     mentionIds(doc(mention("a", "A"), text("x"), mention("a", "A"), mention("b", "B"))),
   ).toEqual(["a", "b"]);
 });
+
+it("ADR-061: label da menção vem do banco, no comentário e na descrição", async () => {
+  const task = await createTask(ana, { title: "Rótulo", projectIds: [projectId] });
+  const c = await addComment(ana, task.id, doc(mention(bia.userId, "Diretoria")));
+  expect(JSON.stringify(c.bodyJson)).toContain('"label":"Bia"');
+  expect(c.bodyText).toBe("@Bia");
+  const t = await createTask(ana, {
+    title: "Rótulo 2",
+    projectIds: [projectId],
+    descriptionJson: doc(mention(bia.userId, "Diretoria")),
+  });
+  expect(t.descriptionText).toBe("@Bia");
+});

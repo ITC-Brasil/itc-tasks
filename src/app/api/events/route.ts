@@ -1,5 +1,6 @@
 import { sessionActor } from "@/server/actor";
 import { subscribe } from "@/server/realtime";
+import { stillSignedIn } from "@/server/services/members";
 
 // API.md §3 / ADR-020: SSE com ping a cada 25 s por causa do túnel
 const HEARTBEAT_MS = 25_000;
@@ -25,7 +26,14 @@ export async function GET(request: Request) {
         const { userId, ...rest } = JSON.parse(e.data) as { userId: string };
         if (userId === actor.userId) send(e.event, JSON.stringify(rest));
       });
-      const ping = setInterval(() => send("ping", "{}"), HEARTBEAT_MS);
+      // issue #27: membro desativado (ou com a senha redefinida) perde o stream no próximo ping
+      const ping = setInterval(async () => {
+        if (await stillSignedIn(actor.userId).catch(() => true)) return send("ping", "{}");
+        cleanup();
+        try {
+          controller.close();
+        } catch {}
+      }, HEARTBEAT_MS);
       cleanup = () => {
         clearInterval(ping);
         unsubscribe();

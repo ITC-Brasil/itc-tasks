@@ -1,5 +1,6 @@
 import { createEnv } from "@t3-oss/env-nextjs";
 import { z } from "zod";
+import { productionEnvProblems } from "./env-checks";
 
 export const env = createEnv({
   server: {
@@ -29,3 +30,8 @@ export const env = createEnv({
   skipValidation: process.env.SKIP_ENV_VALIDATION === "1",
   emptyStringAsUndefined: true,
 });
+
+if (process.env.SKIP_ENV_VALIDATION !== "1" && env.NODE_ENV === "production") {
+  const problems = productionEnvProblems(env);
+  if (problems.length) throw new Error(`Configuração insegura: ${problems.join("; ")}`);
+}

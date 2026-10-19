@@ -15,6 +15,7 @@ import {
   listNotifications,
   markRead,
   pushNotification,
+  PushConflictError,
   sendTestPush,
   setChannel,
   subscribePush,
@@ -289,25 +290,33 @@ it("08:00: prazo hoje e vencida uma vez só, e resumo por e-mail sem reenviar", 
 it("push: assinatura validada, teste entregue e assinatura expirada (410) apagada", async () => {
   const keys = { p256dh: "k", auth: "a" };
   await expect(subscribePush(caio, { endpoint: "http://inseguro", keys })).rejects.toThrow();
-  await subscribePush(caio, { endpoint: `https://push.test/ok-${run}`, keys });
-  await subscribePush(caio, { endpoint: `https://push.test/gone-${run}`, keys });
+  // ADR-060: só hosts de push service, sem porta
+  for (const endpoint of [
+    "https://127.0.0.1/x",
+    "https://10.10.10.5/x",
+    "https://fcm.googleapis.com.evil.test/x",
+    "https://fcm.googleapis.com:8443/x",
+  ])
+    await expect(subscribePush(caio, { endpoint, keys })).rejects.toThrow();
+  await subscribePush(caio, { endpoint: `https://fcm.googleapis.com/fcm/send/ok-${run}`, keys });
+  await subscribePush(caio, { endpoint: `https://fcm.googleapis.com/fcm/send/gone-${run}`, keys });
   expect(await sendTestPush(caio)).toBe(1);
-  expect(pushed).toContain(`https://push.test/ok-${run}`);
+  expect(pushed).toContain(`https://fcm.googleapis.com/fcm/send/ok-${run}`);
   const left = await db
     .select({ endpoint: pushSubscriptions.endpoint })
     .from(pushSubscriptions)
     .where(eq(pushSubscriptions.userId, caio.userId));
-  expect(left.map((r) => r.endpoint)).toEqual([`https://push.test/ok-${run}`]);
+  expect(left.map((r) => r.endpoint)).toEqual([`https://fcm.googleapis.com/fcm/send/ok-${run}`]);
 });
 
 it("push: erro numa assinatura não interrompe as outras nem lança (M-048)", async () => {
   const keys = { p256dh: "k", auth: "a" };
   const dan = await person("Danilo");
-  await subscribePush(dan, { endpoint: `https://push.test/boom-${run}`, keys });
-  await subscribePush(dan, { endpoint: `https://push.test/ok2-${run}`, keys });
+  await subscribePush(dan, { endpoint: `https://fcm.googleapis.com/fcm/send/boom-${run}`, keys });
+  await subscribePush(dan, { endpoint: `https://fcm.googleapis.com/fcm/send/ok2-${run}`, keys });
   vi.spyOn(console, "error").mockImplementation(() => {});
   expect(await sendTestPush(dan)).toBe(1);
-  expect(pushed).toContain(`https://push.test/ok2-${run}`);
+  expect(pushed).toContain(`https://fcm.googleapis.com/fcm/send/ok2-${run}`);
 });
 
 it("agente do dono em tarefa dele → agent_action para o dono (ADR-051)", async () => {
@@ -328,4 +337,33 @@ it("agente do dono em tarefa dele → agent_action para o dono (ADR-051)", async
     push: false,
     email: false,
   });
+});
+
+it("push: não troca de dono, guarda 10 por pessoa e limita o teste (ADR-060)", async () => {
+  const keys = { p256dh: "k", auth: "a" };
+  const eva = await person("Eva");
+  const fred = await person("Fred");
+  const mine = `https://web.push.apple.com/eva-${run}`;
+  await subscribePush(eva, { endpoint: mine, keys });
+  await expect(subscribePush(fred, { endpoint: mine, keys })).rejects.toThrow(PushConflictError);
+  for (let i = 0; i < 12; i++)
+    await subscribePush(fred, {
+      endpoint: `https://x.push.services.mozilla.com/f${i}-${run}`,
+      keys,
+    });
+  const rows = await db
+    .select({ endpoint: pushSubscriptions.endpoint })
+    .from(pushSubscriptions)
+    .where(eq(pushSubscriptions.userId, fred.userId));
+  expect(rows).toHaveLength(10);
+  expect(rows.map((r) => r.endpoint)).not.toContain(
+    `https://x.push.services.mozilla.com/f0-${run}`,
+  );
+  const [owner] = await db
+    .select({ userId: pushSubscriptions.userId })
+    .from(pushSubscriptions)
+    .where(eq(pushSubscriptions.endpoint, mine));
+  expect(owner.userId).toBe(eva.userId);
+  for (let i = 0; i < 5; i++) expect(await sendTestPush(eva)).not.toBeNull();
+  expect(await sendTestPush(eva)).toBeNull();
 });

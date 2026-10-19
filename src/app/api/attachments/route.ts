@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { sessionActor } from "@/server/actor";
+import { rejectCrossSite } from "@/server/origin";
 import { addAttachment, declaredSizeStatus } from "@/server/services/attachments";
 import { TaskError } from "@/server/services/tasks";
 
@@ -7,6 +8,8 @@ const STATUS = { VALIDATION: 400, NOT_FOUND: 404, TOO_LARGE: 413, UNSUPPORTED_TY
 
 // API.md §5: multipart com taskId e file; o service valida e grava
 export async function POST(request: Request) {
+  const rejected = rejectCrossSite(request);
+  if (rejected) return rejected;
   const actor = await sessionActor();
   if (!actor) return Response.json({ error: "Sessão expirada" }, { status: 401 });
   // recusa antes de ler o corpo
