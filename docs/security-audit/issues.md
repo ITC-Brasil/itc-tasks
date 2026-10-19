@@ -2,6 +2,21 @@
 
 Gerado por `gerar_relatorio.py`. Copie cada bloco para uma issue no GitHub; nenhuma foi criada automaticamente.
 
+## Status das correções
+
+| Issue | GitHub | Commit | Situação | Como foi testado |
+|---|---|---|---|---|
+| 1 | #18 | `b3b90a1` | corrigida (ADR-058) | tests/integration/auth-surface.test.ts: /api-key/update e /api-key/delete dão 404, token revogado segue 401; login, sessão e logout continuam |
+| 2 | #19 | `24b4cde` | corrigida (ADR-059) | curl -I no build de produção mostra os 7 cabeçalhos; E2E completo (43) contra next start; varredura de 9 telas sem violação de CSP; service worker ativo |
+| 3 | #20 | `36ace6d` | corrigida (ADR-061; A08 pelo COOP do commit 24b4cde) | src/lib/validation/tasks.test.ts (href só, sem class, limites) e tests/integration/comments.test.ts (label da menção vem do banco) |
+| 4 | #21 | `dae182f` | não será corrigida (risco aceito, M-112) | issue fechada como not planned; risco registrado no INFRA §11 e no PROGRESS |
+| 5 | #22 | `4ec4202` | procedimento corrigido; conferência do auth.log e troca de senha com o Matheus | pipeline sh/read/export conferido em node:24.22.0-alpine com valores falsos |
+| 6 | #23 | `9508ebb` | corrigida (ADR-060) | tests/integration/notifications.test.ts: IP interno, host parecido e porta recusados; 409 sem troca de dono; 10 por pessoa; 6º teste por minuto = null (429) |
+| 7 | #24 | `9b08c48` | corrigida | tests/integration/origin.test.ts: 403 de subdomínio irmão e sem Origin; 415 com text/plain; mesma origem segue para a sessão |
+| 8 | #25 | `101dd6a` | corrigida | tests/integration/mcp.test.ts: lote JSON-RPC = 400; 11º token ativo recusado, volta a criar depois de revogar um |
+| 9 | #26 | `4ea3c0d` | corrigida; exigência de SHA nas Actions (configuração do repositório) com o Matheus | src/lib/env-checks.test.ts; docker compose config falha sem POSTGRES_PASSWORD; portas do dev em 127.0.0.1; docker build --check |
+| 10 | #27 | `ac6b644` | corrigida; A15 pelo ADR-058; lookahead do proxy e version do /api/health mantidos (sem impacto) | tests/integration/sse-session.test.ts: desativar o membro faz o ping encerrar o stream |
+
 --- ISSUE 1 ---
 ## [Segurança] Token de agente revogado pode ser reativado pelo dono via endpoint nativo do apiKey
 

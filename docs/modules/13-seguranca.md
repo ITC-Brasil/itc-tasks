@@ -79,13 +79,67 @@ A21. A Issue 6 reúne A05 e A16. A Issue 3 reúne A08 e A09.
 
 ## Fora deste módulo
 
-- As correções: as 10 issues do `issues.md`, a serem abertas pelo Matheus.
+- Ver "Ficaram de fora" na seção de correções.
 - Ainda não verificado: se o Cloudflare injeta cabeçalhos de segurança, e se a senha do seed
   está mesmo no `auth.log` do `glpi-srv` (comando na Issue 5).
+
+## Correções (M-112, aprovado com ajustes)
+
+Depois da revisão, o Matheus autorizou abrir as issues e corrigir tudo, menos a Issue 4. As issues
+#18 a #27 foram criadas com `gh issue create`, com as labels `security` e `severidade:*`, que foram
+criadas na hora.
+
+| Issue | GitHub | Commit | Situação | Como foi testado |
+|---|---|---|---|---|
+| 1 | #18 | `b3b90a1` | Corrigida. `src/app/api/auth/[...all]/route.ts` passa a aceitar só `/sign-in/email`, `/sign-out` e `/get-session` (ADR-058) | `tests/integration/auth-surface.test.ts` |
+| 2 | #19 | `24b4cde` | Corrigida. `headers()` em `next.config.ts` (ADR-059); `ARCHITECTURE.md` alinhada | `curl -I` mostra os 7 cabeçalhos; E2E completo contra `next start`; varredura de 9 telas sem violação de CSP; service worker `activated` |
+| 3 | #20 | `36ace6d` | Corrigida. O `transform` em `src/lib/validation/tasks.ts` deixa só o `href` no link, tira `class`/`style` e limita o documento a 200 000 caracteres e 20 níveis; `relabelMentions` em `src/server/services/tasks.ts` (ADR-061). A08 fechado pelo COOP | `src/lib/validation/tasks.test.ts`, `tests/integration/comments.test.ts` |
+| 4 | #21 | `dae182f` | **Não será corrigida.** Risco aceito pelo Matheus (plano pago). Issue fechada como *not planned*; registrada em INFRA §11 e no PROGRESS | — |
+| 5 | #22 | `4ec4202` | Procedimento corrigido em `docs/INFRA.md:384`: os valores entram pelo stdin do container. A conferência do `auth.log` e a troca de senha ficam com o Matheus | pipeline `sh`/`read`/`export` conferido em `node:24.22.0-alpine` com valores falsos |
+| 6 | #23 | `9508ebb` | Corrigida. Hosts de push service, sem porta; a assinatura não troca de dono (409); 10 por pessoa; `/api/push/test` limitado a 5 por minuto (ADR-060) | `tests/integration/notifications.test.ts` |
+| 7 | #24 | `9b08c48` | Corrigida. `src/server/origin.ts` (`rejectCrossSite`) nas 4 rotas com cookie | `tests/integration/origin.test.ts` |
+| 8 | #25 | `101dd6a` | Corrigida. `/mcp` recusa lote (400) e mantém o teto de 4 MB do SDK; no máximo 10 tokens ativos por pessoa | `tests/integration/mcp.test.ts` |
+| 9 | #26 | `4ea3c0d` | Corrigida. `src/lib/env-checks.ts`; `:?` no compose; imagens fixadas por digest; dev só em `127.0.0.1`; `persist-credentials: false`; `Claude outputs/` ignorada | `src/lib/env-checks.test.ts`; `docker compose config`; `docker build --check` |
+| 10 | #27 | `ac6b644` | Corrigida. O SSE confere `stillSignedIn` a cada ping. A15 fechado pelo ADR-058 | `tests/integration/sse-session.test.ts` |
+
+**Ficaram de fora, com o motivo:**
+- A17, exigência de SHA nas Actions: é configuração do repositório no GitHub e fica com o Matheus.
+  As actions já estão fixadas por SHA.
+- A19, chave `jwks`: decisão M-104 mantida.
+- A20, cache do service worker depois de a sessão expirar: precisa de mudança no `sw.js` e no
+  fluxo de sessão; não é pequena.
+- A21: o lookahead do `proxy.ts` não muda, porque mexer no `matcher` traz risco sem ganho (as
+  páginas revalidam a sessão). O `version` do `/api/health` também fica: é documentado (API.md
+  §6) e serve para conferir o deploy.
+
+**Antes do merge na `main` (pede ação do Matheus):**
+- O `src/lib/env.ts` passa a recusar, em produção pública, um `BETTER_AUTH_URL` sem https, um
+  segredo com cara de exemplo ou de CI (prefixo `ci-`, `test`, `changeme`… ou menos de 10
+  caracteres distintos) e `SMTP_USER` sem `SMTP_PASSWORD`. O `.env` do `glpi-srv` foi gerado com
+  `openssl rand` e deve passar. Se não passar, o app não sobe. Conferir sem expor valores:
+  `sudo -u github-deploy grep -c '^BETTER_AUTH_URL=https://' ~glpissh/docker/itc-tasks/.env`.
+- O `docker-compose.yml` exige `POSTGRES_PASSWORD` no `.env`. Já é o caso em produção.
+
+**Durante a verificação**, o banco `itc_tasks_test` tinha 1 117 jobs `automation.evaluate`
+acumulados das execuções do dia, e o `beforeAll` de `automations.test.ts` estourava os 10 s. Esses
+jobs foram apagados. Era só o banco de teste, sem relação com as correções; no CI o banco é novo.
 
 ## Commits
 
 ```
 33cb36e chore(security): ignore audit venv and renders
 c1ad985 docs(security): add module 13 audit report, issues and generator
+05b15ec docs: document module 13 security audit
+dae182f docs(infra): record accepted risk of unprotected main
+0b33ef7 docs: add ADR-058 to ADR-061 for security fixes
+b3b90a1 security(auth): allowlist Better Auth HTTP endpoints
+24b4cde security(headers): add CSP, COOP, HSTS and frame protection
+4ec4202 security(infra): pass seed credentials via stdin, not sudo argv
+36ace6d security(tiptap): normalize rich-text JSON and relabel mentions
+9508ebb security(push): restrict endpoints to push services and cap usage
+9b08c48 security(api): reject cross-origin POST/DELETE on cookie routes
+101dd6a security(mcp): reject JSON-RPC batches and cap active tokens
+4ea3c0d security(config): harden env validation, compose and CI
+ac6b644 security(sse): close event stream when the member loses access
+3a6c77f chore(lint): ignore the security audit venv
 ```
