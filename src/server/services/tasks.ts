@@ -165,6 +165,27 @@ export function docText(node: unknown): string {
     .trim();
 }
 
+/** ADR-061: o label da menção vem do banco, não do cliente. */
+export async function relabelMentions<T>(tx: Tx | typeof db, doc: T): Promise<T> {
+  const ids = mentionIds(doc);
+  if (!ids.length) return doc;
+  const rows = await tx
+    .select({ id: user.id, name: user.name })
+    .from(user)
+    .where(inArray(user.id, ids));
+  const names = new Map(rows.map((r) => [r.id, r.name]));
+  const walk = (node: unknown): unknown => {
+    if (!node || typeof node !== "object") return node;
+    const n = node as { type?: unknown; attrs?: { id?: unknown }; content?: unknown };
+    const out: Record<string, unknown> = { ...n };
+    if (n.type === "mention" && typeof n.attrs?.id === "string")
+      out.attrs = { ...n.attrs, label: names.get(n.attrs.id) ?? "pessoa desconhecida" };
+    if (Array.isArray(n.content)) out.content = n.content.map(walk);
+    return out;
+  };
+  return walk(doc) as T;
+}
+
 // ── Referências: existem e estão ativas ─────────────────────────────
 
 async function activeRow<T extends { archivedAt: Date | null }>(
@@ -376,6 +397,8 @@ export async function insertTask(
   await assertActive(tx, projects, data.projectIds, "Projeto/Cliente");
   await assertActive(tx, mobileUnits, data.mobileUnitIds, "Unidade Móvel");
   await assertUnitsFit(tx, data.mobileUnitIds, data.projectIds, []);
+  if (data.descriptionJson)
+    data = { ...data, descriptionJson: await relabelMentions(tx, data.descriptionJson) };
   // ADR-045: sem responsável automático; omitido = sem responsável
   const assigneeId = data.assigneeId ?? null;
   if (assigneeId) await assertAssignee(tx, assigneeId);
@@ -511,6 +534,8 @@ async function applyUpdate(
     Object.assign(set, { [key]: to });
     events.push({ type: "field_changed", payload: { field, from, to } });
   }
+  if (data.descriptionJson)
+    data = { ...data, descriptionJson: await relabelMentions(tx, data.descriptionJson) };
   if (
     "descriptionJson" in data &&
     stable(data.descriptionJson) !== stable(current.descriptionJson)

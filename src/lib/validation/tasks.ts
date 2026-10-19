@@ -30,7 +30,43 @@ const glpiTicket = z.coerce
   .max(9_999_999, "Chamado GLPI tem até 7 dígitos");
 const dueDate = z.iso.date("Data inválida");
 // documento Tiptap; o service extrai o texto (ADR-042)
-const descriptionJson = z.object({ type: z.literal("doc") }).loose();
+// ADR-061: link só com href, sem class/style em attrs; tamanho e profundidade limitados
+const MAX_DOC_CHARS = 200_000;
+const MAX_DOC_DEPTH = 20;
+type DocNode = Record<string, unknown>;
+const stripAttrs = (n: DocNode): DocNode => {
+  if (!n.attrs || typeof n.attrs !== "object") return n;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { class: _class, style: _style, ...attrs } = n.attrs as DocNode;
+  return { ...n, attrs };
+};
+const cleanMark = (m: unknown): unknown => {
+  if (!m || typeof m !== "object") return m;
+  const mark = m as DocNode;
+  if (mark.type !== "link") return stripAttrs(mark);
+  const href = (mark.attrs as DocNode | undefined)?.href;
+  return { type: "link", attrs: { href: typeof href === "string" ? href : null } };
+};
+function normalizeDoc(node: unknown, depth: number): unknown {
+  if (!node || typeof node !== "object") return node;
+  if (depth > MAX_DOC_DEPTH) throw new Error("depth");
+  const out = stripAttrs({ ...(node as DocNode) });
+  if (Array.isArray(out.marks)) out.marks = out.marks.map(cleanMark);
+  if (Array.isArray(out.content)) out.content = out.content.map((c) => normalizeDoc(c, depth + 1));
+  return out;
+}
+const descriptionJson = z
+  .object({ type: z.literal("doc") })
+  .loose()
+  .refine((d) => JSON.stringify(d).length <= MAX_DOC_CHARS, "Texto muito longo")
+  .transform((d, ctx) => {
+    try {
+      return normalizeDoc(d, 0) as typeof d;
+    } catch {
+      ctx.addIssue({ code: "custom", message: "Documento muito aninhado" });
+      return z.NEVER;
+    }
+  });
 
 const fields = {
   title,
