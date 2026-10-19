@@ -1,0 +1,2 @@
+# Falso positivo: segredo fictício no teste do env-checks (issue #26), já trocado no arquivo
+4ea3c0dfe25bc412a5607efab0f85d1ba4ba2032:src/lib/env-checks.test.ts:generic-api-key:6

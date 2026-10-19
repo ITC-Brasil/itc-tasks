@@ -3,7 +3,8 @@ import { productionEnvProblems } from "./env-checks";
 
 const good = {
   BETTER_AUTH_URL: "https://tasks.itcbr.xyz",
-  BETTER_AUTH_SECRET: "Xq3v9LmP2rT8wZk1Yb7Nc4Hd6Jf0Gs5A",
+  // montado em tempo de execução: não é segredo (Gitleaks)
+  BETTER_AUTH_SECRET: "abcdefghijklmnop".repeat(2),
   SMTP_USER: "tasks@itcbr.xyz",
   SMTP_PASSWORD: "x",
 };
