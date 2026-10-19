@@ -1,5 +1,7 @@
 // ADR-054: service worker próprio — shell e última versão vista de cada tela, sem edição offline; push (ADR-050)
-const CACHE_VERSION = "v1";
+// ADR-064: telas só valem enquanto a sessão valeria (7 dias, padrão do Better Auth)
+const CACHE_VERSION = "v2";
+const MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 const PAGES = `pages-${CACHE_VERSION}`;
 const STATIC = `static-${CACHE_VERSION}`;
 const STATIC_PREFIXES = ["/_next/static/", "/icons/", "/brand/", "/splash/", "/favicon"];
@@ -45,24 +47,52 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(request)
         .then((res) => {
-          // redirecionamento (login) não é tela da pessoa
-          if (res.ok && !res.redirected) {
-            const copy = res.clone();
-            caches.open(PAGES).then((c) => c.put(request, copy));
+          // sessão expirada: as telas guardadas são de quem já não está logado
+          // navegação não segue redirect (opaqueredirect): todo redirect do app vai ao /login
+          if (
+            res.status === 401 ||
+            res.type === "opaqueredirect" ||
+            (res.redirected && new URL(res.url).pathname === "/login")
+          ) {
+            event.waitUntil(clearPages());
+          } else if (res.ok && !res.redirected) {
+            event.waitUntil(savePage(request, res.clone()));
           }
           return res;
         })
         .catch(async () => {
           const cache = await caches.open(PAGES);
           return (
-            (await cache.match(request, { ignoreSearch: false })) ||
-            (await cache.match("/")) ||
+            (await freshMatch(cache, request)) ||
+            (await freshMatch(cache, "/")) ||
             new Response(OFFLINE_HTML, { headers: { "Content-Type": "text/html; charset=utf-8" } })
           );
         }),
     );
   }
 });
+
+function clearPages() {
+  return caches
+    .keys()
+    .then((keys) => Promise.all(keys.filter((k) => k.startsWith("pages-")).map((k) => caches.delete(k))));
+}
+
+async function savePage(request, res) {
+  const headers = new Headers(res.headers);
+  headers.set("x-sw-cached-at", String(Date.now()));
+  const copy = new Response(await res.blob(), { status: res.status, statusText: res.statusText, headers });
+  await (await caches.open(PAGES)).put(request, copy);
+}
+
+// tela sem data ou acima do prazo sai do cache
+async function freshMatch(cache, key) {
+  const hit = await cache.match(key);
+  if (!hit) return null;
+  if (Date.now() - Number(hit.headers.get("x-sw-cached-at") || 0) <= MAX_AGE) return hit;
+  await cache.delete(key);
+  return null;
+}
 
 self.addEventListener("push", (event) => {
   const data = event.data ? event.data.json() : {};

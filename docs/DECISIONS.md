@@ -1929,3 +1929,41 @@ comentários, eventos, anexos, notificações, `task_imports`); `automation_runs
 - Excluir não tem volta. Sem backup (INFRA §9), a tarefa só sobrevive na linha de
   `task_deletions`.
 - Migração `0013_task_deletions`, só aditiva.
+
+## ADR-064 — Cache de telas do service worker limitado à validade da sessão (Módulo 14; altera o ADR-054)
+
+**Status:** Accepted
+**Date:** 2026-10-19
+**Module:** 14 — Ajustes pós-auditoria (A20, #33, M-127)
+
+**Context**
+O ADR-054 guarda no cache `pages-v1` o HTML autenticado de cada tela e só o apaga no "Sair". Se a
+sessão expira sem logout, as telas continuam no aparelho: num aparelho compartilhado, quem abrir o
+app offline vê os dados da pessoa anterior. O `res.redirected` só impedia gravar o redirect para
+o `/login`, sem apagar o que já estava salvo. A sessão do Better Auth usa o padrão (`expiresIn`
+7 dias, renovada a cada dia de uso); `src/server/auth.ts` não muda esses valores.
+
+**Decision**
+- **Sessão expirada, online:** navegação que volta com 401 ou redirecionada apaga todo cache
+  `pages-*`. A navegação usa `redirect: "manual"`, e o SW recebe `opaqueredirect`, sem o destino;
+  todo redirect do app hoje vai ao `/login` (`proxy.ts` e `requireActor`). Um redirect novo para
+  outra tela também limparia o cache, o que só custa a cópia offline.
+- **Prazo:** a cópia gravada leva o cabeçalho `x-sw-cached-at` (ms). No fallback offline, tela com
+  mais de 7 dias (a validade da sessão) é apagada e ignorada; sem outra tela válida, vale a página
+  "Sem conexão". Offline nunca mostra tela que já não abriria online.
+- **Troca de pessoa:** o "Sair" já apaga. Sem "Sair" (sessão expirada), o login com sucesso também
+  apaga (`clearPageCache` no `login-form.tsx`), porque quem abre `/login` direto não passa pelo SW.
+- `CACHE_VERSION` sobe para `v2`; o `activate` descarta o `pages-v1` antigo, sem data.
+
+**Alternatives considered**
+- **Só limpar no redirect para `/login`:** descartada sozinha. Offline o SW não sabe se a sessão
+  expirou, e o vazamento é justamente offline.
+- **Não guardar HTML (só o shell):** descartada. Tira o que o ADR-054 promete (última versão vista
+  de cada tela offline).
+- **Prazo menor que a sessão (ex.: 1 dia):** descartada. Esconderia telas que ainda abririam
+  online, sem ganho: a sessão continua valendo no cookie.
+
+**Consequences**
+- Se a validade da sessão mudar no `auth.ts`, o `MAX_AGE` do `public/sw.js` precisa acompanhar.
+- O prazo conta da última gravação da tela, não do último uso da sessão; com sessão renovada, a
+  tela é regravada a cada abertura online.
