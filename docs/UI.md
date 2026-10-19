@@ -77,17 +77,16 @@ Empty states com texto definido:
 | `G` `T` | Ir para Tarefas |
 | `G` `C` | Ir para o ciclo atual |
 | `G` `N` | Ir para Notificações |
-| `V` `K` / `V` `L` / `V` `C` | Visão Kanban / Lista / Calendário |
-| `J` / `K` | Próxima / anterior na lista |
-| `Enter` | Abrir selecionada |
-| `X` | Selecionar na lista |
+| `V` `K` / `V` `L` / `V` `C` | Visão Kanban / Lista / Calendário (só em Tarefas; mantém os filtros da URL) |
 | `⌘↵` | Enviar (criar, comentar) |
 | `Esc` | Fechar modal/painel |
 | `?` | Mostrar atalhos |
 
 Atalhos de uma tecla não disparam com foco em campo de texto.
 
-Implementados hoje (`src/components/layout/shortcut-list.ts`, a fonte do diálogo `?` e da `/ajuda#atalhos`): `⌘K`, `C`, `⌘↵`, `G` `C`, `[`, `?` e `Esc`. Os demais da tabela ainda não existem.
+Todos estão em `src/components/layout/shortcut-list.ts`, a fonte do diálogo `?` e da `/ajuda#atalhos`.
+
+A navegação pela lista por teclado (`J`/`K`, `Enter`, `X`) ficou fora por decisão de 19/10/2026 (foco de linha ativa e acessibilidade); pode voltar como item próprio.
 
 ## 6. Layout e responsivo
 
