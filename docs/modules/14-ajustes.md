@@ -134,3 +134,19 @@ atualizados).
   voltar como item próprio. Sem ADR.
 - **Testes:** `tests/e2e/shortcuts.spec.ts` (desktop): cada `G`; `V` `L`, `V` `C` e `V` `K` com
   `?prioridade=high` preservado; digitar `gtvk` no campo da ⌘K não navega.
+
+## Item 7 — Painel com "Todos os Projetos/Clientes" (M-139)
+
+- **Por quê:** pedido do Matheus em 19/10/2026; sem `?projeto=` o `/painel` caía no primeiro projeto.
+- **O que mudou:** primeira opção do filtro é "Todos os Projetos/Clientes", e é o padrão (sem
+  `?projeto=` ou com um id que não existe). Escolher "Todos" tira o `projeto` da URL e mantém `dias`.
+  `projectDashboard(actor, { projectId?, days })`: sem `projectId`, o escopo são os projetos de
+  `listProjects(actor)` (ativos). O filtro é `tasks.id IN (SELECT task_id FROM task_projects …)`,
+  então tarefa com vários vínculos conta uma vez em todos os números. Na visão "Todos" há a barra
+  "Abertas por Projeto/Cliente" (código); nela a tarefa com dois vínculos entra nas duas.
+- **Acesso:** `listProjects` não filtra por pessoa (todos veem todos os projetos ativos); o escopo
+  do "Todos" é esse. Projeto arquivado fica de fora.
+- **Fora:** MCP não expõe o painel. Sem ADR, sem migração.
+- **Testes:** `tests/integration/planning.test.ts` (tarefa em dois projetos conta 1 nos indicadores
+  e 1 em cada barra; projeto arquivado fora; com projeto escolhido não há barra por projeto);
+  `tests/e2e/planning.spec.ts` (abre em "Todos", `?projeto=` some e volta mantendo `dias=7`).
