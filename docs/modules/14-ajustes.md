@@ -88,3 +88,36 @@ atualizados).
 - **Observação:** a página aberta do cache offline não mostra a faixa "Sem conexão — mostrando a
   última versão salva" logo de início; o `mobile.spec.ts` cobre a faixa quando a rede cai com a
   tela aberta. Não mudou com este item.
+
+## Item 5 — Página de ajuda `/ajuda` (M-131, ADR-065)
+
+- **Por quê:** o manual de uso aprovado no Claude Design (artboard "Manual do ITC Tasks") vira uma
+  página do app, consultada logada e no tema de cada pessoa.
+- **Decisão:** ADR-065. `src/app/(app)/ajuda/`: `page.tsx` (capa em `accent-dark`, sumário com
+  âncoras à esquerda a partir de 1024 px e no topo abaixo disso), `sections.tsx` (as 13 seções, uma
+  função por seção, `id` estáveis) e `code-block.tsx` (bloco que rola dentro da caixa, "Copiar" com
+  toast). Sem dependência nova, sem capturas: StatusIcon, PriorityIcon, ProjectChip, UnitChip,
+  GlpiChip, TaskCard, Card e `Kbd` com dados fixos.
+- **MCP:** endereço `MCP_URL` = `${BETTER_AUTH_URL}/mcp` (`src/lib/env.ts`), também na tela de Agentes
+  e MCP, que antes fixava `tasks.itcbr.xyz`. Bloco comum (token, endereço, cabeçalho, 9 ferramentas,
+  regras) e clientes por lista de dados (`CLIENTS`): Claude Code (`#mcp-claude-code`, `claude mcp add
+  --transport http … --header` e `.mcp.json`), Claude Desktop (`#mcp-claude-desktop`, conector
+  personalizado com "Request headers"; sem essa seção, o conector remoto só aceita OAuth e o texto
+  manda usar o Claude Code) e Hermes Agent (`#mcp-hermes`, `mcp_servers` com `url` e `headers`,
+  `/reload-mcp` ou reiniciar, filtro `tools.include`/`tools.exclude` citado). Marcador
+  `itct_SEU_TOKEN`.
+- **Texto conferido contra o código:** atalhos só os implementados (lista `SHORTCUTS`, agora em
+  `shortcut-list.ts` para o servidor ler; saíram `G M`, `G T`, `G N`, `V K/L/C`, `J/K`, `Enter` e `X`,
+  que estão no UI.md §5 mas não no código); ações em massa da Lista com prioridade e "Excluir" só
+  quando dá para excluir todas; senha com bloqueio de 15 min após 5 erros; sem "Manter conectado"
+  (não existe na tela Entrar); barra inferior Minhas, Tarefas, Criar, Ciclo e Mais; ⌘K sem "Alternar
+  tema" (não existe); push só no expediente e e-mail só no resumo das 08:00 (ADR-050/051), com os
+  padrões por evento.
+- **Pontos de entrada:** "Ajuda" (`CircleHelp`) no menu do usuário, que é também o "Mais" do
+  celular; "Abrir ajuda" no ⌘K; "Manual completo" no diálogo de atalhos (`/ajuda#atalhos`); "Como
+  conectar um agente" em Agentes e MCP (`/ajuda#mcp`).
+- **Testes:** `tests/e2e/help.spec.ts`: menu do usuário (desktop e Mais no celular) e ⌘K; axe nos
+  dois temas; âncoras `#mcp` e `#mcp-hermes`; link da tela de Agentes; "Copiar" com toast e conteúdo
+  na área de transferência; `scrollWidth <= clientWidth` em 390 e 1280 px; membro criado na hora
+  entra e abre `/ajuda`.
+- **Fora do escopo:** busca dentro da ajuda e "?" contextual nas telas.

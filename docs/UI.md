@@ -87,6 +87,8 @@ Empty states com texto definido:
 
 Atalhos de uma tecla não disparam com foco em campo de texto.
 
+Implementados hoje (`src/components/layout/shortcut-list.ts`, a fonte do diálogo `?` e da `/ajuda#atalhos`): `⌘K`, `C`, `⌘↵`, `G` `C`, `[`, `?` e `Esc`. Os demais da tabela ainda não existem.
+
 ## 6. Layout e responsivo
 
 | Faixa | Comportamento |
@@ -129,3 +131,9 @@ Atalhos de uma tecla não disparam com foco em campo de texto.
 - Splash iOS: tags de `docs/brand/head.html` no `<head>` do layout raiz.
 - Prompt de instalação: banner discreto na primeira visita pelo celular; no iOS, instrução "Compartilhar › Adicionar à Tela de Início". "Agora não" não volta naquele aparelho.
 - Service worker `public/sw.js` (ADR-054): guarda a última versão vista de cada tela; Sair apaga as telas guardadas.
+
+## 11. Ajuda
+
+- `/ajuda` (ADR-065), para qualquer papel logado: manual em 13 seções com âncoras estáveis (`primeiro-acesso`, `tela-principal`, `criar-tarefa`, `visoes`, `detalhe`, `busca`, `planejamento`, `notificacoes`, `templates-automacoes`, `mcp` com `mcp-claude-code`, `mcp-claude-desktop` e `mcp-hermes`, `celular`, `atalhos`, `papeis`).
+- Ilustrações só com componentes do Design System e dados fixos; sem capturas de tela.
+- Pontos de entrada: "Ajuda" no menu do usuário (e no "Mais" do celular), "Abrir ajuda" no ⌘K, "Manual completo" no diálogo de atalhos, "Como conectar um agente" em Agentes e MCP.
