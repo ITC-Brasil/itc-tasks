@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, isNull, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, ne, notInArray, or, sql } from "drizzle-orm";
 import nodemailer from "nodemailer";
 import webpush from "web-push";
 import { db } from "@/db";
@@ -229,7 +229,16 @@ export async function pushNotification(notificationId: string, now = new Date())
   return "sent" as const;
 }
 
+// ADR-060: o teste dispara POST para fora; 5 por minuto por pessoa (memória, 1 réplica)
+const TEST_PUSH_PER_MINUTE = 5;
+const testPushHits = new Map<string, number[]>();
+
+/** Push de teste; `null` acima do limite por minuto. */
 export async function sendTestPush(actor: UserActor) {
+  const now = Date.now();
+  const hits = (testPushHits.get(actor.userId) ?? []).filter((t) => now - t < 60_000);
+  if (hits.length >= TEST_PUSH_PER_MINUTE) return null;
+  testPushHits.set(actor.userId, [...hits, now]);
   return sendPush(actor.userId, {
     title: "ITC Tasks",
     body: "Push funcionando neste dispositivo.",
@@ -237,17 +246,42 @@ export async function sendTestPush(actor: UserActor) {
   });
 }
 
+export const MAX_PUSH_SUBSCRIPTIONS = 10;
+
+export class PushConflictError extends Error {
+  constructor() {
+    super("Assinatura de push de outra pessoa");
+  }
+}
+
+/** ADR-060: a assinatura não muda de dono; acima de 10 por pessoa sai a mais antiga. */
 export async function subscribePush(actor: UserActor, input: unknown) {
   const s = pushSubscriptionSchema.parse(input);
-  const [row] = await db
-    .insert(pushSubscriptions)
-    .values({ userId: actor.userId, endpoint: s.endpoint, ...s.keys, userAgent: s.userAgent })
-    .onConflictDoUpdate({
-      target: pushSubscriptions.endpoint,
-      set: { userId: actor.userId, ...s.keys, userAgent: s.userAgent },
-    })
-    .returning({ id: pushSubscriptions.id });
-  return row;
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .insert(pushSubscriptions)
+      .values({ userId: actor.userId, endpoint: s.endpoint, ...s.keys, userAgent: s.userAgent })
+      .onConflictDoUpdate({
+        target: pushSubscriptions.endpoint,
+        set: { ...s.keys, userAgent: s.userAgent },
+        setWhere: eq(pushSubscriptions.userId, actor.userId),
+      })
+      .returning({ id: pushSubscriptions.id });
+    // conflito com assinatura de outra pessoa: o setWhere não atualiza e nada volta
+    if (!row) throw new PushConflictError();
+    const keep = tx
+      .select({ id: pushSubscriptions.id })
+      .from(pushSubscriptions)
+      .where(eq(pushSubscriptions.userId, actor.userId))
+      .orderBy(desc(pushSubscriptions.createdAt), desc(pushSubscriptions.id))
+      .limit(MAX_PUSH_SUBSCRIPTIONS);
+    await tx
+      .delete(pushSubscriptions)
+      .where(
+        and(eq(pushSubscriptions.userId, actor.userId), notInArray(pushSubscriptions.id, keep)),
+      );
+    return row;
+  });
 }
 
 export async function unsubscribePush(actor: UserActor, endpoint: string) {
