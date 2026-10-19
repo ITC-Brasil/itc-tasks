@@ -49,5 +49,13 @@ test("Minhas preferências: campo Nome recusa vazio e salva", async ({ page }) =
   await name.fill(current);
   await page.getByRole("button", { name: "Salvar nome" }).click();
   await expect(page.getByText("Nome alterado")).toBeVisible();
+
+  // M-117: senha atual errada mostra o erro e não troca nada
+  await page.getByLabel("Senha atual", { exact: true }).fill("nao-e-a-senha-123");
+  await page.getByLabel("Nova senha", { exact: true }).fill("nova-senha-forte-1");
+  await page.getByLabel("Confirme a nova senha").fill("nova-senha-forte-1");
+  await page.getByRole("button", { name: "Trocar senha" }).click();
+  await expect(page.getByText("Senha atual incorreta")).toBeVisible();
+  await axeBothThemes(page);
   await expect(page.getByText("Informe o nome")).toHaveCount(0);
 });

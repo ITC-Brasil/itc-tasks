@@ -1855,3 +1855,35 @@ no banco.
 **Consequences**
 - O link colado mantém `href`. O `target="_blank"` e o `rel` vêm dos padrões do Link.
 - O nome da pessoa mencionada passa a refletir o banco na hora da gravação.
+
+## ADR-062 — Troca da própria senha pelo service, com rastro no log (Módulo 14)
+
+**Status:** Accepted
+**Date:** 2026-10-19
+**Module:** 14 — Ajustes pós-auditoria (M-117, issue #22)
+
+**Context**
+A senha do admin do seed vazou para o `auth.log` e o journal do `glpi-srv` (#22). O app não
+permitia trocar a própria senha: `resetMemberPassword` recusa a si mesmo e o ADR-058 fechou
+`/api/auth/change-password`.
+
+**Decision**
+`changeOwnPassword(actor, { current, next, confirm }, keepSessionId)` em
+`src/server/services/members.ts`, chamado pela Server Action `changeMyPasswordAction` (cartão
+"Senha" em Minhas preferências). Só ator `user`; agente recebe `ForbiddenError`. Confere a senha
+atual com `ctx.password.verify` do Better Auth, valida a nova com o `passwordSchema`, grava com
+`ctx.password.hash` (Argon2id, como o `resetMemberPassword`) e, na mesma transação, apaga as
+sessões da pessoa exceto a da requisição. O rastro é uma linha no log do servidor
+(`[auth] senha trocada userId=… actor=user`), sem a senha.
+
+**Alternatives considered**
+- **Reabrir `/change-password` na allowlist:** descartada pela M-117; o endpoint também aceita
+  `revokeOtherSessions` opcional, e a regra ficaria fora do service (ADR-003).
+- **Tabela de auditoria nova:** descartada por ora. `task_events` é só de tarefa e não há outro
+  evento de conta; uma tabela para um único tipo de evento é cedo. Volta à mesa se o item 2
+  (exclusão de tarefa) criar uma tabela de rastro.
+
+**Consequences**
+- Qualquer pessoa troca a própria senha sem o admin; as outras sessões (e os SSE abertos, pelo
+  `stillSignedIn`) caem na hora.
+- O rastro dura o quanto durar o log do container.
