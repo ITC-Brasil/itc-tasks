@@ -211,10 +211,17 @@ export const taskEvents = pgTable('task_events', {                   // só-inse
   actorUserId: text('actor_user_id').references(() => user.id),
   apiKeyId: text('api_key_id').references(() => apikey.id),
   automationRuleId: uuid('automation_rule_id'),
-  type: text('type').notNull(),               // tipos no ADR-042, + 'projects_changed' | 'mobile_units_changed' (ADR-045) e 'commented' | 'comment_edited' | 'attachment_added' (ADR-048)
+  type: text('type').notNull(),               // tipos no ADR-042, + 'projects_changed' | 'mobile_units_changed' (ADR-045), 'commented' | 'comment_edited' | 'attachment_added' (ADR-048) e 'imported' (ADR-056)
   payload: jsonb('payload').notNull().default(sql`'{}'::jsonb`),   // { field, from, to }
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index('task_events_task_created_idx').on(t.taskId, t.createdAt)]);
+
+export const taskImports = pgTable('task_imports', {                // origem de tarefas importadas — ADR-056, 0012_task_imports
+  taskId: uuid('task_id').primaryKey().references(() => tasks.id, { onDelete: 'cascade' }),
+  source: text('source').notNull(),           // 'windshift'
+  sourceId: text('source_id').notNull(),      // id do item no Windshift
+  importedAt: timestamp('imported_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [unique('task_imports_source_uq').on(t.source, t.sourceId)]);
 
 export const attachments = pgTable('attachments', {                  // arquivo em UPLOADS_DIR — ADR-025
   id: uuid('id').primaryKey().defaultRandom(),
@@ -369,6 +376,7 @@ CREATE SEQUENCE IF NOT EXISTS task_number_seq START 1;
 - **`tasks.completed_at`** — preenchido pelo service quando o status entra em categoria `done`; limpo ao sair (ADR-022).
 - **`cycles_one_active_uq`** — índice único parcial: no máximo um ciclo `active`.
 - **`task_events`** — só-inserção; nenhum service expõe update/delete.
+- **`task_imports`** (Módulo 12, `0012_task_imports`) — único em `(source, source_id)`: a importação do Windshift pula o que já entrou (ADR-056).
 - **`labels.color_token`** — guarda o nome do token, nunca hex (Design System, princípio 5).
 - **`notification_preferences`** (Módulo 08, `0010_notifications`) — sem seed: linha ausente = `DEFAULT_CHANNELS` de `src/lib/notifications.ts`; a tela grava só o que muda (ADR-050).
 
