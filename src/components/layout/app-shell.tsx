@@ -92,10 +92,18 @@ export function AppShell({
   const showShortcuts = useCallback(() => setShortcutsOpen(true), []);
   useShortcut("[", toggle);
   useShortcut("?", showShortcuts);
-  useGoTo(
-    "c",
-    useCallback(() => router.push("/ciclos"), [router]),
-  );
+  const go = (href: string) => () => router.push(href);
+  useGoTo("m", go("/"));
+  useGoTo("t", go("/tarefas"));
+  useGoTo("c", go("/ciclos"));
+  useGoTo("n", go("/notificacoes"));
+  // V + tecla: só nas visões de Tarefas, mantendo os filtros da URL (UI.md §5)
+  const inTasks = VIEWS.has(pathname);
+  const view = (href: string) =>
+    inTasks ? () => router.push(href + window.location.search) : null;
+  useGoTo("k", view("/tarefas"), "v");
+  useGoTo("l", view("/tarefas/lista"), "v");
+  useGoTo("c", view("/tarefas/calendario"), "v");
 
   const groups = NAV.map((g) => ({
     ...g,
@@ -310,6 +318,7 @@ const BAR_ITEMS: NavItem[] = [
   { href: "/tarefas", label: "Tarefas", icon: Columns3 },
   { href: "/ciclos", label: "Ciclo", icon: RefreshCw },
 ];
+const VIEWS = new Set(["/tarefas", "/tarefas/lista", "/tarefas/calendario"]);
 const BAR = new Set(BAR_ITEMS.map((i) => i.href));
 
 function BarLink({ item, active }: { item: NavItem; active: boolean }) {

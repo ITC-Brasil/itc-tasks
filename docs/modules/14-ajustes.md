@@ -121,3 +121,16 @@ atualizados).
   na área de transferência; `scrollWidth <= clientWidth` em 390 e 1280 px; membro criado na hora
   entra e abre `/ajuda`.
 - **Fora do escopo:** busca dentro da ajuda e "?" contextual nas telas.
+
+## Item 6 — Atalhos do UI.md §5 (M-136)
+
+- **Por quê:** a `/ajuda` (item 5) mostrou que parte do UI.md §5 não existia no código. Decisão do
+  Matheus em 19/10/2026: implementar os de navegação e de visão, tirar os da lista.
+- **O que mudou:** `useGoTo` (`shortcuts.tsx`) aceita outra tecla de prefixo e handler nulo
+  (desligado), e guarda o handler num ref. No `app-shell.tsx`: `G` `M`, `G` `T`, `G` `C` e `G` `N`;
+  `V` `K`/`L`/`C` só nas três visões de Tarefas, com `window.location.search` (os filtros continuam).
+  Os sete entram em `SHORTCUTS` (diálogo `?` e `/ajuda#atalhos`); a ajuda cita o `V` na seção Visões.
+- **Fora:** `J`/`K`, `Enter` e `X` saíram do UI.md §5 (foco de linha ativa e acessibilidade); podem
+  voltar como item próprio. Sem ADR.
+- **Testes:** `tests/e2e/shortcuts.spec.ts` (desktop): cada `G`; `V` `L`, `V` `C` e `V` `K` com
+  `?prioridade=high` preservado; digitar `gtvk` no campo da ⌘K não navega.
