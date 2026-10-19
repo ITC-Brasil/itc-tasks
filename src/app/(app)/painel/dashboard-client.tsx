@@ -19,15 +19,17 @@ export function DashboardFilters({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const go = (p: string, d: number) => router.replace(`${pathname}?projeto=${p}&dias=${d}`);
+  // "" = Todos: sem ?projeto= na URL (M-139)
+  const go = (p: string, d: number) =>
+    router.replace(`${pathname}?${p ? `projeto=${p}&` : ""}dias=${d}`);
   return (
     <div className="flex flex-wrap gap-2">
       <div className="w-64">
         <Pick
           label="Projeto/Cliente"
-          items={projects}
+          items={[{ value: "", label: "Todos os Projetos/Clientes" }, ...projects]}
           value={projectId}
-          onChange={(p) => p && go(p, days)}
+          onChange={(p) => go(p, days)}
         />
       </div>
       <div className="w-40">

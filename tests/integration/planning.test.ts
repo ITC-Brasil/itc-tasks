@@ -133,12 +133,48 @@ it("painel: abertas, vencidas, concluídas no período e por semana", async () =
   await createTask(ana, { title: "Aberta", projectIds: [p.id] });
   const feita = await createTask(ana, { title: "Feita", projectIds: [p.id] });
   await completeTask(ana, feita.id);
-  const d = await projectDashboard({ projectId: p.id, days: "7" });
+  const d = await projectDashboard(ana, { projectId: p.id, days: "7" });
   expect(d).toMatchObject({ days: 7, open: 2, overdue: 1, done: 1 });
   expect(d.weeks).toHaveLength(12);
   expect(d.weeks.at(-1)?.done).toBe(1);
   expect(d.byStatus.reduce((n, s) => n + s.n, 0)).toBe(2);
   expect(typeof d.avgDays).toBe("number");
+});
+
+it("painel Todos: tarefa em dois projetos conta uma vez; barras por projeto (M-139)", async () => {
+  const before = await projectDashboard(ana, {});
+  const a = await createProject(system, {
+    code: `MA${run}`,
+    name: `Todos A ${run}`,
+    kind: "client",
+  });
+  const b = await createProject(system, {
+    code: `MB${run}`,
+    name: `Todos B ${run}`,
+    kind: "client",
+  });
+  const arq = await createProject(system, {
+    code: `MZ${run}`,
+    name: `Arquivado ${run}`,
+    kind: "client",
+  });
+  await createTask(ana, { title: "Dupla", projectIds: [a.id, b.id], dueDate: "2020-01-01" });
+  await createTask(ana, { title: "Fora", projectIds: [arq.id] });
+  await setProjectArchived(system, arq.id, true);
+
+  const d = await projectDashboard(ana, {});
+  // projeto arquivado não está no escopo de listProjects: "Fora" não entra
+  expect(d.open - before.open).toBe(1);
+  expect(d.overdue - before.overdue).toBe(1);
+  expect(d.byStatus.reduce((n, s) => n + s.n, 0)).toBe(d.open);
+  const bar = (code: string) => d.byProject.find((p) => p.code === code)?.n;
+  expect(bar(`MA${run}`)).toBe(1);
+  expect(bar(`MB${run}`)).toBe(1);
+  expect(bar(`MZ${run}`)).toBeUndefined();
+
+  const one = await projectDashboard(ana, { projectId: a.id });
+  expect(one.open).toBe(1);
+  expect(one.byProject).toEqual([]);
 });
 
 it("violação de unique numa corrida vira TaskError (M-061)", async () => {
