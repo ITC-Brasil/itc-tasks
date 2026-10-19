@@ -73,14 +73,27 @@ todos os `**/*.ts`. O `playwright.config.ts` passou para o `.dockerignore`.
   título, projeto, UM, status, prioridade, responsável) e o relatório: a importar, importadas,
   puladas, em ACL, ignoradas, sem responsável e erros. Código de saída 1 se houver erro.
 
-**Runbook em produção** (depois do merge, com o `--dry-run` revisado pelo Matheus):
+**Runbook em produção** (depois do merge, com o `--dry-run` revisado pelo Matheus). Rodar como
+`glpissh`, na pasta do app:
 
 ```bash
 cd /home/glpissh/docker/itc-tasks
+# 1. Cópia pontual do banco (INFRA §9)
 sudo -u github-deploy docker compose exec -T itc-tasks-db pg_dump -U itc_tasks -d itc_tasks -Fc > ~/itc-tasks-antes-import-$(date +%Y%m%d-%H%M).dump
-sudo -u github-deploy docker compose run --rm -v /home/glpissh/windshift-export:/import:ro itc-tasks node dist/import-windshift.mjs /import --dry-run
-sudo -u github-deploy docker compose run --rm -v /home/glpissh/windshift-export:/import:ro itc-tasks node dist/import-windshift.mjs /import
+# 2. Prévia e importação com o UID/GID do glpissh (M-089)
+U="$(id -u):$(id -g)"
+sudo -u github-deploy docker compose run --rm --no-deps --user "$U" -v /home/glpissh/windshift-export:/import:ro itc-tasks node dist/import-windshift.mjs /import --dry-run
+sudo -u github-deploy docker compose run --rm --no-deps --user "$U" -v /home/glpissh/windshift-export:/import:ro itc-tasks node dist/import-windshift.mjs /import
 ```
+
+**Por que `--user`:** a exportação é do `glpissh`, com a pasta em 700 e os arquivos em 600. O
+container roda como `app` (uid 100), que não conseguiria ler o `/import` ("permission denied").
+Com `--user "$(id -u):$(id -g)"`, o `$(…)` é avaliado pelo shell do `glpissh` antes do `sudo`, e
+o processo no container vira o dono da exportação. Assim a original não muda de permissão e
+não sobra cópia para apagar. O script só lê `/import` e fala com o banco pela rede: o
+`dist/import-windshift.mjs` é 644 e as pastas da imagem são 755, legíveis por qualquer usuário.
+O `--no-deps` evita que o `run` mexa no `itc-tasks-db`, que já está no ar. O `:ro` garante que
+o container não altera a exportação.
 
 Antes do `apply`, o Matheus cria os membros Anne e Matheus Santos com o mesmo e-mail do Windshift
 (responsável não encontrado vira "sem responsável", sem bloquear). O item do workspace pessoal
