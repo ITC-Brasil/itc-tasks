@@ -24,3 +24,23 @@ test("Ciclos, Marcos e Painel sem violações do axe nos dois temas", async ({ p
     await axeBothThemes(page);
   }
 });
+
+test("painel abre em Todos e o filtro de projeto mexe só no ?projeto= (M-139)", async ({
+  page,
+}) => {
+  await login(page);
+  await page.goto("/painel?dias=7");
+  const filtro = page.getByRole("combobox", { name: "Projeto/Cliente" });
+  await expect(filtro).toContainText("Todos os Projetos/Clientes");
+  await expect(page.getByText("Abertas por Projeto/Cliente")).toBeVisible();
+
+  await filtro.click();
+  await page.getByRole("option").nth(1).click();
+  await expect(page).toHaveURL(/projeto=[0-9a-f-]+&dias=7/);
+  await expect(page.getByText("Abertas por Projeto/Cliente")).toBeHidden();
+
+  await filtro.click();
+  await page.getByRole("option", { name: "Todos os Projetos/Clientes" }).click();
+  await expect(page).toHaveURL(/\/painel\?dias=7$/);
+  await expect(page.getByText("Abertas por Projeto/Cliente")).toBeVisible();
+});

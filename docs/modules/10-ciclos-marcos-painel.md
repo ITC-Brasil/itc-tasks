@@ -9,7 +9,7 @@
 - **Encerrar:** exige um ciclo `planned` (o de menor número); sem ele → `VALIDATION` "Crie o próximo ciclo antes de encerrar". Numa transação, cada tarefa não concluída e não arquivada recebe o próximo ciclo (se marcada) ou `null`, com `lockTask` e um `field_changed` `{ field: "cycle", from, to }` pelo `record()`. O próximo ciclo não é iniciado.
 - **Leitura:** `listCycles` (com `done`/`total`), `activeCycle`, `getCycleByNumber`, `pendingTasks`, `cycleLoad` (abertas por responsável).
 - **Marcos:** `listMilestones` (progresso = concluídas ÷ tarefas não arquivadas ligadas), `saveMilestone` (projeto arquivado recusado na criação; marco com tarefas não muda de projeto), `setMilestoneClosed` (concluir/reabrir via `closed_at`), `milestonesDue` (calendário).
-- **Painel:** `projectDashboard({ projectId, days })` — `days` ∈ 7/30/90 (padrão 30). Tarefa "do projeto" = qualquer vínculo em `task_projects`. Abertas, vencidas (`due_date < hoje` de Brasília), concluídas no período, tempo médio `completed_at − created_at` em dias, 12 semanas de concluídas (segunda-feira, semanas sem conclusão com zero), abertas por status e por UM.
+- **Painel:** `projectDashboard(actor, { projectId?, days })` — `days` ∈ 7/30/90 (padrão 30). Sem `projectId`, todos os projetos de `listProjects(actor)`, cada tarefa contada uma vez, mais abertas por projeto (M-139, `14-ajustes.md` item 7). Tarefa "do projeto" = qualquer vínculo em `task_projects`. Abertas, vencidas (`due_date < hoje` de Brasília), concluídas no período, tempo médio `completed_at − created_at` em dias, 12 semanas de concluídas (segunda-feira, semanas sem conclusão com zero), abertas por status e por UM.
 - Pessoa e agente planejam (`assertPerson`); `admin` e `member` igualmente.
 
 ### Tarefa (`src/server/services/tasks.ts`, `src/lib/validation/tasks.ts`)
@@ -24,7 +24,7 @@
 ### Telas
 - `/ciclos` (`src/app/(app)/ciclos/`): ciclo ativo com progresso, carga por pessoa, "Ver no quadro" (`/tarefas?ciclo=<id>`), editar datas e "Encerrar ciclo" com a lista de pendências marcável; planejados com Iniciar; encerrados com link para a Lista filtrada.
 - `/marcos` (`src/app/(app)/marcos/`): cards com ProjectChip, progresso, prazo (vencido em `err`), editar e concluir/reabrir.
-- `/painel` (`src/app/(app)/painel/`): Projeto/Cliente e período na URL (`?projeto=&dias=`), 4 indicadores, gráfico de barras por semana (`src/components/ui/chart.tsx` do shadcn, Recharts 3.10.1, cor `var(--accent)`, tabela `sr-only` com os mesmos valores), barras de status e de UM.
+- `/painel` (`src/app/(app)/painel/`): Projeto/Cliente e período na URL (`?projeto=&dias=`; sem `projeto` = "Todos os Projetos/Clientes", padrão desde a M-139), 4 indicadores, gráfico de barras por semana (`src/components/ui/chart.tsx` do shadcn, Recharts 3.10.1, cor `var(--accent)`, tabela `sr-only` com os mesmos valores), barras de status e de UM.
 - Detalhe da tarefa: seletores Ciclo e Marco (só marcos dos projetos da tarefa). Criação rápida: seletor Ciclo, mantido em "Criar outra". Lista: "Mudar ciclo…" em massa. Filtros: "Ciclo". Calendário: marcos abertos no dia do prazo (`Flag`).
 - Navegação: Ciclos (`RefreshCw`), Marcos (`Flag`), Painel (`ChartColumn`). Atalho `G` `C` (`useGoTo` em `src/components/layout/shortcuts.tsx`, escuta na captura para o `C` não abrir também a criação rápida).
 

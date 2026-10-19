@@ -61,13 +61,14 @@ async function Dashboard({ searchParams }: PageProps<"/painel">) {
         Cadastre um Projeto/Cliente para ver o painel.
       </EmptyState>
     );
-  const chosen = projects.find((p) => p.id === params.projeto) ?? projects[0];
-  const d = await projectDashboard({ projectId: chosen.id, days: params.dias });
+  // M-139: sem ?projeto= (ou com um que não existe) é "Todos"
+  const chosen = projects.find((p) => p.id === params.projeto);
+  const d = await projectDashboard(actor, { projectId: chosen?.id, days: params.dias });
   return (
     <main className="flex flex-col gap-5 p-4 md:p-6">
       <DashboardFilters
         projects={projects.map((p) => ({ value: p.id, label: `${p.code} · ${p.name}` }))}
-        projectId={chosen.id}
+        projectId={chosen?.id ?? ""}
         days={d.days}
       />
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -87,6 +88,12 @@ async function Dashboard({ searchParams }: PageProps<"/painel">) {
           title="Abertas por Unidade Móvel"
           rows={d.byUnit.map((u) => ({ name: u.code, n: u.n }))}
         />
+        {!chosen && (
+          <Bars
+            title="Abertas por Projeto/Cliente"
+            rows={d.byProject.map((p) => ({ name: p.code, n: p.n }))}
+          />
+        )}
       </div>
     </main>
   );

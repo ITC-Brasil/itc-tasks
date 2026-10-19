@@ -27,7 +27,7 @@ export type MilestoneInput = z.input<typeof milestoneSchema>;
 
 export const DASHBOARD_DAYS = [7, 30, 90] as const;
 export const dashboardQuerySchema = z.object({
-  projectId: z.uuid(),
+  projectId: z.uuid().optional(),
   days: z.coerce
     .number()
     .refine((d) => (DASHBOARD_DAYS as readonly number[]).includes(d))
