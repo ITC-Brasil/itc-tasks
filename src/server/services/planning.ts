@@ -21,6 +21,7 @@ import {
   milestoneSchema,
 } from "@/lib/validation/planning";
 import type { Actor } from "@/server/actor";
+import { listProjects } from "./catalog";
 import { TaskError, lockTask, record } from "./tasks";
 
 // ADR-053: admin e member planejam; nada é excluído (ciclo encerra, marco conclui)
@@ -293,22 +294,25 @@ export async function milestonesDue(from: string, to: string) {
 
 const WEEKS = 12;
 
-export async function projectDashboard(input: { projectId: string; days?: unknown }) {
+export async function projectDashboard(
+  actor: Actor,
+  input: { projectId?: string; days?: unknown },
+) {
   const { projectId, days } = dashboardQuerySchema.parse(input);
   const today = todayISO();
+  // M-139: sem projectId, o escopo são os projetos que o ator vê; IN conta cada tarefa uma vez
+  const scope = projectId ? [projectId] : (await listProjects(actor)).map((p) => p.id);
+  const inScope = inArray(taskProjects.projectId, scope);
   const inProject = inArray(
     tasks.id,
-    db
-      .select({ id: taskProjects.taskId })
-      .from(taskProjects)
-      .where(eq(taskProjects.projectId, projectId)),
+    db.select({ id: taskProjects.taskId }).from(taskProjects).where(inScope),
   );
   const base = and(isNull(tasks.archivedAt), inProject);
   const open = and(base, isNull(tasks.completedAt));
   const since = sql`now() - make_interval(days => ${days})`;
   const doneInPeriod = and(base, sql`${tasks.completedAt} >= ${since}`);
 
-  const [[totals], [period], weekly, byStatus, byUnit] = await Promise.all([
+  const [[totals], [period], weekly, byStatus, byUnit, byProject] = await Promise.all([
     db
       .select({
         open: count(),
@@ -354,6 +358,17 @@ export async function projectDashboard(input: { projectId: string; days?: unknow
       .where(open)
       .groupBy(mobileUnits.code)
       .orderBy(desc(count()), asc(mobileUnits.code)),
+    // aqui a tarefa com dois vínculos entra nas duas barras, de propósito
+    projectId
+      ? []
+      : db
+          .select({ code: projects.code, n: count() })
+          .from(taskProjects)
+          .innerJoin(tasks, eq(tasks.id, taskProjects.taskId))
+          .innerJoin(projects, eq(projects.id, taskProjects.projectId))
+          .where(and(open, inScope))
+          .groupBy(projects.code)
+          .orderBy(desc(count()), asc(projects.code)),
   ]);
 
   // semanas sem conclusão aparecem com zero (segunda-feira de cada semana)
@@ -376,6 +391,7 @@ export async function projectDashboard(input: { projectId: string; days?: unknow
     weeks,
     byStatus,
     byUnit,
+    byProject,
   };
 }
 export type Dashboard = Awaited<ReturnType<typeof projectDashboard>>;
