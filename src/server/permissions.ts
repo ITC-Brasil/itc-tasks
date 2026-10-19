@@ -22,3 +22,18 @@ export function isAdmin(actor: Actor) {
 export function assertAdmin(actor: Actor) {
   if (!isAdmin(actor)) throw new ForbiddenError();
 }
+
+/**
+ * ADR-063: exclui a tarefa o admin ou quem criou (a do agente conta como do dono do token);
+ * criada por automação, importação ou sistema, só o admin. Agente nunca exclui.
+ */
+export function canDeleteTask(
+  actor: Actor,
+  task: { creatorId: string; createdVia: Actor["kind"] },
+) {
+  if (actor.kind !== "user") return false;
+  if (actor.role === "admin") return true;
+  return (
+    task.creatorId === actor.userId && (task.createdVia === "user" || task.createdVia === "agent")
+  );
+}

@@ -1,22 +1,8 @@
-import { expect, test, type Page } from "@playwright/test";
-import { axeBothThemes, login } from "./session";
+import { expect, test } from "@playwright/test";
+import { axeBothThemes, createTask, login } from "./session";
 
 const email = process.env.SEED_ADMIN_EMAIL;
 const password = process.env.SEED_ADMIN_PASSWORD;
-
-async function createTask(page: Page, title: string, project: string) {
-  const dialog = page.getByRole("dialog", { name: "Criar tarefa" });
-  await expect(async () => {
-    await page.keyboard.press("c");
-    await expect(dialog).toBeVisible({ timeout: 1000 });
-  }).toPass();
-  await dialog.getByLabel("Título").fill(title);
-  await dialog.getByLabel("Projeto/Cliente").click();
-  await page.getByRole("option", { name: project }).click();
-  await page.keyboard.press("Escape");
-  await dialog.getByLabel("Título").press("Control+Enter");
-  await expect(dialog).toBeHidden();
-}
 
 test.beforeEach(({ isMobile }) => {
   test.skip(!email || !password, "SEED_ADMIN_* não definidos");

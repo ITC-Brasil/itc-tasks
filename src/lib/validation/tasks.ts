@@ -113,6 +113,8 @@ export const bulkUpdateSchema = z.object({
   patch: updateTaskSchema.pick({ statusId: true, assigneeId: true, priority: true, cycleId: true }),
 });
 
+export const deleteTasksSchema = z.object({ taskIds: z.array(uuid).min(1).max(200) });
+
 export const moveTaskSchema = z.object({
   statusId: uuid,
   afterTaskId: uuid.nullable(), // null = topo da coluna

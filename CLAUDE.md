@@ -28,9 +28,9 @@ Chamado GLPI (opcionais), e agentes operam o app por um servidor MCP embutido em
 
 - **Toda escrita passa por `src/server/services/`** com um `Actor` (`user` | `agent` | `automation` | `system`). Server Actions e ferramentas MCP só validam, chamam o service e mapeiam erros (ADR-003).
 - **Projeto/Cliente é obrigatório** em toda tarefa (pelo menos um; vários em `task_projects`, ADR-045) — no banco (`NOT NULL` no principal), no Zod e no service. Vale para UI e MCP.
-- **Cadastros nunca são excluídos**, só arquivados (`archivedAt`) (ADR-018).
+- **Cadastros nunca são excluídos**, só arquivados (`archivedAt`) (ADR-018). Tarefas podem ser excluídas pelo admin ou por quem criou (ADR-063); agente nunca exclui.
 - **Zod no servidor sempre**, schemas em `src/lib/validation/` (ADR-006).
-- **`task_events` é só-inserção**; toda escrita grava um evento com o `Actor`.
+- **`task_events` é só-inserção**; toda escrita grava um evento com o `Actor`. Única exceção: a exclusão definitiva da tarefa leva os eventos dela, com rastro em `task_deletions` (ADR-063).
 - **Sem SQL cru** fora de `src/db/` e `src/server/services/`.
 - **Migrações só aditivas** (sem `DROP` nem reescrita de dados): não há backup definido (`docs/INFRA.md` §9).
 - **Testes de integração só no banco `itc_tasks_test`.**

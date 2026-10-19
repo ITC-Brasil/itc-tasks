@@ -5,7 +5,7 @@ import { Topbar } from "@/components/layout/topbar";
 import { TaskDetail } from "@/components/tasks/task-detail";
 import { env } from "@/lib/env";
 import { taskNumberSchema } from "@/lib/validation/tasks";
-import { requireActor } from "@/server/actor";
+import { canDeleteTask, requireActor } from "@/server/actor";
 import { getTaskFormOptionsAction } from "@/server/actions/tasks";
 import { listActivity } from "@/server/services/activity";
 import { listAttachments } from "@/server/services/attachments";
@@ -42,6 +42,7 @@ async function Detail({ params }: { params: PageProps<"/tarefas/[number]">["para
         attachments={attachments}
         options={options}
         glpiBaseUrl={env.GLPI_BASE_URL}
+        canDelete={canDeleteTask(actor, task)}
       />
     </>
   );

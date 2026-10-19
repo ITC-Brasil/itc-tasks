@@ -10,16 +10,19 @@ import {
   tableFeatures,
   useTable,
 } from "@tanstack/react-table";
-import { ArrowDown, ArrowUp } from "lucide-react";
+import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { toast } from "sonner";
 import { Avatar } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PRIORITIES, type UpdateTaskInput } from "@/lib/validation/tasks";
 import { type TaskFormOptions, bulkUpdateTasksAction } from "@/server/actions/tasks";
+import { type Actor, canDeleteTask } from "@/server/permissions";
 import type { TaskRow } from "@/server/services/tasks";
+import { DeleteTasksDialog } from "./delete-tasks-dialog";
 import { PriorityIcon, ProjectChip, StatusIcon, priorityLabel } from "./badges";
 import { Pick, optionItems } from "./fields";
 import { DueDate } from "./task-card";
@@ -37,10 +40,12 @@ export function TaskTable({
   tasks,
   options,
   today,
+  viewer,
 }: {
   tasks: TaskRow[];
   options: TaskFormOptions;
   today: string;
+  viewer: Actor;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -131,7 +136,10 @@ export function TaskTable({
   ]);
 
   const table = useTable({ features, columns, data: tasks, getRowId: (t) => t.id });
-  const selected = table.getSelectedRowModel().rows.map((r) => r.original.id);
+  const selectedRows = table.getSelectedRowModel().rows.map((r) => r.original);
+  const selected = selectedRows.map((t) => t.id);
+  // ADR-063: o botão só aparece se a pessoa pode excluir todas as selecionadas
+  const canDelete = selectedRows.every((t) => canDeleteTask(viewer, t));
   const items = optionItems(options);
 
   function bulk(patch: UpdateTaskInput) {
@@ -188,6 +196,21 @@ export function TaskTable({
               onChange={(v) => bulk({ cycleId: v || null })}
             />
           </div>
+          {canDelete && (
+            <DeleteTasksDialog
+              tasks={selectedRows}
+              onDeleted={() => {
+                table.resetRowSelection();
+                router.refresh();
+              }}
+              trigger={
+                <Button variant="secondary" size="sm">
+                  <Trash2 strokeWidth={1.75} aria-hidden="true" />
+                  Excluir
+                </Button>
+              }
+            />
+          )}
         </div>
       )}
       <div className="overflow-x-auto rounded-md border bg-surface">

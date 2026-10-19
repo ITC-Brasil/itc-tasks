@@ -139,6 +139,17 @@ export async function resetMemberPassword(actor: Actor, userId: string, password
   });
 }
 
+// M-119: 5 erros de senha atual por pessoa em 15 min.
+// ponytail: em memória do processo (o app roda num container só); reinício zera a contagem.
+const FAIL_LIMIT = 5;
+const FAIL_WINDOW_MS = 15 * 60_000;
+const failures = new Map<string, number[]>();
+function recentFailures(userId: string, now = Date.now()) {
+  const list = (failures.get(userId) ?? []).filter((t) => now - t < FAIL_WINDOW_MS);
+  failures.set(userId, list);
+  return list;
+}
+
 /**
  * M-117 / ADR-062: cada pessoa troca a própria senha conferindo a atual. Agente não troca.
  * Encerra as outras sessões e mantém `keepSessionId` (a sessão de onde veio o pedido).
@@ -150,14 +161,19 @@ export async function changeOwnPassword(
 ) {
   if (actor.kind !== "user") throw new ForbiddenError();
   const data = changePasswordSchema.parse(input);
+  if (recentFailures(actor.userId).length >= FAIL_LIMIT)
+    throw new MemberError("Muitas tentativas. Tente de novo em 15 minutos");
   const where = and(eq(account.userId, actor.userId), eq(account.providerId, "credential"));
   const [row] = await db.select({ password: account.password }).from(account).where(where);
   const ctx = await auth.$context;
   if (
     !row?.password ||
     !(await ctx.password.verify({ hash: row.password, password: data.current }))
-  )
+  ) {
+    recentFailures(actor.userId).push(Date.now());
     throw new MemberError("Senha atual incorreta");
+  }
+  failures.delete(actor.userId);
   const hashed = await ctx.password.hash(data.next);
   await db.transaction(async (tx) => {
     await tx.update(account).set({ password: hashed, updatedAt: new Date() }).where(where);

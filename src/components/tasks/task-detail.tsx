@@ -28,6 +28,7 @@ import type { listComments } from "@/server/services/comments";
 import type { getTaskByNumber } from "@/server/services/tasks";
 import { GlpiChip, LabelChip, ProjectChip, StatusIcon, UnitChip, glpiUrl } from "./badges";
 import { CommentBody, CommentEditor } from "./comment-editor";
+import { DeleteTasksDialog } from "./delete-tasks-dialog";
 import { DescriptionEditor } from "./description-editor";
 import { type PickItem, Pick, PickMany, optionItems } from "./fields";
 import { Card } from "@/components/ui/card";
@@ -62,6 +63,7 @@ export function TaskDetail({
   attachments,
   options,
   glpiBaseUrl,
+  canDelete,
 }: {
   task: Task;
   comments: Comment[];
@@ -69,7 +71,9 @@ export function TaskDetail({
   attachments: Attachment[];
   options: TaskFormOptions;
   glpiBaseUrl: string;
+  canDelete: boolean;
 }) {
+  const router = useRouter();
   const [, startTransition] = useTransition();
   // UI.md §4: atualização otimista; erro desfaz (fim da transição) e mostra toast
   const [view, apply] = useOptimistic(
@@ -307,6 +311,18 @@ export function TaskDetail({
             </>
           )}
         </p>
+        {canDelete && (
+          <DeleteTasksDialog
+            tasks={[{ id: task.id, number: task.number, title: view.title }]}
+            onDeleted={() => router.push("/tarefas/lista")}
+            trigger={
+              <Button variant="secondary" size="sm" className="self-start">
+                <Trash2 strokeWidth={1.75} aria-hidden="true" />
+                Excluir
+              </Button>
+            }
+          />
+        )}
       </Card>
     </main>
   );
