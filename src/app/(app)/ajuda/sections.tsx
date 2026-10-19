@@ -269,7 +269,11 @@ function CriarTarefa() {
 function Visoes() {
   return (
     <Section id="visoes" n="04" kicker="Visões" title="Kanban, Lista e Calendário">
-      <p>As três mostram as mesmas tarefas com os mesmos filtros. Troque pelas abas no topo.</p>
+      <p>
+        As três mostram as mesmas tarefas com os mesmos filtros. Troque pelas abas no topo ou com{" "}
+        <Kbd>V</Kbd> <Kbd>K</Kbd>, <Kbd>V</Kbd> <Kbd>L</Kbd> e <Kbd>V</Kbd> <Kbd>C</Kbd>; os filtros
+        continuam.
+      </p>
       <h3 className="text-h3">Kanban</h3>
       <p>
         Uma coluna por status. Arraste o card para mudar o status ou a ordem. A coluna Concluído
