@@ -36,5 +36,5 @@ if (process.env.SKIP_ENV_VALIDATION !== "1" && env.NODE_ENV === "production") {
   if (problems.length) throw new Error(`Configuração insegura: ${problems.join("; ")}`);
 }
 
-// ADR-065: endereço do MCP mostrado na ajuda e em Agentes e MCP
-export const MCP_URL = new URL("/mcp", env.BETTER_AUTH_URL).href;
+// ADR-065: endereço do MCP mostrado na ajuda e em Agentes e MCP; lido na requisição (o build roda sem env)
+export const mcpUrl = () => new URL("/mcp", env.BETTER_AUTH_URL).href;

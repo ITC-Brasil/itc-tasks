@@ -11,7 +11,7 @@ import {
 } from "@/components/tasks/badges";
 import { TaskCard } from "@/components/tasks/task-card";
 import { Card } from "@/components/ui/card";
-import { MCP_URL, env } from "@/lib/env";
+import { env, mcpUrl } from "@/lib/env";
 import type { TaskRow } from "@/server/services/tasks";
 import { CodeBlock } from "./code-block";
 
@@ -490,7 +490,7 @@ const TOOLS: [string, string, string][] = [
 ];
 
 function Mcp() {
-  const url = MCP_URL;
+  const url = mcpUrl();
   const json = `{\n  "mcpServers": {\n    "itc-tasks": {\n      "type": "http",\n      "url": "${url}",\n      "headers": { "Authorization": "Bearer itct_SEU_TOKEN" }\n    }\n  }\n}`;
   return (
     <Section id="mcp" n="10" kicker="Agentes e MCP" title="Integrar o Claude e outros agentes">

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { relativeTime } from "@/lib/dates";
-import { MCP_URL } from "@/lib/env";
+import { mcpUrl } from "@/lib/env";
 import { isAdmin } from "@/server/actor";
 import { listAgentActivity, listAgentKeys } from "@/server/services/agents";
 import { listMembers } from "@/server/services/members";
@@ -20,11 +20,11 @@ const ACTIONS: Record<string, string> = {
   checklist_changed: "mexeu na checklist de",
 };
 
-const MCP_CONFIG = `{
+const mcpConfig = () => `{
   "mcpServers": {
     "itc-tasks": {
       "type": "http",
-      "url": "${MCP_URL}",
+      "url": "${mcpUrl()}",
       "headers": { "Authorization": "Bearer itct_SEU_TOKEN" }
     }
   }
@@ -88,7 +88,7 @@ export default function AgentsPage() {
                     No cliente MCP (Claude Code, Claude Desktop, Cowork), use o endereço e o token:
                   </p>
                   <Card as="pre" padding="md" className="overflow-x-auto text-xs">
-                    {MCP_CONFIG}
+                    {mcpConfig()}
                   </Card>
                   <Link href="/ajuda#mcp" className="text-sm text-accent-text hover:underline">
                     Como conectar um agente

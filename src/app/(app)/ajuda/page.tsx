@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import { Topbar } from "@/components/layout/topbar";
 import { SECTIONS } from "./sections";
 
 export const metadata: Metadata = { title: "Ajuda · ITC Tasks" };
 
 // ADR-065: manual de uso para qualquer papel logado; o (app)/layout já exige a sessão
-export default function HelpPage() {
+export default async function HelpPage() {
+  await connection(); // endereço do MCP e base do GLPI vêm do env de produção, não do build
   return (
     <>
       <Topbar title="Ajuda" />
