@@ -1,4 +1,4 @@
-FROM node:24.22.0-alpine AS deps
+FROM node:24.22.0-alpine@sha256:44fce696f38ba8c987c4db89954051000bbd05ffd8d8659ba15ed4a8602e937f AS deps
 WORKDIR /app
 COPY package.json package-lock.json .npmrc ./
 RUN npm ci
@@ -8,7 +8,7 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1 SKIP_ENV_VALIDATION=1
 RUN npm run build && npm run worker:build && npm run import:build
 
-FROM node:24.22.0-alpine AS runner
+FROM node:24.22.0-alpine@sha256:44fce696f38ba8c987c4db89954051000bbd05ffd8d8659ba15ed4a8602e937f AS runner
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
 RUN addgroup -S app && adduser -S app -G app && mkdir -p /data/uploads && chown app:app /data/uploads
