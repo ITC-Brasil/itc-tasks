@@ -72,3 +72,19 @@ atualizados).
   menu; axe nos dois temas na tabela e nos diálogos; `scrollWidth <= clientWidth` da região em
   1280 px; menu da linha "(você)"). Axe com o menu aberto acusa `region` (o portal do Base UI fica
   fora dos landmarks), por isso roda antes de abrir o menu.
+
+## Item 4 — Cache de telas do service worker e sessão expirada (A20, #33, M-127)
+
+- **Por quê:** o `pages-v1` guardava o HTML autenticado de cada tela e só saía no "Sair". Com a
+  sessão expirada, quem abrisse o app offline no mesmo aparelho via as telas da pessoa anterior.
+- **Decisão:** ADR-064 (altera o ADR-054). Em `public/sw.js`: navegação com 401 ou redirect
+  (`opaqueredirect`, todo redirect do app vai ao `/login`) apaga os caches `pages-*`; cada cópia
+  leva `x-sw-cached-at`, e o fallback offline apaga e ignora tela com mais de 7 dias (validade
+  padrão da sessão do Better Auth); `CACHE_VERSION` `v2`. O login com sucesso também chama
+  `clearPageCache` (`login-form.tsx`), para a troca de pessoa sem "Sair".
+- **Testes:** `tests/e2e/sw-cache.spec.ts` (offline abre do cache; cookie apagado, online → `/login`
+  e cache vazio; tela com data de 8 dias, offline → "Sem conexão" com axe; "Sair" limpa, só no
+  desktop e com sessão própria, para não derrubar a do `storageState`).
+- **Observação:** a página aberta do cache offline não mostra a faixa "Sem conexão — mostrando a
+  última versão salva" logo de início; o `mobile.spec.ts` cobre a faixa quando a rede cai com a
+  tela aberta. Não mudou com este item.

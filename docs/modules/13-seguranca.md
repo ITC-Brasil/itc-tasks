@@ -106,8 +106,8 @@ criadas na hora.
 - A17, exigência de SHA nas Actions: é configuração do repositório no GitHub e fica com o Matheus.
   As actions já estão fixadas por SHA.
 - A19, chave `jwks`: decisão M-104 mantida.
-- A20, cache do service worker depois de a sessão expirar: precisa de mudança no `sw.js` e no
-  fluxo de sessão; não é pequena.
+- A20 (#33), cache do service worker depois de a sessão expirar: corrigido depois, no Módulo 14
+  (ADR-064, `docs/modules/14-ajustes.md` item 4).
 - A21: o lookahead do `proxy.ts` não muda, porque mexer no `matcher` traz risco sem ganho (as
   páginas revalidam a sessão). O `version` do `/api/health` também fica: é documentado (API.md
   §6) e serve para conferir o deploy.

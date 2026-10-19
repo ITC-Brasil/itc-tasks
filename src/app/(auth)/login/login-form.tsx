@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { clearPageCache } from "@/components/layout/pwa";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { authClient } from "@/lib/auth-client";
@@ -31,6 +32,8 @@ export function LoginForm() {
       );
       return;
     }
+    // ADR-064: sem "Sair" antes (sessão expirada), as telas guardadas são de outra pessoa
+    await clearPageCache().catch(() => {});
     router.replace("/");
     router.refresh();
   }
