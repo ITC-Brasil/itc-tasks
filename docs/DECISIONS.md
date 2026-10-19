@@ -1709,3 +1709,149 @@ No escuro, tudo que usa `err` fica um pouco mais claro e quente:
 
 Sobre `bg-muted` (`#2a302e`), o `err` novo dá 4,30:1: hoje nenhum texto de erro fica nesse fundo.
 Se um dia ficar, é preciso conferir de novo.
+
+## ADR-058 — Superfície HTTP do Better Auth por lista de permissão (Módulo 13)
+
+**Status:** Accepted
+**Date:** 2026-10-19
+**Module:** 13 — Auditoria de segurança (issues #18 e #27, achados A01 e A15)
+
+**Context**
+`src/app/api/auth/[...all]/route.ts` expõe todos os endpoints do Better Auth e dos plugins
+`admin` e `apiKey`. Três deles contornam regras dos services:
+- `POST /api/auth/api-key/update` deixa o dono gravar `enabled: true`, e isso reativa um token
+  que o admin revogou (ADR-049);
+- `/api-key/delete` apaga a linha;
+- `/update-user` e `/admin/*` (`remove-user`, `set-role`, `impersonate-user`,
+  `set-user-password`) não respeitam o ADR-018, o `assertNotSelf` nem o limite do nome, e não
+  gravam evento.
+
+A UI chama pelo cliente só `signIn.email` e `signOut`. Todo o resto passa pelos services, que usam
+`auth.api.*` direto, sem passar pela rota HTTP.
+
+**Decision**
+- O `route.ts` responde 404 a qualquer caminho fora da lista `/sign-in/email`, `/sign-out` e
+  `/get-session`. A lista fica no próprio arquivo, com um comentário que remete a este ADR.
+- Endpoint novo de plugin começa fechado. Para abrir um, é preciso mudar a lista, com ADR.
+
+**Alternatives considered**
+- **`disabledPaths` do Better Auth (lista de bloqueio):** descartada. Cada plugin novo, ou cada
+  atualização que traga endpoint novo, nasce aberto.
+- **Coluna própria de revogação conferida no `agentFromKey`:** resolve só o A01 e pede migração.
+  O `/admin/*` e o `/update-user` continuariam abertos.
+
+**Consequences**
+- O cliente não acessa mais `authClient.admin.*`, `authClient.apiKey.*` nem `updateUser`. Ninguém
+  usava.
+- Rotas OAuth, magic link e semelhantes, se um dia entrarem, precisam ser adicionadas à lista.
+- O teste de integração confere 404 em `/api-key/update` e 200 no fluxo de login.
+
+## ADR-059 — Cabeçalhos de segurança estáticos no `next.config.ts` (Módulo 13)
+
+**Status:** Accepted
+**Date:** 2026-10-19
+**Module:** 13 — Auditoria de segurança (issue #19, achados A02 e A08)
+
+**Context**
+O app não envia nenhum cabeçalho de segurança. A `docs/ARCHITECTURE.md:117` dizia que enviava. O
+Next 16 com `cacheComponents` e `partialPrefetching` entrega cascas estáticas e scripts inline de
+hidratação. A CSP com nonce exige renderização dinâmica de toda página, pelo `proxy.ts`.
+
+**Decision**
+`headers()` em `next.config.ts`, para `/:path*`:
+- `Content-Security-Policy`:
+  - `default-src 'self'`;
+  - `script-src 'self' 'unsafe-inline'`, mais `'unsafe-eval'` só em desenvolvimento;
+  - `style-src 'self' 'unsafe-inline'`, porque o Tiptap, o Recharts e o next-themes usam estilo
+    inline;
+  - `img-src 'self' data: blob:`, `font-src 'self'` e `connect-src 'self'` (SSE e Server Actions);
+  - `worker-src 'self'` e `manifest-src 'self'`;
+  - `object-src 'none'`, `base-uri 'self'`, `form-action 'self'` e `frame-ancestors 'none'`.
+- `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff` e
+  `Referrer-Policy: strict-origin-when-cross-origin`.
+- `Cross-Origin-Opener-Policy: same-origin`. Uma aba aberta para outro site fica sem
+  `window.opener`, e isso fecha o reverse tabnabbing do editor (A08) sem mudar o clique no link.
+- `Permissions-Policy: camera=(), microphone=(), geolocation=()`.
+- `Strict-Transport-Security: max-age=31536000`, só em produção (o dev é http).
+
+**Alternatives considered**
+- **CSP com nonce pelo `proxy.ts`:** descartada por agora. Ela força renderização dinâmica,
+  desliga o cache de cascas (`cacheComponents`) e o cache de telas do service worker (ADR-054).
+  Fica como evolução: com nonce, o `'unsafe-inline'` sai do `script-src`.
+- **Cabeçalhos no Cloudflare (Transform Rules):** descartada. Ficariam fora do repositório, sem
+  revisão nem teste, e não valeriam no dev nem no E2E.
+- **`openOnClick: false` no Link do Tiptap, para o A08:** descartada. Muda o comportamento visível
+  do editor, e o COOP resolve sem essa mudança.
+
+**Consequences**
+- O `'unsafe-inline'` em `script-src` não bloqueia um XSS que injete script inline. A CSP vale
+  sobretudo por `frame-ancestors`, `object-src`, `base-uri`, `form-action` e `connect-src`, que
+  impede mandar dados para fora.
+- Integração nova com outro domínio (fonte, CDN, analytics) exige ajustar a CSP.
+- O E2E completo roda com os cabeçalhos ligados.
+
+## ADR-060 — Web Push só para hosts de push service conhecidos (Módulo 13)
+
+**Status:** Accepted
+**Date:** 2026-10-19
+**Module:** 13 — Auditoria de segurança (issue #23, achados A05 e A16)
+
+**Context**
+O `pushSubscriptionSchema` aceita qualquer `https://`. O worker e o `/api/push/test` fazem POST a
+esses endereços a partir do `glpi-srv`. Isso é SSRF cego, com a resposta 2xx servindo de oráculo.
+Não há limite de assinaturas por pessoa. O upsert por `endpoint` também troca o dono da assinatura.
+
+**Decision**
+- O host do endpoint tem de ser `fcm.googleapis.com` (Chrome, Edge Android), `web.push.apple.com`
+  (Safari, iOS), `*.push.services.mozilla.com` (Firefox) ou `*.notify.windows.com` (Edge
+  Windows). A checagem é feita no Zod, com `new URL().hostname`.
+- No máximo 10 assinaturas por pessoa. Uma inscrição nova acima do limite apaga a mais antiga da
+  mesma pessoa, em vez de recusar. Assim, quem troca muito de navegador não fica sem push.
+- Se o `endpoint` já pertence a outra pessoa, a assinatura não muda de dono (409).
+- O `/api/push/test` aceita no máximo 5 envios por minuto por pessoa, com contador em memória
+  (uma réplica, como o rate limit do Better Auth). Acima disso, responde 429.
+
+**Alternatives considered**
+- **Bloquear IPs privados resolvendo o DNS antes do POST:** descartada. Fica sujeito a DNS
+  rebinding e a IPv6 mapeado, e dá mais código do que uma lista de 4 domínios estáveis.
+- **Recusar acima do limite:** descartada. A pessoa teria de limpar assinaturas antigas, e não há
+  tela para isso.
+
+**Consequences**
+- Navegador com push service fora da lista não consegue se inscrever, e a tela mostra o erro de
+  assinatura inválida. Os 4 domínios cobrem Chrome, Edge, Firefox e Safari.
+- Assinatura antiga com outro host continua no banco e falha em silêncio, como uma expirada.
+  Hoje não existe nenhuma assim.
+
+## ADR-061 — Documento Tiptap normalizado no servidor (Módulo 13)
+
+**Status:** Accepted
+**Date:** 2026-10-19
+**Module:** 13 — Auditoria de segurança (issue #20, achado A09)
+
+**Context**
+`descriptionJson` e `commentBodySchema` aceitam qualquer objeto com `type: "doc"` (`.loose()`).
+Se a Server Action for chamada direto, ela aceita uma marca `link` com `class`, `target` e `rel`
+arbitrários, por exemplo um overlay de tela inteira com classes Tailwind. Aceita também uma menção
+com `label` que não bate com a pessoa do `id`, e um documento sem limite de tamanho.
+
+**Decision**
+Um `transform` no Zod (`src/lib/validation/tasks.ts`) percorre o documento e:
+- na marca `link`, guarda só `href`; `target`, `rel` e `class` voltam aos padrões do Tiptap no
+  render;
+- remove `class` e `style` dos `attrs` de qualquer nó ou marca;
+- recusa documento com mais de 200 000 caracteres em JSON ou mais de 20 níveis de profundidade.
+
+Os services de comentário e de tarefa regravam o `label` de cada menção com o nome atual da pessoa
+no banco.
+
+**Alternatives considered**
+- **Validar contra o schema do ProseMirror no servidor (`getSchema(StarterKit)` +
+  `Node.fromJSON`):** descartada. O servidor passaria a carregar o Tiptap. O `fromJSON` também
+  aceita os `attrs` declarados pela extensão, e `class`/`rel` estão entre eles.
+- **Sanitizar só no render:** descartada. O JSON gravado continuaria sujo, e o MCP o devolve aos
+  agentes.
+
+**Consequences**
+- O link colado mantém `href`. O `target="_blank"` e o `rel` vêm dos padrões do Link.
+- O nome da pessoa mencionada passa a refletir o banco na hora da gravação.

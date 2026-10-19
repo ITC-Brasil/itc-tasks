@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   apikey,
@@ -86,12 +86,24 @@ export async function listAgentKeys(actor: Actor) {
   }));
 }
 
+export const MAX_ACTIVE_AGENT_KEYS = 10;
+
 /** Cria o token; o segredo volta só aqui, uma vez. */
 export async function createAgentKey(actor: Actor, input: unknown) {
   const self = ownerOf(actor);
   const data = createAgentKeySchema.parse(input);
   const userId = data.userId ?? self;
   if (userId !== self && !isAdmin(actor)) throw new ForbiddenError();
+  // o limite de 60/min é por token (ADR-009): sem teto, mais tokens = mais vazão (issue #25)
+  const [{ active }] = await db
+    .select({ active: count() })
+    .from(apikey)
+    .where(and(eq(apikey.referenceId, userId), eq(apikey.enabled, true)));
+  if (active >= MAX_ACTIVE_AGENT_KEYS)
+    throw new TaskError(
+      "VALIDATION",
+      `Limite de ${MAX_ACTIVE_AGENT_KEYS} tokens ativos; revogue um antes`,
+    );
   const created = await auth.api.createApiKey({
     body: {
       name: data.name,

@@ -13,3 +13,4 @@ Um arquivo por módulo concluído (`NN-nome.md`), no formato da skill project-do
 | 06 | Comentários, histórico, anexos e busca | [06-comentarios-busca.md](06-comentarios-busca.md) |
 | 08 | Notificações | [08-notificacoes.md](08-notificacoes.md) |
 | 10 | Ciclos, marcos e painel | [10-ciclos-marcos-painel.md](10-ciclos-marcos-painel.md) |
+| 13 | Auditoria de segurança | [13-seguranca.md](13-seguranca.md) |

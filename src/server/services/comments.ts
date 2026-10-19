@@ -3,7 +3,15 @@ import { db } from "@/db";
 import { apikey, comments, user } from "@/db/schema";
 import { commentBodySchema, taskIdSchema } from "@/lib/validation/tasks";
 import { type Actor, ForbiddenError } from "@/server/permissions";
-import { TaskError, creatorFor, docText, lockTask, mentionIds, record } from "./tasks";
+import {
+  TaskError,
+  creatorFor,
+  docText,
+  lockTask,
+  mentionIds,
+  record,
+  relabelMentions,
+} from "./tasks";
 
 export { mentionIds };
 
@@ -16,7 +24,7 @@ function author(actor: Actor) {
 }
 
 async function parse(input: unknown) {
-  const bodyJson = commentBodySchema.parse(input);
+  const bodyJson = await relabelMentions(db, commentBodySchema.parse(input));
   const bodyText = docText(bodyJson);
   if (!bodyText) throw new TaskError("VALIDATION", "Escreva o comentário");
   if (bodyText.length > 10_000) throw new TaskError("VALIDATION", "Comentário muito longo");

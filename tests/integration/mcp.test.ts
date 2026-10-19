@@ -5,7 +5,12 @@ import { comments, taskEvents, tasks } from "@/db/schema";
 import { PROJECT_REQUIRED } from "@/lib/validation/tasks";
 import type { Actor } from "@/server/actor";
 import { POST } from "@/app/mcp/route";
-import { createAgentKey, listAgentKeys, revokeAgentKey } from "@/server/services/agents";
+import {
+  MAX_ACTIVE_AGENT_KEYS,
+  createAgentKey,
+  listAgentKeys,
+  revokeAgentKey,
+} from "@/server/services/agents";
 import { createMobileUnit, createProject } from "@/server/services/catalog";
 import { createMember } from "@/server/services/members";
 import { createCycle } from "@/server/services/planning";
@@ -260,4 +265,34 @@ it("token só-leitura não lista ferramentas de escrita (M-044)", async () => {
     "list_tasks",
   ]);
   expect(await list(writeKey)).toContain("create_task");
+});
+
+it("issue #25: recusa lote JSON-RPC e limita tokens ativos por pessoa", async () => {
+  const msg = (id: number) => ({ jsonrpc: "2.0", id, method: "tools/list" });
+  const res = await POST(
+    new Request("http://localhost/mcp", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        accept: "application/json, text/event-stream",
+        authorization: `Bearer ${readKey}`,
+      },
+      body: JSON.stringify([msg(1), msg(2), msg(3)]),
+    }),
+  );
+  expect(res.status).toBe(400);
+
+  const u = await createMember(system, {
+    name: "Muitos Tokens",
+    email: `tokens-${run}@t.test`,
+    role: "member",
+    password: "senha-de-teste-123",
+  });
+  const owner: Actor = { kind: "user", userId: u.id, role: "member" };
+  const keys = [];
+  for (let i = 0; i < MAX_ACTIVE_AGENT_KEYS; i++)
+    keys.push(await createAgentKey(owner, { name: `t${i}`, access: "read" }));
+  await expect(createAgentKey(owner, { name: "extra", access: "read" })).rejects.toThrow(/Limite/);
+  await revokeAgentKey(owner, keys[0].id);
+  await expect(createAgentKey(owner, { name: "extra", access: "read" })).resolves.toBeTruthy();
 });
