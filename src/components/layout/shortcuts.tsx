@@ -1,18 +1,17 @@
 "use client";
 
-import { useEffect } from "react";
+import Link from "next/link";
+import { useEffect, useRef } from "react";
+import { SHORTCUTS } from "./shortcut-list";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-// UI.md §5. Cada módulo acrescenta aqui os atalhos que passa a atender.
-export const SHORTCUTS: { keys: string[]; label: string }[] = [
-  { keys: ["⌘", "K"], label: "Busca e comandos" },
-  { keys: ["C"], label: "Criar tarefa" },
-  { keys: ["⌘", "↵"], label: "Enviar (criar)" },
-  { keys: ["G", "C"], label: "Ir para o ciclo atual" },
-  { keys: ["["], label: "Recolher/expandir menu" },
-  { keys: ["?"], label: "Mostrar atalhos" },
-  { keys: ["Esc"], label: "Fechar modal/painel" },
-];
+export function Kbd({ children }: { children: React.ReactNode }) {
+  return (
+    <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded-sm border bg-base px-1 text-[11px] font-medium text-muted tabular-nums">
+      {children}
+    </kbd>
+  );
+}
 
 function isTyping(target: EventTarget | null) {
   const el = target as HTMLElement | null;
@@ -34,25 +33,31 @@ export function useShortcut(key: string, handler: () => void) {
 }
 
 /**
- * Sequência `G` + tecla (UI.md §5). Escuta na captura e para a propagação, para a segunda tecla não
+ * Sequência `G` + tecla (ou outro `prefix`, ex.: `V`; UI.md §5). `handler` nulo desliga o atalho. Escuta na captura e para a propagação, para a segunda tecla não
  * disparar também o atalho de uma tecla (ex.: `C` = criar).
  */
-export function useGoTo(key: string, handler: () => void) {
+export function useGoTo(key: string, handler: (() => void) | null, prefix = "g") {
+  const ref = useRef(handler);
   useEffect(() => {
+    ref.current = handler;
+  });
+  const enabled = !!handler;
+  useEffect(() => {
+    if (!enabled) return;
     let gAt = 0;
     function onKeyDown(e: KeyboardEvent) {
       if (e.ctrlKey || e.metaKey || e.altKey || e.repeat || isTyping(e.target)) return;
-      if (e.key === "g") gAt = Date.now();
+      if (e.key === prefix) gAt = Date.now();
       else if (e.key === key && Date.now() - gAt < 1000) {
         gAt = 0;
         e.preventDefault();
         e.stopImmediatePropagation();
-        handler();
+        ref.current?.();
       }
     }
     window.addEventListener("keydown", onKeyDown, { capture: true });
     return () => window.removeEventListener("keydown", onKeyDown, { capture: true });
-  }, [key, handler]);
+  }, [key, enabled, prefix]);
 }
 
 export function ShortcutsDialog({
@@ -74,17 +79,19 @@ export function ShortcutsDialog({
               <dt>{s.label}</dt>
               <dd className="flex gap-1">
                 {s.keys.map((k) => (
-                  <kbd
-                    key={k}
-                    className="inline-flex h-5 min-w-5 items-center justify-center rounded-sm border bg-base px-1 text-[11px] font-medium text-muted tabular-nums"
-                  >
-                    {k}
-                  </kbd>
+                  <Kbd key={k}>{k}</Kbd>
                 ))}
               </dd>
             </div>
           ))}
         </dl>
+        <Link
+          href="/ajuda#atalhos"
+          onClick={() => onOpenChange(false)}
+          className="text-sm text-accent-text hover:underline"
+        >
+          Manual completo
+        </Link>
       </DialogContent>
     </Dialog>
   );

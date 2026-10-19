@@ -1,6 +1,6 @@
 "use client";
 
-import { Keyboard, LogOut, Moon, Sun } from "lucide-react";
+import { CircleHelp, Keyboard, LogOut, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
 import {
@@ -66,6 +66,10 @@ export function UserMenu({
         <DropdownMenuItem onClick={onShowShortcuts}>
           <Keyboard />
           Atalhos de teclado
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => router.push("/ajuda")}>
+          <CircleHelp />
+          Ajuda
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={signOut}>

@@ -77,15 +77,16 @@ Empty states com texto definido:
 | `G` `T` | Ir para Tarefas |
 | `G` `C` | Ir para o ciclo atual |
 | `G` `N` | Ir para Notificações |
-| `V` `K` / `V` `L` / `V` `C` | Visão Kanban / Lista / Calendário |
-| `J` / `K` | Próxima / anterior na lista |
-| `Enter` | Abrir selecionada |
-| `X` | Selecionar na lista |
+| `V` `K` / `V` `L` / `V` `C` | Visão Kanban / Lista / Calendário (só em Tarefas; mantém os filtros da URL) |
 | `⌘↵` | Enviar (criar, comentar) |
 | `Esc` | Fechar modal/painel |
 | `?` | Mostrar atalhos |
 
 Atalhos de uma tecla não disparam com foco em campo de texto.
+
+Todos estão em `src/components/layout/shortcut-list.ts`, a fonte do diálogo `?` e da `/ajuda#atalhos`.
+
+A navegação pela lista por teclado (`J`/`K`, `Enter`, `X`) ficou fora por decisão de 19/10/2026 (foco de linha ativa e acessibilidade); pode voltar como item próprio.
 
 ## 6. Layout e responsivo
 
@@ -129,3 +130,9 @@ Atalhos de uma tecla não disparam com foco em campo de texto.
 - Splash iOS: tags de `docs/brand/head.html` no `<head>` do layout raiz.
 - Prompt de instalação: banner discreto na primeira visita pelo celular; no iOS, instrução "Compartilhar › Adicionar à Tela de Início". "Agora não" não volta naquele aparelho.
 - Service worker `public/sw.js` (ADR-054): guarda a última versão vista de cada tela; Sair apaga as telas guardadas.
+
+## 11. Ajuda
+
+- `/ajuda` (ADR-065), para qualquer papel logado: manual em 13 seções com âncoras estáveis (`primeiro-acesso`, `tela-principal`, `criar-tarefa`, `visoes`, `detalhe`, `busca`, `planejamento`, `notificacoes`, `templates-automacoes`, `mcp` com `mcp-claude-code`, `mcp-claude-desktop` e `mcp-hermes`, `celular`, `atalhos`, `papeis`).
+- Ilustrações só com componentes do Design System e dados fixos; sem capturas de tela.
+- Pontos de entrada: "Ajuda" no menu do usuário (e no "Mais" do celular), "Abrir ajuda" no ⌘K, "Manual completo" no diálogo de atalhos, "Como conectar um agente" em Agentes e MCP.

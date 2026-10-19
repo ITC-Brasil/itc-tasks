@@ -1,7 +1,7 @@
 "use client";
 
 import { Command } from "cmdk";
-import { CalendarDays, List, Plus } from "lucide-react";
+import { CalendarDays, CircleHelp, List, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { StatusIcon } from "@/components/tasks/badges";
@@ -19,6 +19,7 @@ const GROUP =
 const EXTRA: NavItem[] = [
   { href: "/tarefas/lista", label: "Lista de tarefas", icon: List },
   { href: "/tarefas/calendario", label: "Calendário", icon: CalendarDays },
+  { href: "/ajuda", label: "Abrir ajuda", icon: CircleHelp },
 ];
 
 /** ⌘K / Ctrl K (UI.md §5): tarefas por título, TI-, #GLPI e UM; telas; criar tarefa. */

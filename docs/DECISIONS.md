@@ -1967,3 +1967,46 @@ o `/login`, sem apagar o que já estava salvo. A sessão do Better Auth usa o pa
 - Se a validade da sessão mudar no `auth.ts`, o `MAX_AGE` do `public/sw.js` precisa acompanhar.
 - O prazo conta da última gravação da tela, não do último uso da sessão; com sessão renovada, a
   tela é regravada a cada abertura online.
+
+## ADR-065 — Página de ajuda `/ajuda` em TSX, ilustrada com os componentes reais (Módulo 14)
+
+**Status:** Accepted
+**Date:** 2026-10-19
+**Module:** 14 — Ajustes pós-auditoria (item 5, M-131)
+
+**Context**
+O manual de uso aprovado no Claude Design (artboard "Manual do ITC Tasks") precisa virar uma página
+do app, consultada logada e no tema de cada pessoa. O manual usa capturas das telas de 17/10, que já
+divergem do código (exclusão, senha, atalhos, barra inferior).
+
+**Decision**
+- Rota `/ajuda` no grupo `(app)`: qualquer papel logado (admin e member), sem rota pública.
+- Conteúdo em TSX versionado com o código, em `src/app/(app)/ajuda/`, uma seção por componente em
+  `sections/`. **Sem dependência nova** (sem MDX).
+- **Sem capturas de tela.** As ilustrações usam os componentes do Design System (StatusIcon,
+  PriorityIcon, ProjectChip, UnitChip, GlpiChip, TaskCard, Card, `kbd`) com dados de exemplo fixos;
+  nada vem do banco. Quando a interface muda, a ajuda muda junto.
+- 13 seções com `id` estável para âncora (`primeiro-acesso` … `papeis`); sumário com âncoras em
+  coluna à esquerda a partir de 1024 px e em lista no topo abaixo disso.
+- O endereço do MCP vem de `BETTER_AUTH_URL` (`${BETTER_AUTH_URL}/mcp`), não fixo; a tela de Agentes
+  e MCP passa a usar o mesmo valor. O token aparece só como o marcador `itct_SEU_TOKEN`.
+- Os clientes MCP (Claude Code, Claude Desktop, Hermes Agent) saem de uma lista de dados; cliente
+  novo é mais um item, com âncora `mcp-<id>`.
+- A tabela de atalhos da ajuda mostra só os atalhos implementados (`SHORTCUTS` de `shortcuts.tsx`),
+  sem reabrir o UI.md §5.
+- Pontos de entrada: "Ajuda" no menu do usuário (que também é o "Mais" do celular), "Abrir ajuda" no
+  ⌘K, "Manual completo" no diálogo de atalhos (`/ajuda#atalhos`) e "Como conectar um agente" em
+  Agentes e MCP (`/ajuda#mcp`).
+- Fora do escopo: busca dentro da ajuda e "?" contextual nas telas.
+
+**Alternatives considered**
+- **MDX:** descartada. Dependência e configuração novas para 13 seções que precisam de componentes
+  React de qualquer jeito.
+- **Capturas de tela:** descartada. Envelhecem a cada mudança de interface e não seguem o tema.
+- **Rota pública:** descartada. A ajuda descreve telas internas e não precisa estar fora do login.
+- **Embutir o artifact do Design:** descartada. Fica fora do tema e do controle de versão do app.
+
+**Consequences**
+- Texto da ajuda muda junto com a funcionalidade, no mesmo PR; a ajuda pode ficar desatualizada se
+  ninguém lembrar dela, como qualquer documentação.
+- Atalho novo entra em `SHORTCUTS` e aparece sozinho no diálogo e na ajuda.
