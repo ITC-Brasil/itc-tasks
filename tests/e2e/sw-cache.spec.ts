@@ -30,7 +30,7 @@ test("offline abre do cache a tela já vista", async ({ page, context }) => {
   await cached(page);
   await context.setOffline(true);
   await page.goto("/tarefas");
-  await expect(page.getByRole("navigation", { name: "Navegação principal" })).toBeVisible();
+  await expect(page.getByRole("main")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Sem conexão" })).toBeHidden();
   await context.setOffline(false);
 });
@@ -80,7 +80,10 @@ test("Sair limpa o cache de telas", async ({ browser, isMobile }) => {
   await page.getByRole("button", { name: "Entrar" }).click();
   await page.waitForURL("/");
   await cached(page);
-  await page.getByRole("button", { name: /Abrir menu|conta|Admin/i }).first().click();
+  await page
+    .getByRole("button", { name: /Abrir menu|conta|Admin/i })
+    .first()
+    .click();
   await page.getByRole("menuitem", { name: "Sair" }).click();
   await page.waitForURL(/\/login/);
   await expect.poll(() => pageKeys(page)).toEqual([]);
