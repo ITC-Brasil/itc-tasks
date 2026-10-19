@@ -70,7 +70,7 @@ acesso físico ou pelo iDRAC.
 
 - **GLPI** e **RustDesk**: 600+ notebooks e todos os clientes apontam para eles. Não mexer. Em 17/10/2026 o GLPI aparece como container (`glpi` em `192.168.88.224:80` e `0.0.0.0:8889`, mais `glpi-db`) — o guia do servidor ainda o descreve fora do Docker; o endereço `http://glpi.grupoitcbrasil.com.br:8888` continua o mesmo (port forward do RB1100). Backup do GLPI: `/usr/local/bin/glpi-backup`, crontab do root às 05:00.
 - **Ollama** no host (porta 11434), Watchtower, Uptime Kuma, Grafana + Prometheus + Node Exporter + cAdvisor, Homepage, n8n, Vaultwarden, ITC NoteScan e outros em `~/docker/`.
-- **Windshift** (`~/docker/windshift`, container em `127.0.0.1:3020`): o sistema que o ITC Tasks substituiu. Desde o go-live (18/10/2026) não tem rota pública; o `tailscale serve` da 3020 o publica só na tailnet, mas o login pelo navegador falha (a checagem de CSRF compara o `Origin` com o `BASE_URL`, fixo em `tasks.itcbr.xyz`). Fica como arquivo morto até a importação ser validada e depois é removido, com aprovação própria (Módulo 12).
+- **Windshift:** o sistema que o ITC Tasks substituiu. **Removido em 19/10/2026** (M-104/M-105): container, imagens, volume `windshift_windshift-data`, pasta `~/docker/windshift`, `tailscale serve` da 3020 e o cliente OIDC `windshift` do Authelia. A porta 3020 está livre. O único registro guardado é o histórico em CSV (§10, item 12).
 
 > O guia do servidor está desatualizado em relação ao `ls ~/docker` de 17/10/2026, que já mostra
 > `authelia`, `beszel`, `dozzle`, `mcp-brasil`, `nocodb`, `outline`, `routemap`, `scriberr`,
@@ -388,7 +388,9 @@ Contexto registrado para quando for retomado:
 9. Backup: não definido (§9) — nenhum passo nesta implantação.
 10. Criar a caixa `tasks@itcbr.xyz` no Titan; conferir SPF/DKIM/DMARC do `itcbr.xyz`; enviar e-mail de teste.
 11. Registrar no projeto *Infraestrutura - ITCBR*: guia (seção 3.x), contexto (serviço, porta 3021, contador) e credenciais.
-12. Windshift: no go-live, a rota pública passou para o ITC Tasks, e ele ficou só na tailnet (`tailscale serve --bg --http 3020 http://127.0.0.1:3020`), sem login pelo navegador (§2.4). A remoção vem depois da importação validada, com aprovação própria.
+12. Windshift: no go-live, a rota pública passou para o ITC Tasks, e ele ficou só na tailnet, sem login pelo navegador. As 15 tarefas abertas foram importadas em 19/10/2026 (`task_imports`) e o Windshift foi removido no mesmo dia (§2.4).
+    - **Registro histórico:** `~/windshift-historico.csv` no `glpi-srv` (600, `glpissh`), com os 29 itens (abertos, concluídos, Epics e o item pessoal). Colunas: chave, id, tipo, título, status, prioridade, responsável, Projetos/Clientes, UMs, Epic, datas em Brasília, `chave_itc_tasks` (o `TI-<n>` novo) e descrição. UTF-8 com BOM, separador `;`. Há uma cópia em `data/windshift/` na pasta local do projeto, fora do Git.
+    - A exportação completa (JSON e cópia do SQLite) e o token da API foram apagados com `shred`. Não há outra cópia dos dados do Windshift.
 
 A primeira implantação foi em 18/10/2026; o registro está em `docs/modules/12-migracao-implantacao.md`.
 
@@ -399,6 +401,7 @@ A primeira implantação foi em 18/10/2026; o registro está em `docs/modules/12
 | Item | Situação |
 |---|---|
 | Backup | Não definido por decisão de 17/10/2026 (§9); retomar depois |
+| Chave de assinatura OIDC (`jwks`) do Authelia | Em 19/10/2026, um fragmento do fim dessa chave privada apareceu na sessão do Claude Code, num `grep` com contexto do `configuration.yml` durante o levantamento do Windshift. A chave inteira não foi exposta e nada foi copiado para arquivo. Decisão do Matheus (M-104): **não rotacionar**. Se o histórico daquela sessão for compartilhado, rever a decisão |
 | DMARC do `itcbr.xyz` | `p=none` (só monitora). SPF inclui o Titan e há DKIM no seletor `titan1`. Mantido por decisão de 18/10/2026; endurecer depois |
 | Se outros projetos devem trocar o token do remote por deploy key | Sugestão; fora do escopo do ITC Tasks |
 | Se os containers em `0.0.0.0` (ex.: `notescan-db:5433`) devem passar para `127.0.0.1` | Sugestão de segurança para o servidor; fora do escopo do ITC Tasks |

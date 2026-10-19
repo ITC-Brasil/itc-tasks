@@ -177,7 +177,7 @@ O `a18ec0a` foi para a `main` antes do módulo, no PR #14 (`c57807b`). O ADR-056
 ## Ficou de fora
 
 - **`apply` em produção:** só depois do merge, com o `--dry-run` revisado pelo Matheus.
-- **Remoção do Windshift:** em mensagem própria, depois da validação da importação.
+- **Remoção do Windshift:** feita em 19/10/2026, depois do módulo (M-104/M-105). Registro em `docs/INFRA.md` §2.4 e §10, item 12.
 - **Monitor no Uptime Kuma:** com o Matheus.
 - **Revogar o token do Windshift** e **tirar o acesso do Claude Code** ao `glpi-srv`
   (`/etc/sudoers.d/claude-code-golive` e a linha `claude-code glpi-srv` do
