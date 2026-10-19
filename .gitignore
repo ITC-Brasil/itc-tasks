@@ -41,3 +41,7 @@ npm-debug.log*
 
 # Uploads locais (UPLOADS_DIR em desenvolvimento)
 data/
+
+# Módulo 13: venv e rasterizações da auditoria
+docs/security-audit/.venv/
+docs/security-audit/_render/
