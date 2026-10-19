@@ -1669,3 +1669,43 @@ e dispararia automações sobre tarefas antigas. Rodar o script duas vezes tamb�
 **Consequences**
 A importação não aparece em Notificações nem dispara regras. Reimportar é seguro. O ID e a
 chave originais ficam no banco e na descrição, para conferência.
+
+## ADR-057 — `--err` do tema escuro em `#e2705f` (complementa o ADR-039)
+
+**Status:** Accepted
+**Date:** 2026-10-19
+**Module:** pós-Módulo 12 (pendência da M-088; decisão do Matheus na M-093)
+
+**Context**
+No escuro, o `--err` `#d75a4a` dá 4,10:1 como texto sobre `bg-surface` (`#1e2422`), abaixo do
+4,5:1 do WCAG AA para texto normal. Isso afeta as mensagens de erro (`text-err`) dos diálogos,
+cujo corpo é `bg-popover` = `bg-surface`. O axe só pegava o problema com um erro na tela, e
+nenhum E2E provocava erro antes de rodar o axe (M-088).
+
+**Decision**
+- No tema escuro, `--err` passa de `#d75a4a` para `#e2705f`; o claro (`#c0392b`) não muda.
+- Contrastes no escuro, de antes para depois:
+  - texto `err` sobre `bg-surface`: 4,10:1 → **5,05:1**;
+  - texto `err` sobre `bg-base` (`#141918`): 4,61:1 → **5,68:1**;
+  - `on-err` (`#141918`) sobre `err` (botão destrutivo, ADR-039): 4,61:1 → **5,68:1**.
+- O `text-muted` do escuro já passa (5,43:1 sobre `bg-surface`, 6,11:1 sobre `bg-base`) e sai da
+  pendência.
+- O E2E roda o axe nos dois temas também com uma mensagem de erro visível (`tests/e2e/members.spec.ts`).
+
+**Alternatives considered**
+- **Separar um token de texto (`err-text`) do de fundo (`err`)**, como o `accent-text` e o
+  `accent-solid`. Descartada: um tom só passa nos dois papéis (texto e fundo com `on-err`), e um
+  token a mais seria um caminho paralelo que os componentes teriam de escolher certo.
+- **Deixar o erro em negrito ou maior:** 4,10:1 só vale para texto grande (≥ 18,66 px em negrito),
+  e a mensagem de erro é texto normal.
+
+**Consequences**
+No escuro, tudo que usa `err` fica um pouco mais claro e quente:
+- mensagens de erro e o `alert` dos formulários;
+- botão destrutivo (`bg-err` com `on-err`);
+- borda e anel de campo inválido (`destructive`) e itens destrutivos de menu;
+- ícone de prioridade "Urgente";
+- relógio de atraso no card e borda de atraso no calendário.
+
+Sobre `bg-muted` (`#2a302e`), o `err` novo dá 4,30:1: hoje nenhum texto de erro fica nesse fundo.
+Se um dia ficar, é preciso conferir de novo.
