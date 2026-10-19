@@ -1887,3 +1887,45 @@ sessões da pessoa exceto a da requisição. O rastro é uma linha no log do ser
 - Qualquer pessoa troca a própria senha sem o admin; as outras sessões (e os SSE abertos, pelo
   `stillSignedIn`) caem na hora.
 - O rastro dura o quanto durar o log do container.
+
+## ADR-063 — Exclusão definitiva de tarefa, com rastro em `task_deletions` (Módulo 14)
+
+**Status:** Accepted
+**Date:** 2026-10-19
+**Module:** 14 — Ajustes pós-auditoria (M-117 item 2)
+
+**Context**
+O Matheus decidiu permitir excluir tarefas de verdade e aceita perder o histórico da tarefa
+excluída. Até aqui só havia arquivamento, e `task_events` era só-inserção sem exceção. Todas as
+FKs para `tasks` já são `ON DELETE CASCADE` (checklist, vínculos, projetos, UMs, etiquetas,
+comentários, eventos, anexos, notificações, `task_imports`); `automation_runs` é `SET NULL`.
+
+**Decision**
+- `deleteTasks(actor, taskIds)` em `src/server/services/tasks.ts`, numa transação, tudo ou nada.
+  Só ator `user`: admin exclui qualquer uma; member só as que criou (`creatorId` = ele e
+  `createdVia` `user` ou `agent`, então a criada pelo agente dele conta como dele). Criada por
+  automação, importação ou sistema: só admin. Agente nunca exclui, e o MCP não tem ferramenta.
+- Antes de apagar, grava uma linha por tarefa na tabela nova `task_deletions` (`number`, `title`,
+  `deleted_by`, `deleted_at`), sem FK para `tasks`. O `DELETE` em `tasks` leva os dependentes
+  pelo cascade, inclusive os eventos dessa tarefa. Esta é a única exceção à regra
+  "`task_events` é só-inserção".
+- Os arquivos dos anexos saem do volume depois do commit (falha em um arquivo só gera log; a
+  linha já não existe).
+- O `pg_notify('task_changed')` sai na mesma transação com `fields: ["deleted"]`. Quem está com a
+  tarefa aberta recarrega e cai no 404. Os jobs pendentes (`fanout`, `evaluate`) já ignoram
+  eventos e tarefas que não existem mais.
+- O número vem da sequência `task_number_seq` e não volta: `TI-<n>` excluído fica sem dono, e
+  `/tarefas/<n>` dá 404.
+
+**Alternatives considered**
+- **Rastro só no log do servidor:** descartada. O log do container some com a rotação e não dá
+  para consultar quem excluiu o quê.
+- **Exclusão lógica (`deletedAt`):** descartada. O Matheus pediu exclusão de verdade, e o
+  arquivamento já cobre o caso de esconder.
+- **Manter `task_events` e trocar a FK para `SET NULL`:** descartada. Exigiria reescrever uma FK,
+  e as migrações são só aditivas.
+
+**Consequences**
+- Excluir não tem volta. Sem backup (INFRA §9), a tarefa só sobrevive na linha de
+  `task_deletions`.
+- Migração `0013_task_deletions`, só aditiva.

@@ -122,3 +122,11 @@ export function declaredSizeStatus(contentLength: string | null): 411 | 413 | nu
   // a folga cobre o envelope multipart
   return Number(contentLength) > MAX_ATTACHMENT_BYTES + 64 * 1024 ? 413 : null;
 }
+
+/** ADR-063: arquivos de tarefas excluídas; a linha já saiu, então falha só vira log. */
+export async function removeStoredFiles(keys: string[]) {
+  for (const key of keys)
+    await unlink(storagePath(key)).catch((error: NodeJS.ErrnoException) => {
+      if (error.code !== "ENOENT") console.error(`[uploads] falha ao apagar ${key}`, error);
+    });
+}

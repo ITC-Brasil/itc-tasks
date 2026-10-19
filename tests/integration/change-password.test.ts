@@ -54,3 +54,20 @@ it("troca, derruba as outras sessões, mantém a atual e a nova senha entra", as
   expect((await signIn(old)).status).toBe(401);
   expect((await signIn("nova-senha-forte-1")).status).toBe(200);
 });
+
+it("depois de 5 erros em 15 min recusa até a senha certa", async () => {
+  const u = await createMember(system, {
+    name: "Limite Senha",
+    email: `limite-${Date.now()}@t.test`,
+    password: old,
+    role: "member",
+  });
+  const who: Actor = { kind: "user", userId: u.id, role: "member" };
+  for (let i = 0; i < 5; i++)
+    await expect(
+      changeOwnPassword(who, input("errada-123456", "nova-senha-forte-1"), "x"),
+    ).rejects.toThrow("Senha atual incorreta");
+  await expect(changeOwnPassword(who, input(old, "nova-senha-forte-1"), "x")).rejects.toThrow(
+    "Muitas tentativas",
+  );
+});

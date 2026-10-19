@@ -1,6 +1,7 @@
 "use client";
 
-import { Plus } from "lucide-react";
+import { KeyRound, MoreHorizontal, Pencil, Plus, Power } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useActionState, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -144,8 +152,16 @@ export function NewMemberDialog() {
   );
 }
 
-function ResetPasswordDialog({ member }: { member: Member }) {
-  const [open, setOpen] = useState(false);
+function ResetPasswordDialog({
+  member,
+  open,
+  onOpenChange,
+}: {
+  member: Member;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const setOpen = onOpenChange;
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -163,7 +179,6 @@ function ResetPasswordDialog({ member }: { member: Member }) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button variant="secondary" />}>Redefinir senha</DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Redefinir senha de {member.name}</DialogTitle>
@@ -199,8 +214,16 @@ function ResetPasswordDialog({ member }: { member: Member }) {
 }
 
 /** M-087: o admin troca o nome de qualquer membro, inclusive o próprio. */
-function RenameDialog({ member }: { member: Member }) {
-  const [open, setOpen] = useState(false);
+function RenameDialog({
+  member,
+  open,
+  onOpenChange,
+}: {
+  member: Member;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const setOpen = onOpenChange;
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -218,11 +241,6 @@ function RenameDialog({ member }: { member: Member }) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={<Button variant="secondary" aria-label={`Editar nome de ${member.name}`} />}
-      >
-        Editar nome
-      </DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Editar nome de {member.name}</DialogTitle>
@@ -257,6 +275,71 @@ function RenameDialog({ member }: { member: Member }) {
   );
 }
 
+/** M-122: as ações da linha num menu, para a tabela caber sem rolagem a partir de 1024 px. */
+function MemberActions({
+  member,
+  self,
+  disabled,
+  onToggleActive,
+}: {
+  member: Member;
+  self: boolean;
+  disabled: boolean;
+  onToggleActive: () => void;
+}) {
+  const router = useRouter();
+  const [dialog, setDialog] = useState<"rename" | "password" | null>(null);
+  const onOpenChange = (open: boolean) => !open && setDialog(null);
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={<Button variant="ghost" size="icon" aria-label={`Ações de ${member.name}`} />}
+        >
+          <MoreHorizontal strokeWidth={1.75} />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuItem onClick={() => setDialog("rename")}>
+            <Pencil strokeWidth={1.75} />
+            Editar nome
+          </DropdownMenuItem>
+          {self ? (
+            <DropdownMenuItem onClick={() => router.push("/config/preferencias#h-password")}>
+              <KeyRound strokeWidth={1.75} />
+              Trocar senha
+            </DropdownMenuItem>
+          ) : (
+            <>
+              <DropdownMenuItem onClick={() => setDialog("password")}>
+                <KeyRound strokeWidth={1.75} />
+                Redefinir senha
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                variant={member.banned ? "default" : "destructive"}
+                disabled={disabled}
+                onClick={onToggleActive}
+              >
+                <Power strokeWidth={1.75} />
+                {member.banned ? "Reativar" : "Desativar"}
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <RenameDialog member={member} open={dialog === "rename"} onOpenChange={onOpenChange} />
+      {!self && (
+        <ResetPasswordDialog
+          member={member}
+          open={dialog === "password"}
+          onOpenChange={onOpenChange}
+        />
+      )}
+    </>
+  );
+}
+
 export function MembersTable({ members, selfId }: { members: Member[]; selfId: string }) {
   const [pending, startTransition] = useTransition();
 
@@ -269,7 +352,7 @@ export function MembersTable({ members, selfId }: { members: Member[]; selfId: s
   }
 
   return (
-    // rola na horizontal no celular: focável pelo teclado mesmo sem botões na linha (axe)
+    // rola na horizontal abaixo de 1024 px: focável pelo teclado mesmo sem botões na linha (axe)
     <Card className="overflow-x-auto" tabIndex={0} role="region" aria-label="Membros">
       <table className="w-full text-sm">
         <thead className="text-left text-muted">
@@ -305,24 +388,17 @@ export function MembersTable({ members, selfId }: { members: Member[]; selfId: s
                 </td>
                 <td className="px-4 py-3">{m.banned ? "Desativado" : "Ativo"}</td>
                 <td className="px-4 py-3 text-right">
-                  <div className="flex justify-end gap-2">
-                    <RenameDialog member={m} />
-                    {!self && <ResetPasswordDialog member={m} />}
-                    {!self && (
-                      <Button
-                        variant={m.banned ? "secondary" : "destructive"}
-                        disabled={pending}
-                        onClick={() =>
-                          run(
-                            () => setMemberActiveAction(m.id, !!m.banned),
-                            m.banned ? "Membro reativado" : "Membro desativado",
-                          )
-                        }
-                      >
-                        {m.banned ? "Reativar" : "Desativar"}
-                      </Button>
-                    )}
-                  </div>
+                  <MemberActions
+                    member={m}
+                    self={self}
+                    disabled={pending}
+                    onToggleActive={() =>
+                      run(
+                        () => setMemberActiveAction(m.id, !!m.banned),
+                        m.banned ? "Membro reativado" : "Membro desativado",
+                      )
+                    }
+                  />
                 </td>
               </tr>
             );
