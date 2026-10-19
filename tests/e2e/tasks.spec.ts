@@ -78,6 +78,50 @@ test("criação rápida exige Projeto/Cliente e abre o detalhe da tarefa", async
   await axeBothThemes(page);
 });
 
+test("criação rápida com descrição; Criar outra limpa a descrição", async ({ page }) => {
+  test.slow();
+  const title = `E2E descrição ${Date.now()}`;
+  await login(page);
+
+  const dialog = page.getByRole("dialog", { name: "Criar tarefa" });
+  await expect(async () => {
+    await page.keyboard.press("c");
+    await expect(dialog).toBeVisible({ timeout: 1000 });
+  }).toPass();
+  await expect(dialog.getByLabel("Título")).toBeFocused(); // M-086: o foco continua no título
+  await expect(dialog.getByLabel("Descrição")).toHaveCount(0); // fechada por padrão
+  await dialog.getByLabel("Título").fill(title);
+  await dialog.getByLabel("Projeto/Cliente").click();
+  await page.getByRole("option", { name: "BSBIA · BSBIA" }).click();
+  await page.keyboard.press("Escape");
+  await dialog.getByRole("checkbox", { name: "Criar outra" }).click();
+
+  await dialog.getByRole("button", { name: "+ Adicionar descrição" }).click();
+  const description = dialog.getByLabel("Descrição");
+  await expect(description).toBeFocused();
+  await description.pressSequentially("Trocar o switch do rack");
+  await axeBothThemes(page); // campo aberto, nos dois temas
+  await description.press("Control+Enter"); // cria com o foco dentro da descrição
+
+  const toast = page.getByText(/^TI-\d+ criada$/);
+  await expect(toast).toBeVisible();
+  const number = (await toast.textContent())!.match(/\d+/)![0];
+  // "Criar outra": título e descrição limpos, Projeto/Cliente mantido
+  await expect(dialog.getByLabel("Título")).toHaveValue("");
+  await expect(dialog.getByLabel("Descrição")).toHaveCount(0);
+  await expect(dialog.getByRole("button", { name: "+ Adicionar descrição" })).toBeVisible();
+  await expect(dialog.getByRole("combobox", { name: "Projeto/Cliente" })).toContainText(
+    "BSBIA · BSBIA",
+  );
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+
+  await page.goto(`/tarefas/${number}`);
+  await expect(page.getByRole("textbox", { name: "Descrição" })).toHaveText(
+    "Trocar o switch do rack",
+  );
+});
+
 test("tarefa inexistente mostra a página de não encontrado", async ({ page }) => {
   await login(page);
   await page.goto("/tarefas/999999999");

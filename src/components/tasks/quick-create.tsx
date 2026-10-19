@@ -23,6 +23,7 @@ import {
   createTaskAction,
   getTaskFormOptionsAction,
 } from "@/server/actions/tasks";
+import { DescriptionEditor } from "./description-editor";
 import { Pick, PickMany, optionItems } from "./fields";
 
 const EVENT = "itc:quick-create";
@@ -66,6 +67,11 @@ export function QuickCreate() {
   // UI.md: "Criar outra" mantém Projeto/Cliente, UM e ciclo (fora do `form`, que é limpo)
   const [cycleId, setCycleId] = useState("");
   const [another, setAnother] = useState(false);
+  // M-086: descrição fechada por padrão; o template a abre preenchida; a chave remonta o editor
+  const [desc, setDesc] = useState<{ open: false | "click" | "template"; key: number }>({
+    open: false,
+    key: 0,
+  });
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const online = useOnline();
@@ -135,6 +141,7 @@ export function QuickCreate() {
       checklist: t.checklist ?? f.checklist,
       descriptionJson: t.descriptionJson ?? f.descriptionJson,
     }));
+    if (t.descriptionJson) setDesc((d) => ({ open: "template", key: d.key + 1 }));
   }
 
   function onSubmit(event: React.FormEvent) {
@@ -149,6 +156,7 @@ export function QuickCreate() {
       });
       setError(null);
       setForm(EMPTY);
+      setDesc((d) => ({ open: false, key: d.key + 1 }));
       router.refresh();
       if (another) titleRef.current?.focus();
       else setOpen(false);
@@ -168,7 +176,7 @@ export function QuickCreate() {
       <DialogContent
         initialFocus={titleRef}
         // < 768 px: painel inferior (UI.md §6)
-        className="sm:max-w-xl max-md:top-auto max-md:bottom-0 max-md:max-h-[90dvh] max-md:max-w-full max-md:translate-y-0 max-md:overflow-y-auto max-md:rounded-b-none max-md:pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
+        className="sm:max-w-xl sm:max-h-[90dvh] sm:overflow-y-auto max-md:top-auto max-md:bottom-0 max-md:max-h-[90dvh] max-md:max-w-full max-md:translate-y-0 max-md:overflow-y-auto max-md:rounded-b-none max-md:pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
       >
         <DialogHeader>
           <DialogTitle>Criar tarefa</DialogTitle>
@@ -177,6 +185,8 @@ export function QuickCreate() {
           ref={formRef}
           onSubmit={onSubmit}
           onKeyDown={(e) => {
+            // o editor da descrição já tratou o ⌘↵ (onModEnter)
+            if (e.defaultPrevented) return;
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
               e.preventDefault();
               formRef.current?.requestSubmit();
@@ -202,6 +212,28 @@ export function QuickCreate() {
             onChange={(e) => set("title", e.target.value)}
             autoComplete="off"
           />
+          {desc.open ? (
+            <div className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium">Descrição</span>
+              <DescriptionEditor
+                key={desc.key}
+                content={form.descriptionJson}
+                autoFocus={desc.open === "click"}
+                onChange={(doc) => set("descriptionJson", doc)}
+                onModEnter={() => formRef.current?.requestSubmit()}
+              />
+            </div>
+          ) : (
+            <Button
+              type="button"
+              variant="link"
+              size="sm"
+              className="self-start px-0"
+              onClick={() => setDesc((d) => ({ ...d, open: "click" }))}
+            >
+              + Adicionar descrição
+            </Button>
+          )}
           {items ? (
             <>
               <PickMany
