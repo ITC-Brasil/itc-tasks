@@ -19,7 +19,7 @@ import {
   setNotificationChannelAction,
   setNotificationScheduleAction,
 } from "@/server/actions/notifications";
-import { setMyNameAction } from "@/server/actions/members";
+import { changeMyPasswordAction, setMyNameAction } from "@/server/actions/members";
 import { setThemeAction } from "@/server/actions/preferences";
 import { FieldLabel } from "../config-ui";
 
@@ -196,6 +196,58 @@ export function NameForm({ initial }: { initial: string }) {
       )}
       <Button type="submit" variant="secondary" className="self-start" disabled={pending}>
         {pending ? "Salvando…" : "Salvar nome"}
+      </Button>
+    </form>
+  );
+}
+
+/** M-117: troca a própria senha; as outras sessões são encerradas, esta continua. */
+export function PasswordForm() {
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    startTransition(async () => {
+      const result = await changeMyPasswordAction(new FormData(form));
+      if (!result.ok) return setError(result.error);
+      setError(null);
+      form.reset();
+      toast.success("Senha alterada. As outras sessões foram encerradas.");
+    });
+  }
+  return (
+    <form onSubmit={onSubmit} className="flex flex-col gap-3">
+      <FieldLabel label="Senha atual">
+        <Input name="current" type="password" required autoComplete="current-password" />
+      </FieldLabel>
+      <FieldLabel label="Nova senha">
+        <Input
+          name="next"
+          type="password"
+          required
+          minLength={12}
+          maxLength={128}
+          autoComplete="new-password"
+        />
+      </FieldLabel>
+      <FieldLabel label="Confirme a nova senha">
+        <Input
+          name="confirm"
+          type="password"
+          required
+          minLength={12}
+          maxLength={128}
+          autoComplete="new-password"
+        />
+      </FieldLabel>
+      {error && (
+        <p role="alert" className="text-err">
+          {error}
+        </p>
+      )}
+      <Button type="submit" variant="secondary" className="self-start" disabled={pending}>
+        {pending ? "Salvando…" : "Trocar senha"}
       </Button>
     </form>
   );
