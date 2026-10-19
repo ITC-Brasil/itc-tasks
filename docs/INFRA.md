@@ -401,6 +401,7 @@ A primeira implantação foi em 18/10/2026; o registro está em `docs/modules/12
 | Item | Situação |
 |---|---|
 | Backup | Não definido por decisão de 17/10/2026 (§9); retomar depois |
+| `main` sem proteção no GitHub (risco aceito) | O repositório está no plano Free: branch protection, rulesets e environment com revisor exigem GitHub Team. Decisão do Matheus (M-112, 19/10/2026): **não assinar**. Risco aceito: a `main` só é protegida pelo hook local (ADR-034) e pela disciplina dos admins, e qualquer push ou merge nela publica direto em produção pelo `deploy.yml`, que roda como `github-deploy` (grupo `docker`). Issue #21 fechada como *not planned*. Mitigações sem custo recomendadas: 2FA obrigatório na organização e lista de admins revista |
 | Chave de assinatura OIDC (`jwks`) do Authelia | Em 19/10/2026, um fragmento do fim dessa chave privada apareceu na sessão do Claude Code, num `grep` com contexto do `configuration.yml` durante o levantamento do Windshift. A chave inteira não foi exposta e nada foi copiado para arquivo. Decisão do Matheus (M-104): **não rotacionar**. Se o histórico daquela sessão for compartilhado, rever a decisão |
 | DMARC do `itcbr.xyz` | `p=none` (só monitora). SPF inclui o Titan e há DKIM no seletor `titan1`. Mantido por decisão de 18/10/2026; endurecer depois |
 | Se outros projetos devem trocar o token do remote por deploy key | Sugestão; fora do escopo do ITC Tasks |
