@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
   createMemberSchema,
+  displayNameSchema,
   memberIdSchema,
   passwordSchema,
   roleSchema,
@@ -14,6 +15,7 @@ import {
   createMember,
   resetMemberPassword,
   setMemberActive,
+  setMemberName,
   setMemberRole,
 } from "@/server/services/members";
 
@@ -22,7 +24,8 @@ export type ActionResult = { ok: true } | { ok: false; error: string };
 async function run(fn: () => Promise<unknown>): Promise<ActionResult> {
   try {
     await fn();
-    revalidatePath("/config/membros");
+    // o nome aparece no shell (avatar) e em toda tela: revalida o layout inteiro
+    revalidatePath("/", "layout");
     return { ok: true };
   } catch (error) {
     if (error instanceof MemberError || error instanceof ForbiddenError)
@@ -61,4 +64,17 @@ export async function resetMemberPasswordAction(
   return run(() =>
     resetMemberPassword(actor, memberIdSchema.parse(userId), passwordSchema.parse(password)),
   );
+}
+
+export async function setMemberNameAction(userId: string, name: string): Promise<ActionResult> {
+  const actor = await requireActor();
+  return run(() =>
+    setMemberName(actor, memberIdSchema.parse(userId), displayNameSchema.parse(name)),
+  );
+}
+
+/** Minhas preferências: o alvo é sempre quem está logado. */
+export async function setMyNameAction(name: string): Promise<ActionResult> {
+  const actor = await requireActor();
+  return run(() => setMemberName(actor, actor.userId, displayNameSchema.parse(name)));
 }

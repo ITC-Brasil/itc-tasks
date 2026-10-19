@@ -263,6 +263,8 @@ action; checagens no cliente são só de interface.
 
 **Módulo 11 — PWA, mobile e acabamento (18/10/2026).** ADR-054 antes do código: service worker próprio em `public/sw.js` no lugar do Serwist, que absorve o push do `push-sw.js` e guarda a última versão vista de cada tela (navegação em rede primeiro; estáticos em cache primeiro; `/api`, `/mcp`, `/login` e RSC fora), apagada ao Sair. `src/app/manifest.ts`, 38 splash iOS e `theme-color` no `src/app/layout.tsx`, convite de instalação no celular (`src/components/layout/pwa.tsx`), faixa offline com o conteúdo num `fieldset` desabilitado. Mobile: barra inferior Minhas, Tarefas, Criar, Ciclo, Mais (com as outras telas), criação rápida como painel inferior e Kanban uma coluna por vez com snap. Axe nos dois temas nas telas do UI.md §8 e no planejamento; dois ajustes de acessibilidade (nome do item no trilho, cor dos chips neutros). O E2E entra uma vez (`auth.setup.ts`, contornando o limite de login do Better Auth) e passa inteiro contra o build de produção. Details: docs/modules/11-pwa-mobile.md
 
+**Módulo 12 — Migração do Windshift e implantação (18/10/2026, em revisão).** Go-live em `https://tasks.itcbr.xyz` feito por SSH com cada comando aprovado pelo Matheus. O clone usa um alias com deploy key só-leitura (`github-itc-tasks`), o `.env` foi gerado por script (600), a rota existente do túnel teve o `service` trocado de 3020 para 3021 e o Windshift ficou sem rota pública (o login pela tailnet falha por CSRF). Um hotfix do `.dockerignore` (PR #14) destravou o build. Deploy automático: `.github/workflows/deploy.yml` por SSH com `StrictHostKeyChecking=yes` e chave com comando forçado, `scripts/deploy.sh` com espera do `/api/health`, e job Docker build no CI. Importação (ADR-056): `dist/import-windshift.mjs <pasta> [--dry-run]` traz as tarefas abertas pelo `insertTask` com ator `system`. Valida tudo antes de gravar e roda silenciosa pela opção `silent` do `record()`, sem `fanout` nem `evaluate`. É idempotente pela `task_imports` (`0012`). Também entram a descrição opcional na criação rápida (mesmo `DescriptionEditor` do detalhe) e a edição do nome de exibição em Minhas preferências e Membros, com `SEED_ADMIN_NAME` no seed. Details: docs/modules/12-migracao-implantacao.md
+
 Plano de módulos (`PROMPT_CLAUDE_CODE.md`):
 
 | Nº | Módulo | Status |
@@ -279,7 +281,7 @@ Plano de módulos (`PROMPT_CLAUDE_CODE.md`):
 | 09 | Automações e templates | Concluído (17/10/2026) |
 | 10 | Ciclos, marcos e painel | Concluído (18/10/2026) |
 | 11 | PWA, mobile e acabamento | Em revisão (18/10/2026) |
-| 12 | Migração do Windshift e implantação | Planejado |
+| 12 | Migração do Windshift e implantação | Em revisão (18/10/2026) |
 
 Cada módulo concluído ganha aqui um parágrafo denso terminado em
 `Details: docs/modules/NN-name.md`.

@@ -23,7 +23,8 @@
     "format:check": "prettier --check .",
     "db:seed": "node --env-file-if-exists=.env src/db/seed.mjs",
     "worker:dev": "tsx watch --env-file-if-exists=.env worker/index.ts",
-    "worker:build": "esbuild worker/index.ts --bundle --platform=node --target=node24 --format=esm --outfile=dist/worker.mjs --external:pg-native --banner:js=\"import{createRequire}from'node:module';const require=createRequire(import.meta.url);\""
+    "worker:build": "esbuild worker/index.ts --bundle --platform=node --target=node24 --format=esm --outfile=dist/worker.mjs --external:pg-native --banner:js=\"import{createRequire}from'node:module';const require=createRequire(import.meta.url);\"",
+    "import:build": "esbuild scripts/import-windshift.ts --bundle --platform=node --target=node24 --format=esm --outfile=dist/import-windshift.mjs --external:pg-native --banner:js=\"import{createRequire}from'node:module';const require=createRequire(import.meta.url);\""
   },
   "dependencies": {
     "@base-ui/react": "1.9.0",

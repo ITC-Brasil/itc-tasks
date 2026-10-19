@@ -26,6 +26,7 @@ import {
   createMemberAction,
   resetMemberPasswordAction,
   setMemberActiveAction,
+  setMemberNameAction,
   setMemberRoleAction,
 } from "@/server/actions/members";
 import { Card } from "@/components/ui/card";
@@ -197,6 +198,65 @@ function ResetPasswordDialog({ member }: { member: Member }) {
   );
 }
 
+/** M-087: o admin troca o nome de qualquer membro, inclusive o próprio. */
+function RenameDialog({ member }: { member: Member }) {
+  const [open, setOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const name = String(new FormData(event.currentTarget).get("name"));
+    startTransition(async () => {
+      const result = await setMemberNameAction(member.id, name);
+      if (!result.ok) return setError(result.error);
+      setError(null);
+      setOpen(false);
+      toast.success("Nome alterado");
+    });
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger
+        render={<Button variant="secondary" aria-label={`Editar nome de ${member.name}`} />}
+      >
+        Editar nome
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Editar nome de {member.name}</DialogTitle>
+          <DialogDescription>
+            As iniciais do avatar acompanham o nome. O histórico antigo não muda.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={onSubmit} className="flex flex-col gap-4">
+          <label className="flex flex-col gap-1.5 font-medium">
+            Nome
+            <Input
+              name="name"
+              required
+              maxLength={80}
+              defaultValue={member.name}
+              autoComplete="off"
+            />
+          </label>
+          {error && (
+            <p role="alert" className="text-err">
+              {error}
+            </p>
+          )}
+          <DialogFooter>
+            <Button type="submit" disabled={pending}>
+              {pending ? "Salvando…" : "Salvar nome"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function MembersTable({ members, selfId }: { members: Member[]; selfId: string }) {
   const [pending, startTransition] = useTransition();
 
@@ -245,9 +305,10 @@ export function MembersTable({ members, selfId }: { members: Member[]; selfId: s
                 </td>
                 <td className="px-4 py-3">{m.banned ? "Desativado" : "Ativo"}</td>
                 <td className="px-4 py-3 text-right">
-                  {!self && (
-                    <div className="flex justify-end gap-2">
-                      <ResetPasswordDialog member={m} />
+                  <div className="flex justify-end gap-2">
+                    <RenameDialog member={m} />
+                    {!self && <ResetPasswordDialog member={m} />}
+                    {!self && (
                       <Button
                         variant={m.banned ? "secondary" : "destructive"}
                         disabled={pending}
@@ -260,8 +321,8 @@ export function MembersTable({ members, selfId }: { members: Member[]; selfId: s
                       >
                         {m.banned ? "Reativar" : "Desativar"}
                       </Button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </td>
               </tr>
             );

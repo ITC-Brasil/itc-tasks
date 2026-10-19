@@ -6,7 +6,7 @@ RUN npm ci
 FROM deps AS builder
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1 SKIP_ENV_VALIDATION=1
-RUN npm run build && npm run worker:build
+RUN npm run build && npm run worker:build && npm run import:build
 
 FROM node:24.22.0-alpine AS runner
 WORKDIR /app
@@ -21,6 +21,8 @@ COPY --from=builder --chown=app:app /app/drizzle ./drizzle
 # worker empacotado pelo esbuild, sem node_modules (ADR-050)
 COPY --from=builder --chown=app:app /app/dist/worker.mjs ./dist/worker.mjs
 COPY --from=builder --chown=app:app /app/scripts/migrate.mjs ./dist/migrate.mjs
+# importação do Windshift (ADR-056): docs/modules/12-migracao-implantacao.md
+COPY --from=builder --chown=app:app /app/dist/import-windshift.mjs ./dist/import-windshift.mjs
 # seed do primeiro admin: docker compose exec itc-tasks node dist/seed.mjs
 COPY --from=builder --chown=app:app /app/src/db/seed.mjs ./dist/seed.mjs
 COPY --from=builder --chown=app:app --chmod=755 /app/scripts/docker-entrypoint.sh ./docker-entrypoint.sh

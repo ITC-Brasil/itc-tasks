@@ -61,7 +61,7 @@ Empty states com texto definido:
 - **Atualização otimista** em: mover card, reordenar, marcar subtarefa, concluir, mudar prioridade/responsável/prazo, marcar notificação como lida.
 - **Desfazer** (toast com "Desfazer", 5 s) em: concluir, arquivar, mover em massa. Exclusões não existem para cadastros (ADR-018).
 - **Arrastar no Kanban:** card ganha `shadow-2` e 1,5° de rotação; colunas destino destacam a borda em `accent`; teclado: espaço pega, setas movem, espaço solta (dnd-kit).
-- **Criação rápida:** abre focada no título; `⌘↵` cria; "Criar outra" mantém Projeto/Cliente, UM e ciclo.
+- **Criação rápida:** abre focada no título; `⌘↵` cria, também com o foco na descrição; "Criar outra" limpa título e descrição e mantém Projeto/Cliente, UM e ciclo. A **descrição** é opcional e fica fechada até "+ Adicionar descrição"; usa o mesmo editor Tiptap do detalhe (`DescriptionEditor`), com rótulo visível; um template com descrição já a abre preenchida; editor vazio não grava descrição (M-086).
 - **Edição inline** no detalhe: clicar no título edita; propriedades abrem seletores com busca.
 - **Confirmação** só para ações destrutivas ou em massa, sempre dentro da tela (nunca `confirm()` do navegador).
 - **Transições** 120–150 ms; respeitar `prefers-reduced-motion`.

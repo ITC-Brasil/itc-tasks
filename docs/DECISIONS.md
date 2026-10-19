@@ -1619,3 +1619,53 @@ O Matheus pediu o E2E no CI agora (M-066).
 **Consequences**
 O CI fica mais longo, mas roda em paralelo ao Quality Check. Os logs do servidor e do worker
 entram no artefato quando o job falha.
+
+## ADR-056 — Importação do Windshift: silenciosa e idempotente (Módulo 12)
+
+**Status:** Accepted
+**Date:** 2026-10-18
+**Module:** 12 — Migração e implantação
+
+**Context**
+As tarefas abertas do Windshift (15, sem as Epics) entram uma vez no ITC Tasks já em produção
+(M-071, simplificada na M-085). O `record()` enfileira `fanout` (ADR-050) e `evaluate` (ADR-052)
+para todo evento: importar pelo caminho normal mandaria avisos, push e e-mail aos responsáveis
+e dispararia automações sobre tarefas antigas. Rodar o script duas vezes também não pode duplicar.
+
+**Decision**
+- **Silêncio por opção explícita:** `record(tx, actor, taskId, events, { silent: true })` e
+  `insertTask(tx, actor, data, { silent: true })` não enfileiram `fanout` nem `evaluate`. O
+  `pg_notify` (SSE, ADR-048) continua: ele só atualiza telas abertas, não avisa ninguém. Nenhum
+  outro chamador passa a opção; o padrão continua barulhento.
+- **Histórico:** ator `system` e, além do `created`, um evento `imported`
+  (`{ source: "windshift", sourceId, key }`), mostrado como "importou do Windshift (TI-30)".
+- **Origem guardada:** tabela `task_imports (task_id, source, source_id, imported_at)`, com
+  `task_id` único e único em `(source, source_id)`, em migração aditiva (`0012_task_imports`).
+  A segunda execução pula o que já entrou e informa quantas pulou.
+- **Um comando, sem planilhas:** `node dist/import-windshift.mjs <pasta> [--dry-run]`, empacotado
+  pelo esbuild como o worker. Mapeamento explícito no código (`src/server/services/windshift-import.ts`):
+  - Projeto/Cliente e UM pelos rótulos dos campos personalizados, que já são as siglas e os
+    códigos do seed; os únicos apelidos são `ITCBrasil → ITC` e `Mobility → MOBILITY`. Sem projeto → `ACL`.
+  - Status por nome: `Backlog → backlog`, `Open → todo`, `In Progress`/`Aguardando → in_progress`
+    (primeiro status ativo da categoria). `Done` e categoria concluída ficam fora.
+  - Prioridade pelo `builtin_key` (`critical → urgent`, `high`, `medium`, `low`).
+  - Responsável pelo e-mail, só membro ativo; não encontrado vira "sem responsável" e entra no
+    relatório, sem bloquear.
+  - Epics não viram tarefa; a filha leva "Epic no Windshift: <título>" na descrição.
+  - Descrição em texto vira parágrafos Tiptap, mais "Importada do Windshift — <chave> (ID <id>),
+    criada em dd/mm/aaaa".
+- **Tudo ou nada:** valida todas as tarefas antes de gravar (rótulo desconhecido, UM fora dos
+  projetos da tarefa pelo ADR-045, status sem mapeamento). Com erro, lista linha a linha e não
+  grava nada. Sem erro, grava tudo numa transação pelo `insertTask`. `--dry-run` mostra a prévia
+  (título, projeto, UM, status, prioridade, responsável) e o relatório, e não grava.
+
+**Alternatives considered**
+- Enfileirar e descartar os jobs depois, ou desligar o worker durante a importação: frágil, e o
+  worker atende o time ao mesmo tempo.
+- Um `if (actor.kind === "system")` dentro do `record()`: esconde a regra, e as automações
+  e o seed também usam esse ator.
+- As quatro planilhas da M-071: pesadas para 15 tarefas cujos campos já casam com o seed (M-085).
+
+**Consequences**
+A importação não aparece em Notificações nem dispara regras. Reimportar é seguro. O ID e a
+chave originais ficam no banco e na descrição, para conferência.

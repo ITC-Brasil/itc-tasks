@@ -5,6 +5,12 @@ import { hash } from "@node-rs/argon2";
 import pg from "pg";
 
 const { DATABASE_URL, SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD } = process.env;
+// M-087: nome opcional do admin; iniciais pela mesma regra de src/lib/initials.ts (o .mjs não importa TS)
+const adminName = process.env.SEED_ADMIN_NAME?.trim() || "Administrador";
+const words = adminName.split(/\s+/);
+const adminInitials = (
+  words.length > 1 ? words[0][0] + words.at(-1)[0] : words[0].slice(0, 2)
+).toUpperCase();
 if (!DATABASE_URL || !SEED_ADMIN_EMAIL || !SEED_ADMIN_PASSWORD || SEED_ADMIN_PASSWORD.length < 12) {
   console.error(
     "Defina DATABASE_URL, SEED_ADMIN_EMAIL e SEED_ADMIN_PASSWORD (mín. 12 caracteres).",
@@ -26,9 +32,9 @@ try {
   });
   const { rowCount } = await client.query(
     `INSERT INTO "user" (id, name, email, email_verified, role, initials)
-     VALUES ($1, 'Administrador', lower($2), true, 'admin', 'AD')
+     VALUES ($1, $3, lower($2), true, 'admin', $4)
      ON CONFLICT (email) DO NOTHING`,
-    [userId, SEED_ADMIN_EMAIL],
+    [userId, SEED_ADMIN_EMAIL, adminName.slice(0, 80), adminInitials],
   );
   if (rowCount) {
     await client.query(

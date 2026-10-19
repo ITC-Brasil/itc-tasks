@@ -5,14 +5,14 @@ import { env } from "@/lib/env";
 import { requireUser } from "@/server/actor";
 import { getPreferences } from "@/server/services/notifications";
 import { AdminConfigPage } from "../admin-only";
-import { ChannelMatrix, ScheduleForm, ThemePicker } from "./preferences-client";
+import { ChannelMatrix, NameForm, ScheduleForm, ThemePicker } from "./preferences-client";
 import { Card } from "@/components/ui/card";
 
 export const metadata: Metadata = { title: "Minhas preferências · ITC Tasks" };
 
 const card = "flex flex-col gap-3.5 md:p-5";
 
-// ADR-050: tema, evento × canal, push neste dispositivo, expediente e resumo
+// ADR-050: nome (M-087), tema, evento × canal, push neste dispositivo, expediente e resumo
 export default function PreferencesPage() {
   return (
     <Suspense>
@@ -38,6 +38,12 @@ export default function PreferencesPage() {
                   <ChannelMatrix channels={prefs.channels} />
                 </Card>
                 <div className="flex flex-col gap-5">
+                  <Card as="section" padding="md" aria-labelledby="h-profile" className={card}>
+                    <h2 id="h-profile" className="text-h3 font-bold">
+                      Perfil
+                    </h2>
+                    <NameForm initial={profile.name} />
+                  </Card>
                   <Card as="section" padding="md" aria-labelledby="h-theme" className={card}>
                     <h2 id="h-theme" className="text-h3 font-bold">
                       Aparência

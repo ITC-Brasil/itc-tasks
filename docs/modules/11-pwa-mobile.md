@@ -90,6 +90,14 @@ Decisões da M-065 confirmadas pelo Matheus. Ajustes:
 | Job do CI reproduzido com banco novo (`itc_tasks_e2e` local, seed com senha gerada, `next start -p 3200`) | `CI=1 E2E_BASE_URL=http://localhost:3200 npx playwright test` | ✅ 40 |
 | CI na `develop` em `2f1790c` | run 39100813752 (Quality Check + E2E), Security 39100813731 | ✅ E2E 40 passaram |
 
+Depois do CI, antes do merge (M-070, registrados no Módulo 12):
+
+```
+697a7c6 test(pwa): target the offline banner, not the toast
+badb3ed fix(a11y): muted text on selected and hovered rows
+7471430 test(e2e): run axe without animations in every spec
+```
+
 ## Ficou de fora
 
 - Precache: uma tela só abre offline se já foi vista online naquele aparelho (ADR-054).

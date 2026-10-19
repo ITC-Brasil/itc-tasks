@@ -4,10 +4,12 @@ import { account, session, user } from "@/db/schema";
 import {
   type CreateMemberInput,
   createMemberSchema,
+  displayNameSchema,
   passwordSchema,
   roleSchema,
 } from "@/lib/validation/members";
-import { type Actor, assertAdmin } from "@/server/permissions";
+import { initialsOf } from "@/lib/initials";
+import { type Actor, ForbiddenError, assertAdmin, isAdmin } from "@/server/permissions";
 import { auth } from "@/server/auth";
 
 export class MemberError extends Error {}
@@ -65,6 +67,19 @@ export async function setMemberRole(actor: Actor, userId: string, role: "admin" 
   const rows = await db
     .update(user)
     .set({ role: roleSchema.parse(role) })
+    .where(eq(user.id, userId))
+    .returning({ id: user.id });
+  assertFound(rows);
+}
+
+/** M-087: cada pessoa troca o próprio nome; o admin troca o de qualquer um. Agente não troca. */
+export async function setMemberName(actor: Actor, userId: string, name: string) {
+  const self = actor.kind === "user" && actor.userId === userId;
+  if (actor.kind === "agent" || !(self || isAdmin(actor))) throw new ForbiddenError();
+  const value = displayNameSchema.parse(name);
+  const rows = await db
+    .update(user)
+    .set({ name: value, initials: initialsOf(value), updatedAt: new Date() })
     .where(eq(user.id, userId))
     .returning({ id: user.id });
   assertFound(rows);

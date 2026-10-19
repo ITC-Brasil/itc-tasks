@@ -16,3 +16,10 @@ export const createMemberSchema = z.object({
 export type CreateMemberInput = z.infer<typeof createMemberSchema>;
 
 export const memberIdSchema = z.string().min(1);
+
+// M-087: nome de exibição editável; as iniciais saem dele (src/lib/initials.ts)
+export const displayNameSchema = z
+  .string()
+  .trim()
+  .min(1, "Informe o nome")
+  .max(80, "Use até 80 caracteres");
