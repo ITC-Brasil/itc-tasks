@@ -56,3 +56,19 @@ atualizados).
   `createTask` dos E2E foi para `tests/e2e/session.ts`.
 
 **Depois do pull:** `npm run db:migrate` (`0013_task_deletions`).
+
+## Item 3 — Ações de Membros num menu (M-122)
+
+- **Por quê:** com 4 botões por linha, a tabela de Membros passava da largura do card e criava
+  rolagem horizontal mesmo em tela larga.
+- **UI:** `MemberActions` em `src/app/(app)/config/membros/members-client.tsx`. Botão de ícone
+  `MoreHorizontal` (`aria-label="Ações de <nome>"`) com "Editar nome", "Redefinir senha" e, por
+  último e destrutivo, "Desativar/Reativar". Na linha "(você)": "Editar nome" e "Trocar senha",
+  que leva a `/config/preferencias#h-password`. Os diálogos de nome e senha viraram controlados e
+  abrem a partir do menu.
+- **Largura:** sem rolagem horizontal a partir de 1024 px (conferido em 1024 e 1280); abaixo
+  disso o `overflow-x-auto` continua.
+- **Testes:** `tests/e2e/members.spec.ts` (editar nome, redefinir senha, desativar e reativar pelo
+  menu; axe nos dois temas na tabela e nos diálogos; `scrollWidth <= clientWidth` da região em
+  1280 px; menu da linha "(você)"). Axe com o menu aberto acusa `region` (o portal do Base UI fica
+  fora dos landmarks), por isso roda antes de abrir o menu.

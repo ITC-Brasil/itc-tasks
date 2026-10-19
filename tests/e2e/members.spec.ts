@@ -21,7 +21,11 @@ test("admin edita o nome de um membro em Membros", async ({ page }) => {
   await create.getByRole("button", { name: "Criar membro" }).click();
   await expect(create).toBeHidden();
 
-  await page.getByRole("button", { name: `Editar nome de Pessoa ${run}` }).click();
+  // M-122: as ações ficam no menu da linha
+  // axe com o menu aberto acusa "region": o portal do Base UI fica fora dos landmarks
+  await axeBothThemes(page);
+  await page.getByRole("button", { name: `Ações de Pessoa ${run}` }).click();
+  await page.getByRole("menuitem", { name: "Editar nome" }).click();
   const rename = page.getByRole("dialog", { name: `Editar nome de Pessoa ${run}` });
   await axeBothThemes(page);
   await rename.getByLabel("Nome").fill("   ");
@@ -32,6 +36,47 @@ test("admin edita o nome de um membro em Membros", async ({ page }) => {
   await rename.getByRole("button", { name: "Salvar nome" }).click();
   await expect(rename).toBeHidden();
   await expect(page.getByRole("cell", { name: `Renomeada ${run}`, exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: `Ações de Renomeada ${run}` }).click();
+  await page.getByRole("menuitem", { name: "Redefinir senha" }).click();
+  const reset = page.getByRole("dialog", { name: `Redefinir senha de Renomeada ${run}` });
+  await reset.getByLabel("Senha nova").fill("outra-senha-teste-123");
+  await reset.getByRole("button", { name: "Redefinir senha" }).click();
+  await expect(reset).toBeHidden();
+
+  await page.getByRole("button", { name: `Ações de Renomeada ${run}` }).click();
+  await page.getByRole("menuitem", { name: "Desativar" }).click();
+  await expect(page.getByRole("row", { name: new RegExp(`Renomeada ${run}`) })).toContainText(
+    "Desativado",
+  );
+  await page.getByRole("button", { name: `Ações de Renomeada ${run}` }).click();
+  await page.getByRole("menuitem", { name: "Reativar" }).click();
+  await expect(page.getByRole("row", { name: new RegExp(`Renomeada ${run}`) })).toContainText(
+    "Ativo",
+  );
+});
+
+test("Membros: sem rolagem horizontal em 1280 px; (você) troca a senha nas preferências", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await page.goto("/config/membros");
+  const region = page.getByRole("region", { name: "Membros" });
+  await expect(region).toBeVisible();
+  const { scrollWidth, clientWidth } = await region.evaluate((el) => ({
+    scrollWidth: el.scrollWidth,
+    clientWidth: el.clientWidth,
+  }));
+  expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
+
+  const selfRow = page.getByRole("row", { name: /\(você\)/ });
+  await selfRow.getByRole("button", { name: /^Ações de / }).click();
+  await expect(page.getByRole("menuitem", { name: "Redefinir senha" })).toHaveCount(0);
+  await expect(page.getByRole("menuitem", { name: "Desativar" })).toHaveCount(0);
+  await page.getByRole("menuitem", { name: "Trocar senha" }).click();
+  await expect(page).toHaveURL(/\/config\/preferencias#h-password$/);
+  await expect(page.getByRole("heading", { name: "Senha" })).toBeVisible();
 });
 
 test("Minhas preferências: campo Nome recusa vazio e salva", async ({ page }) => {
