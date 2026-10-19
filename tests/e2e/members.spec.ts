@@ -23,11 +23,11 @@ test("admin edita o nome de um membro em Membros", async ({ page }) => {
 
   await page.getByRole("button", { name: `Editar nome de Pessoa ${run}` }).click();
   const rename = page.getByRole("dialog", { name: `Editar nome de Pessoa ${run}` });
-  // axe antes do erro: o text-err no escuro fica abaixo de 4,5:1 em todos os diálogos (M-088)
   await axeBothThemes(page);
   await rename.getByLabel("Nome").fill("   ");
   await rename.getByRole("button", { name: "Salvar nome" }).click();
   await expect(rename.getByRole("alert")).toHaveText("Informe o nome");
+  await axeBothThemes(page); // ADR-057: com a mensagem de erro visível
   await rename.getByLabel("Nome").fill(`Renomeada ${run}`);
   await rename.getByRole("button", { name: "Salvar nome" }).click();
   await expect(rename).toBeHidden();
@@ -45,6 +45,7 @@ test("Minhas preferências: campo Nome recusa vazio e salva", async ({ page }) =
   await name.fill("   ");
   await page.getByRole("button", { name: "Salvar nome" }).click();
   await expect(page.getByText("Informe o nome")).toBeVisible();
+  await axeBothThemes(page); // ADR-057: com a mensagem de erro visível
   await name.fill(current);
   await page.getByRole("button", { name: "Salvar nome" }).click();
   await expect(page.getByText("Nome alterado")).toBeVisible();
