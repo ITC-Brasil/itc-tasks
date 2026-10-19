@@ -1,8 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { z } from "zod";
 import {
+  changePasswordSchema,
   createMemberSchema,
   displayNameSchema,
   memberIdSchema,
@@ -10,8 +12,10 @@ import {
   roleSchema,
 } from "@/lib/validation/members";
 import { ForbiddenError, requireActor } from "@/server/actor";
+import { auth } from "@/server/auth";
 import {
   MemberError,
+  changeOwnPassword,
   createMember,
   resetMemberPassword,
   setMemberActive,
@@ -77,4 +81,18 @@ export async function setMemberNameAction(userId: string, name: string): Promise
 export async function setMyNameAction(name: string): Promise<ActionResult> {
   const actor = await requireActor();
   return run(() => setMemberName(actor, actor.userId, displayNameSchema.parse(name)));
+}
+
+/** M-117: troca a própria senha; as outras sessões caem, esta continua. */
+export async function changeMyPasswordAction(form: FormData): Promise<ActionResult> {
+  const actor = await requireActor();
+  const current = await auth.api.getSession({ headers: await headers() });
+  if (!current) return { ok: false, error: "Sessão expirada" };
+  return run(() =>
+    changeOwnPassword(
+      actor,
+      changePasswordSchema.parse(Object.fromEntries(form)),
+      current.session.id,
+    ),
+  );
 }

@@ -5,7 +5,13 @@ import { env } from "@/lib/env";
 import { requireUser } from "@/server/actor";
 import { getPreferences } from "@/server/services/notifications";
 import { AdminConfigPage } from "../admin-only";
-import { ChannelMatrix, NameForm, ScheduleForm, ThemePicker } from "./preferences-client";
+import {
+  ChannelMatrix,
+  NameForm,
+  PasswordForm,
+  ScheduleForm,
+  ThemePicker,
+} from "./preferences-client";
 import { Card } from "@/components/ui/card";
 
 export const metadata: Metadata = { title: "Minhas preferências · ITC Tasks" };
@@ -43,6 +49,12 @@ export default function PreferencesPage() {
                       Perfil
                     </h2>
                     <NameForm initial={profile.name} />
+                  </Card>
+                  <Card as="section" padding="md" aria-labelledby="h-password" className={card}>
+                    <h2 id="h-password" className="text-h3 font-bold">
+                      Senha
+                    </h2>
+                    <PasswordForm />
                   </Card>
                   <Card as="section" padding="md" aria-labelledby="h-theme" className={card}>
                     <h2 id="h-theme" className="text-h3 font-bold">

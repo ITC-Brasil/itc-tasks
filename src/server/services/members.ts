@@ -1,8 +1,10 @@
-import { and, asc, eq, gt, isNull, or } from "drizzle-orm";
+import { and, asc, eq, gt, isNull, ne, or } from "drizzle-orm";
 import { db } from "@/db";
 import { account, session, user } from "@/db/schema";
 import {
+  type ChangePasswordInput,
   type CreateMemberInput,
+  changePasswordSchema,
   createMemberSchema,
   displayNameSchema,
   passwordSchema,
@@ -135,4 +137,34 @@ export async function resetMemberPassword(actor: Actor, userId: string, password
     assertFound(rows);
     await tx.delete(session).where(eq(session.userId, userId));
   });
+}
+
+/**
+ * M-117 / ADR-062: cada pessoa troca a própria senha conferindo a atual. Agente não troca.
+ * Encerra as outras sessões e mantém `keepSessionId` (a sessão de onde veio o pedido).
+ */
+export async function changeOwnPassword(
+  actor: Actor,
+  input: ChangePasswordInput,
+  keepSessionId: string,
+) {
+  if (actor.kind !== "user") throw new ForbiddenError();
+  const data = changePasswordSchema.parse(input);
+  const where = and(eq(account.userId, actor.userId), eq(account.providerId, "credential"));
+  const [row] = await db.select({ password: account.password }).from(account).where(where);
+  const ctx = await auth.$context;
+  if (
+    !row?.password ||
+    !(await ctx.password.verify({ hash: row.password, password: data.current }))
+  )
+    throw new MemberError("Senha atual incorreta");
+  const hashed = await ctx.password.hash(data.next);
+  await db.transaction(async (tx) => {
+    await tx.update(account).set({ password: hashed, updatedAt: new Date() }).where(where);
+    await tx
+      .delete(session)
+      .where(and(eq(session.userId, actor.userId), ne(session.id, keepSessionId)));
+  });
+  // ADR-062: rastro no log do servidor (sem a senha); task_events é só de tarefa
+  console.info(`[auth] senha trocada userId=${actor.userId} actor=${actor.kind}`);
 }
