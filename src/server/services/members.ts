@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, gt, isNull, or } from "drizzle-orm";
 import { db } from "@/db";
 import { account, session, user } from "@/db/schema";
 import {
@@ -98,6 +98,26 @@ export async function setMemberActive(actor: Actor, userId: string, active: bool
     assertFound(rows);
     if (!active) await tx.delete(session).where(eq(session.userId, userId));
   });
+}
+
+/**
+ * Conexões longas (SSE) conferem a cada ping: desativar e redefinir a senha apagam as sessões
+ * da pessoa (issue #27).
+ */
+export async function stillSignedIn(userId: string) {
+  const [row] = await db
+    .select({ id: session.id })
+    .from(session)
+    .innerJoin(user, eq(user.id, session.userId))
+    .where(
+      and(
+        eq(session.userId, userId),
+        gt(session.expiresAt, new Date()),
+        or(isNull(user.banned), eq(user.banned, false)),
+      ),
+    )
+    .limit(1);
+  return Boolean(row);
 }
 
 /** Único caminho para quem esqueceu a senha (sem cadastro público nem e-mail de recuperação). */
