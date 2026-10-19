@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { relativeTime } from "@/lib/dates";
+import { MCP_URL } from "@/lib/env";
 import { isAdmin } from "@/server/actor";
 import { listAgentActivity, listAgentKeys } from "@/server/services/agents";
 import { listMembers } from "@/server/services/members";
@@ -23,8 +24,8 @@ const MCP_CONFIG = `{
   "mcpServers": {
     "itc-tasks": {
       "type": "http",
-      "url": "https://tasks.itcbr.xyz/mcp",
-      "headers": { "Authorization": "Bearer itct_..." }
+      "url": "${MCP_URL}",
+      "headers": { "Authorization": "Bearer itct_SEU_TOKEN" }
     }
   }
 }`;
@@ -89,6 +90,9 @@ export default function AgentsPage() {
                   <Card as="pre" padding="md" className="overflow-x-auto text-xs">
                     {MCP_CONFIG}
                   </Card>
+                  <Link href="/ajuda#mcp" className="text-sm text-accent-text hover:underline">
+                    Como conectar um agente
+                  </Link>
                 </section>
               </>
             ),
