@@ -63,11 +63,11 @@
   --accent-solid-hover: var(--accent-hover);
   --accent-solid-pressed: var(--accent-pressed);
   --on-accent: #08201f;
-  --on-err: #141918; /* ADR-039: 4,61:1 sobre err */
+  --on-err: #141918; /* ADR-039/057: 5,68:1 sobre err */
   --bordo: #7a2a45;
   --ok: #3da35d;
   --warn: #d98e2b;
-  --err: #d75a4a;
+  --err: #e2705f; /* ADR-057: 5,05:1 sobre bg-surface */
   --info: #4b93db;
   --sev-medium: #c9a227;
   --label-teal: #4fb89e;
