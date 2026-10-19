@@ -19,6 +19,7 @@ import {
   setNotificationChannelAction,
   setNotificationScheduleAction,
 } from "@/server/actions/notifications";
+import { setMyNameAction } from "@/server/actions/members";
 import { setThemeAction } from "@/server/actions/preferences";
 import { FieldLabel } from "../config-ui";
 
@@ -164,6 +165,37 @@ export function ScheduleForm({
       </label>
       <Button type="submit" variant="secondary" size="sm" disabled={pending} className="self-start">
         Salvar horário
+      </Button>
+    </form>
+  );
+}
+
+/** M-087: o próprio nome; as iniciais do avatar são recalculadas no servidor. */
+export function NameForm({ initial }: { initial: string }) {
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const name = String(new FormData(event.currentTarget).get("name"));
+    startTransition(async () => {
+      const result = await setMyNameAction(name);
+      if (!result.ok) return setError(result.error);
+      setError(null);
+      toast.success("Nome alterado");
+    });
+  }
+  return (
+    <form onSubmit={onSubmit} className="flex flex-col gap-3">
+      <FieldLabel label="Nome">
+        <Input name="name" required maxLength={80} defaultValue={initial} autoComplete="name" />
+      </FieldLabel>
+      {error && (
+        <p role="alert" className="text-err">
+          {error}
+        </p>
+      )}
+      <Button type="submit" variant="secondary" className="self-start" disabled={pending}>
+        {pending ? "Salvando…" : "Salvar nome"}
       </Button>
     </form>
   );
