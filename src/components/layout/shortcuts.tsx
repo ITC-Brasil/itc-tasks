@@ -2,18 +2,8 @@
 
 import Link from "next/link";
 import { useEffect } from "react";
+import { SHORTCUTS } from "./shortcut-list";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-
-// UI.md §5. Cada módulo acrescenta aqui os atalhos que passa a atender.
-export const SHORTCUTS: { keys: string[]; label: string }[] = [
-  { keys: ["⌘", "K"], label: "Busca e comandos" },
-  { keys: ["C"], label: "Criar tarefa" },
-  { keys: ["⌘", "↵"], label: "Enviar (criar, comentar)" },
-  { keys: ["G", "C"], label: "Ir para o ciclo atual" },
-  { keys: ["["], label: "Recolher/expandir menu" },
-  { keys: ["?"], label: "Mostrar atalhos" },
-  { keys: ["Esc"], label: "Fechar modal/painel" },
-];
 
 export function Kbd({ children }: { children: React.ReactNode }) {
   return (

@@ -1,4 +1,5 @@
-import { Kbd, SHORTCUTS } from "@/components/layout/shortcuts";
+import { SHORTCUTS } from "@/components/layout/shortcut-list";
+import { Kbd } from "@/components/layout/shortcuts";
 import {
   type Category,
   GlpiChip,
