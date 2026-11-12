@@ -5,7 +5,11 @@ supervisão, na `feat/15-ajustes-produto` (merge na `develop` ao fim de cada ite
 
 ## Decisões a confirmar
 
-Decididas sem o Matheus, pela opção mais conservadora. Cada uma pode ser revista.
+Decididas sem o Matheus, pela opção mais conservadora. **Aprovação (M-144, 12/11/2026):** o
+Matheus aceitou o ícone `Hourglass` em `warn` (só no ícone) para Aguardando, a paleta de 8 cores de
+projeto, a aba Menções só com tarefas da equipe e o modo Cards agrupado por prazo. A atualização do
+artefato do Design System (paleta e variante `color` do Chip) fica com o Cowork. As demais seguem
+como registradas abaixo.
 
 - **Item 1 — rótulos do formulário de UM:** "UM" e "Projeto" também no diálogo de criar e editar. A
   mensagem de validação continua "Escolha o Projeto/Cliente da Unidade Móvel".
