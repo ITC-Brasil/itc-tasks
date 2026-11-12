@@ -66,12 +66,20 @@ test("cria Unidade Móvel com Projeto/Cliente", async ({ page }) => {
   await login(page);
   await page.goto("/config/unidades");
   await page.waitForLoadState("networkidle");
+  await expect(page.getByRole("columnheader", { name: "UM", exact: true })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Projeto", exact: true })).toBeVisible();
+  for (const gone of ["Modelo", "Placa", "Base"]) {
+    await expect(page.getByRole("columnheader", { name: gone })).toHaveCount(0);
+  }
   await page.getByRole("button", { name: "Criar Unidade Móvel" }).click();
   const dialog = page.getByRole("dialog");
-  await dialog.getByLabel("Código").fill(code.toLowerCase());
+  for (const gone of ["Modelo", "Placa", "Base"]) {
+    await expect(dialog.getByLabel(gone)).toHaveCount(0);
+  }
+  await dialog.getByLabel("UM", { exact: true }).fill(code.toLowerCase());
   await dialog.getByRole("button", { name: "Criar Unidade Móvel" }).click();
   await expect(dialog.getByRole("alert")).toHaveText("Escolha o Projeto/Cliente da Unidade Móvel");
-  await dialog.getByLabel("Projeto/Cliente").click();
+  await dialog.getByLabel("Projeto", { exact: true }).click();
   await page.getByRole("option").first().click();
   await dialog.getByRole("button", { name: "Criar Unidade Móvel" }).click();
   await expect(dialog).toBeHidden();
