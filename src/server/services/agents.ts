@@ -132,22 +132,24 @@ export async function revokeAgentKey(actor: Actor, keyId: string) {
 /** Últimas escritas feitas por tokens visíveis para a pessoa. */
 export async function listAgentActivity(actor: Actor, limit = 20) {
   const self = ownerOf(actor);
-  return db
-    .select({
-      id: taskEvents.id,
-      type: taskEvents.type,
-      createdAt: taskEvents.createdAt,
-      tokenName: apikey.name,
-      taskNumber: tasks.number,
-      taskTitle: tasks.title,
-    })
-    .from(taskEvents)
-    .innerJoin(apikey, eq(apikey.id, taskEvents.apiKeyId))
-    .innerJoin(tasks, eq(tasks.id, taskEvents.taskId))
-    // ADR-069: nem o admin vê a atividade de agente em tarefa pessoal de outra pessoa
-    .where(and(isAdmin(actor) ? undefined : eq(apikey.referenceId, self), visibleTo(actor)))
-    .orderBy(desc(taskEvents.createdAt))
-    .limit(limit);
+  return (
+    db
+      .select({
+        id: taskEvents.id,
+        type: taskEvents.type,
+        createdAt: taskEvents.createdAt,
+        tokenName: apikey.name,
+        taskNumber: tasks.number,
+        taskTitle: tasks.title,
+      })
+      .from(taskEvents)
+      .innerJoin(apikey, eq(apikey.id, taskEvents.apiKeyId))
+      .innerJoin(tasks, eq(tasks.id, taskEvents.taskId))
+      // ADR-069: nem o admin vê a atividade de agente em tarefa pessoal de outra pessoa
+      .where(and(isAdmin(actor) ? undefined : eq(apikey.referenceId, self), visibleTo(actor)))
+      .orderBy(desc(taskEvents.createdAt))
+      .limit(limit)
+  );
 }
 
 // ── Referências legíveis → IDs ──────────────────────────────────────
@@ -248,7 +250,7 @@ async function cycleId(cycle: "current" | number) {
   return c.id;
 }
 
-type Fields = Omit<McpCreateTask, "title" | "checklist">;
+type Fields = Omit<McpCreateTask, "title" | "checklist" | "visibility">;
 
 /** Campos do MCP → entrada do tasksService; só os enviados. */
 async function serviceFields(actor: AgentActor, input: Fields) {
@@ -271,17 +273,24 @@ async function serviceFields(actor: AgentActor, input: Fields) {
 }
 
 export async function toCreateInput(actor: AgentActor, input: McpCreateTask) {
-  const { title, checklist, ...rest } = input;
+  const { title, checklist, visibility, ...rest } = input;
   const fields = await serviceFields(actor, rest);
-  return { ...fields, title, checklist, projectIds: fields.projectIds ?? [] } as CreateTaskInput;
+  return {
+    ...fields,
+    title,
+    checklist,
+    visibility,
+    projectIds: fields.projectIds ?? [],
+  } as CreateTaskInput;
 }
 
 export async function toUpdateInput(
   actor: AgentActor,
   input: Omit<McpUpdateTask, "id" | "checklist" | "checklistToggle" | "checklistDue">,
 ) {
-  const { title, ...rest } = input;
-  const fields = await serviceFields(actor, rest);
+  const { title, visibility, ...rest } = input;
+  const fields: UpdateTaskInput = await serviceFields(actor, rest);
+  if (visibility) fields.visibility = visibility; // ADR-069: pessoal → equipe
   return title === undefined ? fields : { ...fields, title };
 }
 
@@ -312,6 +321,7 @@ export async function getTaskSummary(actor: Actor, number: number) {
       status: task.statusName,
       category: task.category,
       priority: task.priority,
+      visibility: task.visibility, // ADR-069
       projects: task.projects.map((p) => p.code),
       mobileUnits: task.units.map((u) => u.code),
       glpiTicket: task.glpiTicket ?? undefined,
@@ -385,7 +395,8 @@ export async function listTasksForAgent(actor: AgentActor, input: McpListTasks) 
     assigneeIds:
       input.assignee && input.assignee !== "none" ? [await personId(actor, input.assignee)] : [],
   };
-  const { tasks: rows } = await listTasks(actor, filters);
+  // ADR-069: sem `visibility`, só as da equipe; as pessoais são sempre as do dono do token
+  const { tasks: rows } = await listTasks(actor, filters, { visibility: input.visibility });
   const today = todayISO();
   const q = input.query?.trim().toLowerCase();
   const glpi = q?.match(/^#(\d+)$/)?.[1];
@@ -414,6 +425,7 @@ export async function listTasksForAgent(actor: AgentActor, input: McpListTasks) 
       status: statuses.find((s) => s.id === t.statusId)?.name ?? "",
       category: t.category,
       priority: t.priority,
+      visibility: t.visibility,
       projects: t.projects.map((p) => p.code),
       mobileUnits: t.units.map((u) => u.code),
       glpiTicket: t.glpiTicket ?? undefined,

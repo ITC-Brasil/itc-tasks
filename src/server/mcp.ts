@@ -38,6 +38,9 @@ import {
 
 // ADR-009/ADR-049: as ferramentas só validam, chamam services e mapeiam erros (ADR-003)
 
+const LIST_TASKS =
+  "Lista tarefas com filtros; mais novas primeiro. Só as da equipe, salvo visibility personal ou all.";
+
 const ok = (data: Record<string, unknown>): CallToolResult => ({
   content: [{ type: "text", text: JSON.stringify(data) }],
   structuredContent: data,
@@ -97,9 +100,7 @@ export function createMcpServer(actor: AgentActor, access: Access[]) {
   };
 
   // ── Leitura ──
-  tool("list_tasks", "read", "Lista tarefas com filtros; mais novas primeiro.", mcpListTasks, (i) =>
-    listTasksForAgent(actor, i),
-  );
+  tool("list_tasks", "read", LIST_TASKS, mcpListTasks, (i) => listTasksForAgent(actor, i));
   tool("get_task", "read", "Detalhe de uma tarefa (TI-142, 142).", mcpTaskId, (i) =>
     getTaskDetail(actor, i.id),
   );
@@ -134,7 +135,7 @@ export function createMcpServer(actor: AgentActor, access: Access[]) {
   tool(
     "create_task",
     "write",
-    "Cria tarefa. projectIds é obrigatório (códigos; o primeiro é o principal).",
+    "Cria tarefa. projectIds é obrigatório (códigos; o primeiro é o principal), menos com visibility 'personal' (tarefa que só o dono do token vê).",
     mcpCreateTask,
     async (i) => {
       const task = await createTask(actor, await toCreateInput(actor, i));
