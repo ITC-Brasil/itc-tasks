@@ -1,4 +1,4 @@
-import { Folder, Hourglass, Ticket, Truck } from "lucide-react";
+import { Folder, Hourglass, Lock, Ticket, Truck } from "lucide-react";
 import type { ProjectColor } from "@/lib/validation/catalog";
 import type { Priority } from "@/lib/validation/tasks";
 import { cn } from "@/lib/utils";
@@ -151,6 +151,16 @@ export function UnitChip({ code, color }: { code: string; color?: ProjectColor |
     >
       <Truck className="size-3.5 flex-none" aria-hidden="true" />
       <span className="tabular-nums">{code}</span>
+    </span>
+  );
+}
+
+/** ADR-069: marca discreta de tarefa pessoal (só quem criou vê). */
+export function PersonalMark({ className }: { className?: string }) {
+  return (
+    <span title="Tarefa pessoal: só você vê" className={cn("inline-flex flex-none", className)}>
+      <Lock className="size-3.5 text-muted" strokeWidth={1.75} aria-hidden="true" />
+      <span className="sr-only">Tarefa pessoal</span>
     </span>
   );
 }
