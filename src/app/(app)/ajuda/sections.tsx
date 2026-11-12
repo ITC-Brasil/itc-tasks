@@ -167,7 +167,7 @@ function TelaPrincipal() {
       <p>
         Ao entrar você cai em Minhas tarefas: o que está com você, agrupado por prazo (vencidas,
         hoje, esta semana). As abas e os modos Cards, Lista e Calendário estão em{" "}
-        <a href="#pessoais" className="text-accent-text hover:underline">
+        <a href="#pessoais" className="text-accent-text underline">
           Tarefas pessoais e Minhas tarefas
         </a>
         .
@@ -705,8 +705,8 @@ function Pessoais() {
           [
             "Número",
             <>
-              Usa a mesma sequência <Code>TI-n</Code>. Por isso a numeração pode pular para os
-              outros.
+              Usa a mesma sequência TI-n das tarefas da equipe. Por isso a numeração pode pular para
+              os outros.
             </>,
           ],
           [
