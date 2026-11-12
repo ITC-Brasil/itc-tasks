@@ -2094,3 +2094,70 @@ está de fato sendo feito.
 - A importação do Windshift mapeava "Aguardando" para `in_progress`; já foi aplicada e não muda.
 - Depois do pull, em desenvolvimento: `npm run db:migrate` e `npm run db:seed` (o seed cria o
   status). Em produção o entrypoint faz os dois passos.
+
+---
+
+## ADR-068 — Cor por Projeto/Cliente: paleta fechada de 8 cores no Chip, UM no tom mais suave (Módulo 15)
+
+**Status:** Accepted
+**Date:** 2026-11-12
+**Module:** 15 — Ajustes de produto (item 3)
+
+**Context**
+No TaskCard o chip de Projeto/Cliente mostra "ITC · ITC Brasil" e ocupa a linha inteira; todos os
+projetos têm o mesmo ciano, e a UM é um chip neutro sem ligação visual com o projeto a que pertence.
+O Matheus pediu só a sigla no card e uma cor por projeto, com a UM num tom mais claro da mesma cor
+(BSBIA em azul, BSBIA02 em azul claro). A regra "nunca hex em componente" continua valendo.
+
+**Decision**
+- **Só a sigla** no chip compacto (TaskCard no Kanban e em Minhas tarefas, Lista). O nome completo
+  vai no `title` (tooltip) e num texto só para leitor de tela dentro do chip ("ITC · ITC Brasil").
+  Não uso `aria-label`: num `span` sem papel o axe o trata como atributo proibido. No detalhe da
+  tarefa, nos seletores e em Marcos o chip continua com o nome (`full`).
+- **Paleta fechada de 8 cores**, por chave: `blue`, `indigo`, `violet`, `magenta`, `rose`, `brown`,
+  `olive`, `slate`. Sem verde, laranja, vermelho e amarelo (são `ok`, `warn`, `err`, `sev-medium`)
+  e sem ciano (é o `accent`, o chip padrão). O azul fica mais claro e menos saturado que o `info` e
+  só aparece como fundo de chip, nunca como ícone de estado.
+- Três tokens por cor em `src/styles/globals.css`, no claro e no escuro, expostos no `@theme`:
+  `--project-<cor>-bg` (fundo do chip de projeto), `--project-<cor>-unit-bg` (fundo do chip de UM)
+  e `--project-<cor>-fg` (texto e ícone dos dois). O chip de UM usa o **mesmo texto** do projeto:
+  sobre o fundo mais suave o contraste só aumenta.
+  - No claro o fundo da UM é mais claro que o do projeto; no escuro é mais próximo da superfície.
+    Nos dois temas a UM é a versão mais suave da cor do projeto.
+- Coluna aditiva `projects.color` (`text`, nula) com a **chave** da paleta, validada por
+  `z.enum(PROJECT_COLORS)`. Nula = chip ciano atual (`accent-light` + `accent-text`) e UM neutra:
+  nada muda até alguém escolher.
+- O admin escolhe em Configurações › Projetos/Clientes: grupo de amostras (rádio) com o nome da cor
+  em português como rótulo acessível, mais "Padrão". A lista de projetos mostra o chip na cor.
+- O chip de UM herda a cor do projeto da UM. Tarefa com vários projetos (ADR-045): um chip por
+  projeto, cada um com a sua cor.
+- Variante no próprio Chip: `ProjectChip` e `UnitChip` ganham a prop `color`. Sem componente novo.
+- O MCP devolve `color` em `list_projects` (leitura). Escrita de cor só pela tela.
+
+**Contraste (WCAG AA 4,5:1), texto `fg` sobre cada fundo**
+
+| Cor | Claro: projeto / UM | Escuro: projeto / UM |
+|---|---|---|
+| `blue` | 7,70 / 9,42 | 7,40 / 9,60 |
+| `indigo` | 9,31 / 12,16 | 7,80 / 8,98 |
+| `violet` | 8,64 / 10,94 | 7,68 / 9,28 |
+| `magenta` | 7,56 / 9,21 | 7,36 / 9,55 |
+| `rose` | 7,66 / 9,53 | 7,35 / 9,39 |
+| `brown` | 6,94 / 8,16 | 7,26 / 9,97 |
+| `olive` | 5,36 / 5,80 | 6,65 / 10,61 |
+| `slate` | 7,35 / 8,70 | 7,33 / 9,94 |
+
+**Alternatives considered**
+- **Hex livre por projeto (seletor de cor):** descartada. Quebra a regra dos tokens e não garante
+  contraste nos dois temas.
+- **Reusar a paleta de etiquetas (ADR-041):** descartada. Aqueles tokens são cores de ponto sobre
+  fundo neutro, não pares fundo/texto, e projeto e etiqueta com a mesma cor se confundiriam.
+- **Texto próprio para o chip de UM (quarto token):** descartada. O mesmo `fg` passa com folga.
+- **`aria-label` no chip:** descartada (axe `aria-prohibited-attr` em `span` sem papel).
+- **Cor na UM, independente do projeto:** descartada. A hierarquia UM → projeto é o que se quer ver.
+
+**Consequences**
+- O artefato do Design System (referência no CLAUDE.md) precisa ganhar a paleta e a variante do Chip;
+  quem atualiza é o Cowork.
+- Com mais de 8 projetos ativos as cores se repetem; a sigla continua sendo o identificador.
+- Cor nova na paleta = três tokens em cada tema, a chave em `PROJECT_COLORS` e a linha na tabela.

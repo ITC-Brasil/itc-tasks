@@ -107,7 +107,7 @@ export function TaskTable({
       cell: (c) => (
         <span className="flex flex-wrap gap-1">
           {c.row.original.projects.map((p) => (
-            <ProjectChip key={p.id} code={p.code} name={p.name} />
+            <ProjectChip key={p.id} code={p.code} name={p.name} color={p.color} />
           ))}
         </span>
       ),

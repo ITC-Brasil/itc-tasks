@@ -410,7 +410,7 @@ export async function listTasksForAgent(actor: AgentActor, input: McpListTasks) 
       category: t.category,
       priority: t.priority,
       projects: t.projects.map((p) => p.code),
-      mobileUnits: t.units,
+      mobileUnits: t.units.map((u) => u.code),
       glpiTicket: t.glpiTicket ?? undefined,
       assignee: (t.assigneeId && mail.get(t.assigneeId)) || undefined,
       dueDate: t.dueDate ?? undefined,

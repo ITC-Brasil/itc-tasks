@@ -21,6 +21,20 @@ Decididas sem o Matheus, pela opção mais conservadora. Cada uma pode ser revis
   posição os status dali em diante (muda só a ordem).
 - **Item 2 — importação do Windshift:** o mapa "Aguardando" → `in_progress` ficou como está (a
   importação já foi aplicada).
+- **Item 3 — paleta de projeto:** 8 cores (`blue` Azul, `indigo` Anil, `violet` Violeta, `magenta`
+  Magenta, `rose` Rosa, `brown` Marrom, `olive` Oliva, `slate` Cinza-azulado), geradas por matiz
+  com luminosidade fixa; valores e contraste no ADR-068. Sem verde, laranja, vermelho, amarelo e
+  ciano. Trocar matizes ou nomes é só mexer nos tokens e em `PROJECT_COLORS`.
+- **Item 3 — UM no tema escuro:** o "tom mais claro" vira "tom mais suave": no escuro o fundo da UM
+  é mais próximo da superfície, não mais claro.
+- **Item 3 — artefato do Design System:** a paleta de projeto e a variante `color` do Chip precisam
+  entrar no artefato (https://claude.ai/artifact/YP2eURsV28zVRjGcxAL495). Fica com o Cowork.
+- **Item 3 — onde a sigla sozinha vale:** TaskCard (Kanban e Minhas tarefas), Lista e a lista de
+  Configurações › Projetos/Clientes. Detalhe, seletores e Marcos seguem com o nome. O Calendário não
+  mostra chip de projeto e ficou como está.
+- **Item 3 — nome acessível:** texto `sr-only` em vez de `aria-label` (o axe proíbe `aria-label`
+  em `span` sem papel).
+- **Item 3 — MCP:** `color` só em `list_projects`. `TaskSummary.projects` continua lista de siglas.
 
 ## Item 1 — Unidades Móveis sem Modelo, Placa e Base (ADR-066)
 
@@ -52,3 +66,25 @@ Decididas sem o Matheus, pela opção mais conservadora. Cada uma pode ser revis
   e vencida, `completedAt` nulo); `tests/e2e/views.spec.ts` (move para Aguardando pelo teclado no
   Kanban, axe nos dois temas, status na Lista).
 - **Depois do pull (dev):** `npm run db:migrate` e `npm run db:seed`.
+
+## Item 3 — Só a sigla no chip e cor por Projeto/Cliente (ADR-068)
+
+- **Chip:** `ProjectChip` e `UnitChip` em `src/components/tasks/badges.tsx`. Props novas: `full`
+  (mostra "SIGLA · Nome") e `color` (chave da paleta). O estilo sai de `var(--project-<cor>-…)`,
+  nunca de hex no componente.
+- **Tokens:** `src/styles/globals.css`, 3 por cor × 8 cores × 2 temas, expostos no `@theme`.
+- **Banco:** `drizzle/0016_project_color.sql` (`projects.color text`, nula). Guarda a chave.
+- **Validação:** `PROJECT_COLORS`, `PROJECT_COLOR_NAMES` e `projectSchema.color` em
+  `src/lib/validation/catalog.ts`. `""` limpa; ausente não mexe na cor.
+- **Service:** `listTasks` e `getTask` devolvem `projects[].color` e `units[].color` (a cor do
+  projeto da UM). `TaskRow.units` passou de `string[]` para `{ code, color }[]`. `listMilestones`
+  devolve `projectColor`.
+- **Tela:** Configurações › Projetos/Clientes (`projects-client.tsx`): grupo de rádios "Cor nos
+  cards" com "Padrão" e as 8 amostras, cada rádio com o nome da cor; a coluna Sigla mostra o chip.
+- **MCP:** `list_projects` devolve `color`.
+- **Testes:** `tests/integration/catalog.test.ts` (hex recusado, vazio limpa, ausente mantém, UM
+  herda); `tests/e2e/catalog.spec.ts` (Azul, Rosa e Oliva aplicadas, chip só com a sigla no Kanban,
+  axe nos dois temas na lista de projetos e no Kanban).
+- **Correção no caminho:** `listMilestones` precisou de `projects.color` no `GROUP BY` (commit
+  `fix(planning)`); o E2E pegou, a suíte de integração do commit anterior não tinha sido rodada
+  inteira.

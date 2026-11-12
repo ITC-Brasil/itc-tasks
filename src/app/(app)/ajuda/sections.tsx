@@ -113,8 +113,8 @@ const PRIORITIES = [
 const SAMPLE = {
   number: 142,
   title: "Trocar nobreak do rack 2",
-  projects: [{ id: "p", code: "TRL", name: "Transportadora Litoral" }],
-  units: ["UM-07"],
+  projects: [{ id: "p", code: "TRL", name: "Transportadora Litoral", color: "blue" }],
+  units: [{ code: "UM-07", color: "blue" }],
   labels: [{ name: "Infra", colorToken: "label-teal" }],
   priority: "high",
   dueDate: "2000-01-01",
@@ -213,20 +213,23 @@ function TelaPrincipal() {
             ))}
           </ul>
           <div className="flex flex-wrap gap-1.5">
-            <ProjectChip code="TRL" name="Transportadora Litoral" />
-            <UnitChip code="UM-07" />
+            <ProjectChip code="TRL" name="Transportadora Litoral" color="blue" full />
+            <UnitChip code="UM-07" color="blue" />
             <GlpiChipExample />
           </div>
         </Card>
         <TaskCard task={SAMPLE} today="2000-01-02" />
       </div>
       <p>
-        A forma do ícone diz o status mesmo sem cor. A ampulheta é <b>Aguardando</b>: tarefa
-        iniciada e parada por algo fora do alcance da equipe (compra a caminho, retorno de
-        fornecedor). Ela continua aberta e aparece como atrasada se passar do prazo. As barras
-        indicam a prioridade (Baixa, Média, Alta) e o quadrado com <b>!</b> marca Urgente. O prazo
-        vencido aparece com o ícone em vermelho. O código <Code>TI-142</Code> é o número da tarefa e
-        também o endereço dela: <Code>/tarefas/142</Code>.
+        No card, o chip do Projeto/Cliente mostra só a sigla; o nome completo aparece ao passar o
+        mouse. O administrador pode dar uma cor a cada Projeto/Cliente (Configurações ›
+        Projetos/Clientes), e as Unidades Móveis dele aparecem num tom mais suave da mesma cor. A
+        forma do ícone diz o status mesmo sem cor. A ampulheta é <b>Aguardando</b>: tarefa iniciada
+        e parada por algo fora do alcance da equipe (compra a caminho, retorno de fornecedor). Ela
+        continua aberta e aparece como atrasada se passar do prazo. As barras indicam a prioridade
+        (Baixa, Média, Alta) e o quadrado com <b>!</b> marca Urgente. O prazo vencido aparece com o
+        ícone em vermelho. O código <Code>TI-142</Code> é o número da tarefa e também o endereço
+        dela: <Code>/tarefas/142</Code>.
       </p>
     </Section>
   );

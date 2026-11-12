@@ -41,10 +41,10 @@ export function TaskCard({
       {(task.projects.length > 0 || task.units.length > 0 || task.labels.length > 0) && (
         <div className="mt-2 flex flex-wrap gap-1">
           {task.projects.map((p) => (
-            <ProjectChip key={p.id} code={p.code} name={p.name} />
+            <ProjectChip key={p.id} code={p.code} name={p.name} color={p.color} />
           ))}
           {task.units.map((u) => (
-            <UnitChip key={u} code={u} />
+            <UnitChip key={u.code} code={u.code} color={u.color} />
           ))}
           {task.labels.map((l) => (
             <LabelChip key={l.name} name={l.name} colorToken={l.colorToken} />
