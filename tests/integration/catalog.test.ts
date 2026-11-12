@@ -2,6 +2,8 @@ import { sql } from "drizzle-orm";
 import { expect, it } from "vitest";
 import { db } from "@/db";
 import { type Actor, ForbiddenError } from "@/server/actor";
+import { createMember } from "@/server/services/members";
+import { createTask, listTasks } from "@/server/services/tasks";
 import {
   CatalogError,
   createLabel,
@@ -18,6 +20,7 @@ import {
   setProjectArchived,
   setStatusArchived,
   updateMobileUnit,
+  updateProject,
 } from "@/server/services/catalog";
 
 const admin: Actor = { kind: "system" };
@@ -123,4 +126,57 @@ it("workflow: categoria nunca fica sem status ativo; ordem troca com o vizinho",
     "Cada categoria precisa de ao menos um status ativo",
   );
   for (const s of rest) await setStatusArchived(admin, s.id, false);
+});
+
+it("cor do projeto: só a paleta fechada; vazio limpa, ausente mantém; a UM herda (ADR-068)", async () => {
+  const c = variant(7);
+  await expect(
+    createProject(admin, {
+      code: `${c}C1`,
+      name: "Hex",
+      kind: "client",
+      color: "#ff0000" as never,
+    }),
+  ).rejects.toThrow();
+  const p = await createProject(admin, {
+    code: `${c}C2`,
+    name: "Cor",
+    kind: "client",
+    color: "rose",
+  });
+  expect(p.color).toBe("rose");
+  const plain = await createProject(admin, { code: `${c}C3`, name: "Sem cor", kind: "client" });
+  expect(plain.color).toBeNull();
+  const same = await updateProject(admin, p.id, { code: p.code, name: "Cor 2", kind: "client" });
+  expect(same.color).toBe("rose");
+
+  const unit = await createMobileUnit(admin, { code: `UM-${c}-COR`, projectId: p.id });
+  const u = await createMember(admin, {
+    name: "Cor",
+    email: `cor-${c.toLowerCase()}-${Date.now()}@t.test`,
+    password: "senha-de-teste-123",
+    role: "member",
+  });
+  const owner = { kind: "user", userId: u.id, role: "member" } as const;
+  const t = await createTask(owner, {
+    title: `Cor ${c}`,
+    projectIds: [p.id, plain.id],
+    mobileUnitIds: [unit.id],
+  });
+  const row = (await listTasks(owner, { projectIds: [p.id] })).tasks.find((r) => r.id === t.id);
+  expect(row?.projects.map((x) => [x.code, x.color]).sort()).toEqual(
+    [
+      [p.code, "rose"],
+      [plain.code, null],
+    ].sort(),
+  );
+  expect(row?.units).toEqual([{ code: unit.code, color: "rose" }]);
+
+  const cleared = await updateProject(admin, p.id, {
+    code: p.code,
+    name: "Cor 2",
+    kind: "client",
+    color: "",
+  });
+  expect(cleared.color).toBeNull();
 });
