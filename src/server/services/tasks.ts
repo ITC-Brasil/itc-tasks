@@ -549,7 +549,11 @@ async function applyUpdate(
   const events: Parameters<typeof record>[3] = [];
   if (toTeam) {
     // antes do record(): o evento da conversão já sai como tarefa da equipe (SSE e notificações)
-    await tx.update(tasks).set({ visibility: "team" }).where(eq(tasks.id, current.id));
+    // o projeto principal vai junto: o CHECK do banco não aceita tarefa da equipe sem projeto
+    await tx
+      .update(tasks)
+      .set({ visibility: "team", projectId: projectsAfter[0] })
+      .where(eq(tasks.id, current.id));
     events.push({
       type: "field_changed",
       payload: { field: "visibility", from: "personal", to: "team" },
