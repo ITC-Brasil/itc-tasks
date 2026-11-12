@@ -67,7 +67,7 @@ export async function addAttachment(actor: Actor, taskId: string, file: File) {
   await writeFile(storagePath(storageKey), Buffer.from(await file.arrayBuffer()));
   try {
     return await db.transaction(async (tx) => {
-      await lockTask(tx, id);
+      await lockTask(tx, id, actor);
       const [row] = await tx
         .insert(attachments)
         .values({

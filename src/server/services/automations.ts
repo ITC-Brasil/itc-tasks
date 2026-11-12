@@ -105,7 +105,7 @@ async function act(action: AutomationAction, rule: Rule, actor: Actor, taskId: s
       // sem ciclo ativo não faz nada (ADR-052)
       return db.transaction(async (tx) => {
         const [cycle] = await tx.select().from(cycles).where(eq(cycles.state, "active"));
-        const current = await lockTask(tx, taskId);
+        const current = await lockTask(tx, taskId, actor);
         if (!cycle || current.cycleId === cycle.id) return;
         await tx
           .update(tasks)
@@ -120,7 +120,7 @@ async function act(action: AutomationAction, rule: Rule, actor: Actor, taskId: s
       });
     case "moveToTop":
       return db.transaction(async (tx) => {
-        const current = await lockTask(tx, taskId);
+        const current = await lockTask(tx, taskId, actor);
         const [first] = await tx
           .select({ p: min(tasks.position) })
           .from(tasks)

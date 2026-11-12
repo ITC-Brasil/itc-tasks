@@ -46,7 +46,7 @@ export async function addComment(actor: Actor, taskId: string, body: unknown) {
   const authorId = author(actor);
   const data = await parse(body);
   return db.transaction(async (tx) => {
-    await lockTask(tx, id);
+    await lockTask(tx, id, actor);
     const [row] = await tx
       .insert(comments)
       .values({
@@ -70,6 +70,7 @@ export async function editComment(actor: Actor, commentId: string, body: unknown
     const [current] = await tx.select().from(comments).where(eq(comments.id, id)).for("update");
     if (!current) throw new TaskError("NOT_FOUND", "Comentário não encontrado");
     if (current.authorId !== authorId) throw new ForbiddenError();
+    await lockTask(tx, current.taskId, actor);
     const [row] = await tx
       .update(comments)
       .set({ ...data, editedAt: new Date() })

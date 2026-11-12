@@ -44,6 +44,10 @@ import {
   deleteTasksSchema,
   checklistItemSchema,
   checklistTextSchema,
+  PERSONAL_NO_PLANNING,
+  PERSONAL_OWNER,
+  TASK_NEEDS_PROJECT,
+  TEAM_NEEDS_PROJECT,
   createTaskSchema,
   linkSchema,
   moveTaskSchema,
@@ -87,6 +91,28 @@ type EventType =
   | "attachment_added"
   | "imported";
 
+/**
+ * ADR-069: a única regra de leitura de tarefa. Pessoa e agente veem as da equipe e as pessoais
+ * que a própria pessoa criou; automação e sistema, só as da equipe. Toda consulta de tarefa usa
+ * esta condição (ou `lockTask`/`assertVisible`, que a aplicam).
+ */
+export function visibleTo(actor: Actor): SQL {
+  return actor.kind === "user" || actor.kind === "agent"
+    ? sql`(${tasks.visibility} = 'team' OR ${tasks.creatorId} = ${actor.userId})`
+    : sql`${tasks.visibility} = 'team'`;
+}
+/** Visões e números da equipe: a tarefa pessoal fica de fora até para o dono. */
+export const teamOnly = eq(tasks.visibility, "team");
+
+/** Leitura por id (comentários, histórico, anexos): some para quem não vê, sem dizer que existe. */
+export async function assertVisible(actor: Actor, taskId: string, tx: Tx | typeof db = db) {
+  const [row] = await tx
+    .select({ id: tasks.id })
+    .from(tasks)
+    .where(and(eq(tasks.id, taskId), visibleTo(actor)));
+  if (!row) throw new TaskError("NOT_FOUND", "Tarefa não encontrada");
+}
+
 function actorColumns(actor: Actor) {
   switch (actor.kind) {
     case "user":
@@ -109,6 +135,11 @@ export async function record(
   { silent = false }: { silent?: boolean } = {},
 ) {
   if (events.length === 0) return;
+  const [task] = await tx
+    .select({ visibility: tasks.visibility })
+    .from(tasks)
+    .where(eq(tasks.id, taskId));
+  const personal = task?.visibility === "personal";
   const inserted = await tx
     .insert(taskEvents)
     .values(
@@ -124,7 +155,8 @@ export async function record(
   const eventIds = inserted.map((r) => r.id);
   if (!silent) await enqueue(tx, QUEUES.fanout, { eventIds } satisfies FanoutJob);
   // ADR-052: só escritas que são gatilho; a profundidade cresce a cada automação na cadeia
-  if (!silent && events.some((e) => triggerOf(e)))
+  // ADR-069: tarefa pessoal não dispara automação da equipe
+  if (!silent && !personal && events.some((e) => triggerOf(e)))
     await enqueue(tx, QUEUES.evaluate, {
       eventIds,
       depth: actor.kind === "automation" ? actor.depth : 0,
@@ -133,7 +165,7 @@ export async function record(
   // `by` só para pessoa: a aba ignora as próprias escritas, mas não as do agente dela (M-039)
   const fields = JSON.stringify([...new Set(events.map((e) => e.type))]);
   await tx.execute(
-    sql`SELECT pg_notify('task_changed', json_build_object('id', id, 'number', number, 'fields', ${fields}::json, 'by', ${actor.kind === "user" ? actor.userId : null}::text)::text) FROM tasks WHERE id = ${taskId}`,
+    sql`SELECT pg_notify('task_changed', json_build_object('id', id, 'number', number, 'fields', ${fields}::json, 'by', ${actor.kind === "user" ? actor.userId : null}::text, 'owner', CASE WHEN visibility = 'personal' THEN creator_id END)::text) FROM tasks WHERE id = ${taskId}`,
   );
 }
 
@@ -267,7 +299,9 @@ async function writeLinks(
 ) {
   if (projectIds) {
     await tx.delete(taskProjects).where(eq(taskProjects.taskId, taskId));
-    await tx.insert(taskProjects).values(projectIds.map((projectId) => ({ taskId, projectId })));
+    // tarefa pessoal pode ficar sem Projeto/Cliente (ADR-069)
+    if (projectIds.length)
+      await tx.insert(taskProjects).values(projectIds.map((projectId) => ({ taskId, projectId })));
   }
   if (unitIds) {
     await tx.delete(taskMobileUnits).where(eq(taskMobileUnits.taskId, taskId));
@@ -346,8 +380,13 @@ export async function creatorFor(tx: Tx, actor: Actor) {
   return admin.id;
 }
 
-export async function lockTask(tx: Tx, id: string) {
-  const [row] = await tx.select().from(tasks).where(eq(tasks.id, id)).for("update");
+/** Toda escrita começa aqui: trava a linha e só acha a tarefa que o ator vê (ADR-069). */
+export async function lockTask(tx: Tx, id: string, actor: Actor) {
+  const [row] = await tx
+    .select()
+    .from(tasks)
+    .where(and(eq(tasks.id, id), visibleTo(actor)))
+    .for("update");
   if (!row) throw new TaskError("NOT_FOUND", "Tarefa não encontrada");
   return row;
 }
@@ -403,8 +442,17 @@ export async function insertTask(
   await assertUnitsFit(tx, data.mobileUnitIds, data.projectIds, []);
   if (data.descriptionJson)
     data = { ...data, descriptionJson: await relabelMentions(tx, data.descriptionJson) };
+  // ADR-069: a pessoal é de uma pessoa (ou do agente dela), sempre atribuída a quem criou
+  const personal = data.visibility === "personal";
+  if (personal) {
+    if (actor.kind !== "user" && actor.kind !== "agent")
+      throw new TaskError("VALIDATION", "Tarefa pessoal só é criada por uma pessoa");
+    if (data.assigneeId && data.assigneeId !== actor.userId)
+      throw new TaskError("VALIDATION", PERSONAL_OWNER);
+    if (data.cycleId || data.milestoneId) throw new TaskError("VALIDATION", PERSONAL_NO_PLANNING);
+  }
   // ADR-045: sem responsável automático; omitido = sem responsável
-  const assigneeId = data.assigneeId ?? null;
+  const assigneeId = personal ? await creatorFor(tx, actor) : (data.assigneeId ?? null);
   if (assigneeId) await assertAssignee(tx, assigneeId);
   await assertLabels(tx, data.labelIds);
   if (data.cycleId) await assertCycle(tx, data.cycleId);
@@ -417,7 +465,8 @@ export async function insertTask(
     .insert(tasks)
     .values({
       title: data.title,
-      projectId: data.projectIds[0], // principal (ADR-045)
+      projectId: data.projectIds[0] ?? null, // principal (ADR-045); a pessoal pode não ter
+      visibility: data.visibility,
       statusId: status.id,
       priority: data.priority,
       assigneeId,
@@ -465,6 +514,14 @@ async function applyUpdate(
   const projectsAfter = data.projectIds ?? linked.projectIds;
   const unitsAfter = data.mobileUnitIds ?? linked.unitIds;
   const added = (after: string[], before: string[]) => after.filter((id) => !before.includes(id));
+  // ADR-069: pessoal → equipe exige Projeto/Cliente; o caminho inverso não existe
+  const toTeam = data.visibility === "team" && current.visibility === "personal";
+  if (current.visibility === "personal" && !toTeam) {
+    if ("assigneeId" in data && data.assigneeId !== current.creatorId)
+      throw new TaskError("VALIDATION", PERSONAL_OWNER);
+    if (data.cycleId || data.milestoneId) throw new TaskError("VALIDATION", PERSONAL_NO_PLANNING);
+  } else if (projectsAfter.length === 0)
+    throw new TaskError("VALIDATION", toTeam ? TEAM_NEEDS_PROJECT : TASK_NEEDS_PROJECT);
   if (data.projectIds || data.mobileUnitIds) {
     await assertActive(tx, projects, added(projectsAfter, linked.projectIds), "Projeto/Cliente");
     await assertActive(tx, mobileUnits, added(unitsAfter, linked.unitIds), "Unidade Móvel");
@@ -490,6 +547,14 @@ async function applyUpdate(
 
   const set: Partial<typeof tasks.$inferInsert> = {};
   const events: Parameters<typeof record>[3] = [];
+  if (toTeam) {
+    // antes do record(): o evento da conversão já sai como tarefa da equipe (SSE e notificações)
+    await tx.update(tasks).set({ visibility: "team" }).where(eq(tasks.id, current.id));
+    events.push({
+      type: "field_changed",
+      payload: { field: "visibility", from: "personal", to: "team" },
+    });
+  }
 
   for (const field of FIELDS) {
     if (!(field in data)) continue;
@@ -519,7 +584,8 @@ async function applyUpdate(
     unitsChanged ? unitsAfter : null,
   );
   // principal só muda quando a lista vem no patch; linkedIds() não tem ordem (M-029)
-  if (data.projectIds && projectsAfter[0] !== current.projectId) set.projectId = projectsAfter[0];
+  if (data.projectIds && (projectsAfter[0] ?? null) !== current.projectId)
+    set.projectId = projectsAfter[0] ?? null;
   if (data.mobileUnitIds && (unitsAfter[0] ?? null) !== current.mobileUnitId)
     set.mobileUnitId = unitsAfter[0] ?? null;
   if ("assigneeId" in data && data.assigneeId !== current.assigneeId) {
@@ -607,7 +673,9 @@ function completion(from: string | undefined, to: string, completedAt: Date | nu
 
 export async function updateTask(actor: Actor, taskId: string, input: UpdateTaskInput) {
   const data = updateTaskSchema.parse(input);
-  return db.transaction(async (tx) => applyUpdate(tx, actor, await lockTask(tx, taskId), data));
+  return db.transaction(async (tx) =>
+    applyUpdate(tx, actor, await lockTask(tx, taskId, actor), data),
+  );
 }
 
 /** Kanban: muda status e posição (depois de `afterTaskId`, ou no topo). */
@@ -618,7 +686,7 @@ export async function moveTask(
 ) {
   const { statusId, afterTaskId } = moveTaskSchema.parse(input);
   return db.transaction(async (tx) => {
-    const current = await lockTask(tx, taskId);
+    const current = await lockTask(tx, taskId, actor);
     let task = await applyUpdate(tx, actor, current, { statusId });
     const [prev] = afterTaskId
       ? await tx
@@ -650,7 +718,7 @@ export async function moveTask(
 /** Move para o primeiro status `done`; idempotente (API.md › complete_task). */
 export async function completeTask(actor: Actor, taskId: string) {
   return db.transaction(async (tx) => {
-    const current = await lockTask(tx, taskId);
+    const current = await lockTask(tx, taskId, actor);
     if (current.completedAt) return current;
     const done = await firstStatus(tx, "done");
     return applyUpdate(tx, actor, current, { statusId: done.id });
@@ -665,7 +733,8 @@ export async function bulkUpdateTasks(
   const { taskIds, patch } = bulkUpdateSchema.parse(input);
   return db.transaction(async (tx) => {
     const out: Task[] = [];
-    for (const id of taskIds) out.push(await applyUpdate(tx, actor, await lockTask(tx, id), patch));
+    for (const id of taskIds)
+      out.push(await applyUpdate(tx, actor, await lockTask(tx, id, actor), patch));
     return out;
   });
 }
@@ -680,7 +749,8 @@ export async function deleteTasks(actor: Actor, input: { taskIds: string[] }) {
   const keys = await db.transaction(async (tx) => {
     const rows = [];
     for (const id of taskIds) {
-      const task = await lockTask(tx, id);
+      // pessoal de outra pessoa: NOT_FOUND, até para o admin (ADR-069)
+      const task = await lockTask(tx, id, actor);
       if (!canDeleteTask(actor, task)) throw new ForbiddenError();
       rows.push(task);
     }
@@ -688,13 +758,18 @@ export async function deleteTasks(actor: Actor, input: { taskIds: string[] }) {
       .select({ key: attachments.storageKey })
       .from(attachments)
       .where(inArray(attachments.taskId, taskIds));
-    await tx
-      .insert(taskDeletions)
-      .values(rows.map((t) => ({ number: t.number, title: t.title, deletedBy: actor.userId })));
+    await tx.insert(taskDeletions).values(
+      rows.map((t) => ({
+        number: t.number,
+        // ADR-069: o rastro não guarda o conteúdo de uma tarefa pessoal
+        title: t.visibility === "personal" ? "(tarefa pessoal)" : t.title,
+        deletedBy: actor.userId,
+      })),
+    );
     // ADR-048: a aba com a tarefa aberta recarrega e cai no 404
     for (const t of rows)
       await tx.execute(
-        sql`SELECT pg_notify('task_changed', json_build_object('id', ${t.id}::text, 'number', ${t.number}::int, 'fields', '["deleted"]'::json, 'by', ${actor.userId}::text)::text)`,
+        sql`SELECT pg_notify('task_changed', json_build_object('id', ${t.id}::text, 'number', ${t.number}::int, 'fields', '["deleted"]'::json, 'by', ${actor.userId}::text, 'owner', ${t.visibility === "personal" ? t.creatorId : null}::text)::text)`,
       );
     await tx.delete(tasks).where(inArray(tasks.id, taskIds));
     return files.map((f) => f.key);
@@ -708,7 +783,7 @@ export async function deleteTasks(actor: Actor, input: { taskIds: string[] }) {
 export async function addChecklistItem(actor: Actor, taskId: string, text: string) {
   const value = checklistTextSchema.parse(text);
   return db.transaction(async (tx) => {
-    await lockTask(tx, taskId);
+    await lockTask(tx, taskId, actor);
     const [last] = await tx
       .select({ p: max(checklistItems.position) })
       .from(checklistItems)
@@ -733,6 +808,7 @@ export async function updateChecklistItem(
   return db.transaction(async (tx) => {
     const [item] = await tx.select().from(checklistItems).where(eq(checklistItems.id, itemId));
     if (!item) throw new TaskError("NOT_FOUND", "Subtarefa não encontrada");
+    await lockTask(tx, item.taskId, actor);
     if (data.assigneeId && data.assigneeId !== item.assigneeId)
       await assertAssignee(tx, data.assigneeId);
     const [row] = await tx
@@ -762,8 +838,10 @@ export async function updateChecklistItem(
 
 export async function removeChecklistItem(actor: Actor, itemId: string) {
   return db.transaction(async (tx) => {
+    const [found] = await tx.select().from(checklistItems).where(eq(checklistItems.id, itemId));
+    if (!found) throw new TaskError("NOT_FOUND", "Subtarefa não encontrada");
+    await lockTask(tx, found.taskId, actor);
     const [item] = await tx.delete(checklistItems).where(eq(checklistItems.id, itemId)).returning();
-    if (!item) throw new TaskError("NOT_FOUND", "Subtarefa não encontrada");
     await record(tx, actor, item.taskId, [
       { type: "checklist_changed", payload: { action: "removed", text: item.text } },
     ]);
@@ -772,9 +850,18 @@ export async function removeChecklistItem(actor: Actor, itemId: string) {
 
 // ── Vínculos ────────────────────────────────────────────────────────
 
-async function linkRow(tx: Tx, taskId: string, input: { kind: string; target: unknown }) {
+async function linkRow(
+  tx: Tx,
+  actor: Actor,
+  taskId: string,
+  input: { kind: string; target: unknown },
+) {
   const { kind, target } = linkSchema.parse(input);
-  const [other] = await tx.select({ id: tasks.id }).from(tasks).where(eq(tasks.number, target));
+  // ADR-069: só se vincula ao que o ator vê
+  const [other] = await tx
+    .select({ id: tasks.id })
+    .from(tasks)
+    .where(and(eq(tasks.number, target), visibleTo(actor)));
   if (!other) throw new TaskError("NOT_FOUND", `TI-${target} não encontrada`);
   if (other.id === taskId)
     throw new TaskError("VALIDATION", "Uma tarefa não se vincula a ela mesma");
@@ -792,8 +879,8 @@ export async function addLink(
   input: { kind: string; target: unknown },
 ) {
   return db.transaction(async (tx) => {
-    await lockTask(tx, taskId);
-    const { row, payload } = await linkRow(tx, taskId, input);
+    await lockTask(tx, taskId, actor);
+    const { row, payload } = await linkRow(tx, actor, taskId, input);
     const inserted = await tx.insert(taskLinks).values(row).onConflictDoNothing().returning();
     if (inserted.length) await record(tx, actor, taskId, [{ type: "link_added", payload }]);
   });
@@ -805,7 +892,8 @@ export async function removeLink(
   input: { kind: string; target: unknown },
 ) {
   return db.transaction(async (tx) => {
-    const { row, payload } = await linkRow(tx, taskId, input);
+    await lockTask(tx, taskId, actor);
+    const { row, payload } = await linkRow(tx, actor, taskId, input);
     const removed = await tx
       .delete(taskLinks)
       .where(

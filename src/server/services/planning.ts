@@ -185,7 +185,7 @@ export async function closeCycle(actor: Actor, id: string, input: { carryTaskIds
       .from(tasks)
       .where(and(eq(tasks.cycleId, id), isNull(tasks.archivedAt), isNull(tasks.completedAt)));
     for (const { id: taskId } of pending) {
-      await lockTask(tx, taskId);
+      await lockTask(tx, taskId, actor);
       const to = carryTaskIds.includes(taskId) ? next.id : null;
       await tx
         .update(tasks)

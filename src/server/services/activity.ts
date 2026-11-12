@@ -80,6 +80,8 @@ function fieldChange(p: Payload, names: Names) {
       return p.to ? `ligou ao marco ${name(names, p.to)}` : "tirou do marco";
     case "position":
       return "moveu para o topo da coluna";
+    case "visibility":
+      return "moveu a tarefa pessoal para a equipe"; // ADR-069
     default:
       return `alterou ${p.field ?? "um campo"}`;
   }
