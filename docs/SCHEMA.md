@@ -98,9 +98,7 @@ export const projects = pgTable('projects', {
 export const mobileUnits = pgTable('mobile_units', {
   id: uuid('id').primaryKey().defaultRandom(),
   code: text('code').notNull(),                 // ex. UM-07
-  model: text('model'),
-  plate: text('plate'),
-  base: text('base'),
+  // model, plate e base removidos em 0014_mobile_unit_drop_fields (ADR-066)
   projectId: uuid('project_id').references(() => projects.id),
   archivedAt: timestamp('archived_at', { withTimezone: true }),
   ...timestamps,
