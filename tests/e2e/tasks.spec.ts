@@ -59,7 +59,17 @@ test("criação rápida exige Projeto/Cliente e abre o detalhe da tarefa", async
 
   await page.getByLabel("Nova subtarefa").fill("Testar link");
   await page.getByLabel("Nova subtarefa").press("Enter");
+  // Módulo 15: prazo da subtarefa; vencido aparece marcado e some quando a subtarefa é concluída
+  const sub = page.getByRole("listitem").filter({ has: page.getByLabel("Prazo de Testar link") });
+  const dueSaved = page.waitForResponse((r) => r.request().method() === "POST");
+  await sub.getByLabel("Prazo de Testar link").fill("2020-01-01");
+  await dueSaved;
+  await expect(sub.getByText("(vencida)")).toBeAttached();
+  await page.reload();
+  await page.waitForLoadState("networkidle"); // hidratação antes do clique no checkbox
+  await expect(sub.getByLabel("Prazo de Testar link")).toHaveValue("2020-01-01");
   await page.getByRole("checkbox", { name: "Testar link" }).click();
+  await expect(sub.getByText("(vencida)")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: /Subtarefas\s*1\/1/ })).toBeVisible();
 
   await page.getByRole("button", { name: title }).click();
