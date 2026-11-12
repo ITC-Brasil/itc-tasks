@@ -122,6 +122,7 @@ A navegação pela lista por teclado (`J`/`K`, `Enter`, `X`) ficou fora por deci
 - Botões começam com verbo: "Criar tarefa", "Concluir", "Arquivar projeto".
 - Toasts no passado: "TI-142 concluída".
 - Vocabulário fixo: Tarefa, Subtarefa, Projeto/Cliente, Unidade Móvel (UM), Chamado GLPI, Ciclo, Marco, Etiqueta, Automação, Agente.
+- Configurações › Unidades Móveis: colunas e campos "UM" e "Projeto" (Módulo 15); a UM não tem modelo, placa nem base (ADR-066).
 - Datas: "Hoje", "Amanhã", "Sex, 17 out", "14 out"; histórico relativo ("há 2 h"); formato numérico `dd/mm/aaaa`.
 
 ## 10. PWA

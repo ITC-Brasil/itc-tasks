@@ -99,6 +99,13 @@
       "when": 1792393852431,
       "tag": "0013_task_deletions",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1794466784761,
+      "tag": "0014_mobile_unit_drop_fields",
+      "breakpoints": true
     }
   ]
 }

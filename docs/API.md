@@ -75,7 +75,7 @@ output: TaskSummary & { description: string /* markdown */, checklist: { text, d
 `input: {}` → `output: { projects: { code, name, kind }[] }` — só ativos.
 
 #### `list_mobile_units`
-`input: { project?: string }` → `output: { mobileUnits: { code, model?, plate?, base?, project? }[] }` — só ativas.
+`input: { project?: string }` → `output: { mobileUnits: { code, project? }[] }` — só ativas. `model`, `plate` e `base` saíram no Módulo 15 (ADR-066).
 
 #### `list_cycles`
 `input: { state?: 'planned'|'active'|'closed' }` → `output: { cycles: { number, startsOn, endsOn, state, done, total }[] }`

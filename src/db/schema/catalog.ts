@@ -31,9 +31,6 @@ export const mobileUnits = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     code: text("code").notNull(), // ex. UM-07
-    model: text("model"),
-    plate: text("plate"),
-    base: text("base"),
     projectId: uuid("project_id").references(() => projects.id),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
     ...timestamps,

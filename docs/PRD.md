@@ -83,7 +83,7 @@ trabalho (ADR-001). Faltam também três coisas que nenhuma ferramenta pronta tr
 ### 4.6 Cadastros
 
 - **C1** Projetos/Clientes: nome, sigla única (2 a 12 letras ou números), tipo (Projeto / Cliente / Interno), entidade no GLPI, ativo/arquivado (ADR-044). Sem responsável padrão: o responsável é escolhido por quem cria a tarefa (ADR-045).
-- **C2** Unidades Móveis: código único, modelo, placa, base, Projeto/Cliente (obrigatório, ADR-044), ativa/arquivada, contagem de tarefas abertas.
+- **C2** Unidades Móveis: código único (rótulo "UM"), Projeto/Cliente (obrigatório, ADR-044), ativa/arquivada, contagem de tarefas abertas.
 - **C3** Etiquetas com cor dos tokens. **C4** Membros (admin cria, desativa, troca papel).
 
 ### 4.7 Agentes (MCP)

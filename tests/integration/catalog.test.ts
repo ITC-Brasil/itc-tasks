@@ -103,10 +103,9 @@ it("UM não aceita cliente arquivado novo, mas mantém o atual", async () => {
   );
   const kept = await updateMobileUnit(admin, u.id, {
     code: u.code,
-    model: "Sprinter",
     projectId: p.id,
   });
-  expect(kept.model).toBe("Sprinter");
+  expect(kept.projectId).toBe(p.id);
 });
 
 it("workflow: categoria nunca fica sem status ativo; ordem troca com o vizinho", async () => {
