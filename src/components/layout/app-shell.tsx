@@ -97,13 +97,25 @@ export function AppShell({
   useGoTo("t", go("/tarefas"));
   useGoTo("c", go("/ciclos"));
   useGoTo("n", go("/notificacoes"));
-  // V + tecla: só nas visões de Tarefas, mantendo os filtros da URL (UI.md §5)
+  // V + tecla: nas visões de Tarefas, mantendo os filtros da URL (UI.md §5)
   const inTasks = VIEWS.has(pathname);
-  const view = (href: string) =>
-    inTasks ? () => router.push(href + window.location.search) : null;
-  useGoTo("k", view("/tarefas"), "v");
-  useGoTo("l", view("/tarefas/lista"), "v");
-  useGoTo("c", view("/tarefas/calendario"), "v");
+  // em Minhas tarefas ("/") os mesmos atalhos trocam ?visao= e mantêm a aba (Módulo 15)
+  const mine = (visao: string) => () => {
+    const q = new URLSearchParams(window.location.search);
+    if (visao) q.set("visao", visao);
+    else q.delete("visao");
+    if (visao !== "calendario") q.delete("mes");
+    router.push(q.size ? `/?${q}` : "/");
+  };
+  const view = (href: string, visao: string) =>
+    inTasks
+      ? () => router.push(href + window.location.search)
+      : pathname === "/"
+        ? mine(visao)
+        : null;
+  useGoTo("k", view("/tarefas", ""), "v");
+  useGoTo("l", view("/tarefas/lista", "lista"), "v");
+  useGoTo("c", view("/tarefas/calendario", "calendario"), "v");
 
   const groups = NAV.map((g) => ({
     ...g,

@@ -1204,6 +1204,32 @@ export async function listTasks(
 }
 export type TaskRow = Awaited<ReturnType<typeof listTasks>>["tasks"][number];
 
+/**
+ * Subtarefas abertas com prazo, para o calendário de Minhas tarefas (Módulo 15). Recebe os ids de
+ * uma lista já filtrada e ainda assim aplica o visibleTo(actor).
+ */
+export async function listChecklistDue(actor: Actor, taskIds: string[]) {
+  if (taskIds.length === 0) return [];
+  return db
+    .select({
+      id: checklistItems.id,
+      text: checklistItems.text,
+      dueDate: sql<string>`${checklistItems.dueDate}`,
+      number: tasks.number,
+    })
+    .from(checklistItems)
+    .innerJoin(tasks, eq(tasks.id, checklistItems.taskId))
+    .where(
+      and(
+        inArray(checklistItems.taskId, taskIds),
+        eq(checklistItems.done, false),
+        sql`${checklistItems.dueDate} IS NOT NULL`,
+        visibleTo(actor),
+      ),
+    )
+    .orderBy(asc(checklistItems.position));
+}
+
 // ── Busca ⌘K (ADR-048) ──────────────────────────────────────────────
 
 /** Palavras viram prefixos (`roteador:*`) para buscar enquanto digita; só letras e dígitos. */
