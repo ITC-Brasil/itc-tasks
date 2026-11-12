@@ -72,7 +72,7 @@ output: TaskSummary & { description: string /* markdown */, checklist: { text, d
 ```
 
 #### `list_projects`
-`input: {}` → `output: { projects: { code, name, kind }[] }` — só ativos.
+`input: {}` → `output: { projects: { code, name, kind, color? }[] }` — só ativos. `color` é a chave da paleta de projeto (ADR-068); a escrita da cor é só pela tela.
 
 #### `list_mobile_units`
 `input: { project?: string }` → `output: { mobileUnits: { code, project? }[] }` — só ativas. `model`, `plate` e `base` saíram no Módulo 15 (ADR-066).

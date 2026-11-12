@@ -23,6 +23,14 @@ são componentes próprios (`StatusIcon`, `PriorityIcon`). No `StatusIcon`, Back
 Concluído são círculos (`muted`, `muted`, `info`, `ok`); Aguardando é o `Hourglass` do lucide em `warn`
 (ADR-067). A cor fica só no ícone: o nome do status é sempre `text-base`.
 
+**Chip de Projeto/Cliente e de UM (ADR-068).** `ProjectChip` compacto mostra só a sigla (TaskCard,
+Lista, Configurações › Projetos/Clientes); o nome vai no `title` e num texto `sr-only`. Com `full`
+(detalhe da tarefa, Marcos) mostra "SIGLA · Nome". A prop `color` recebe a chave da paleta de
+projeto (`blue`, `indigo`, `violet`, `magenta`, `rose`, `brown`, `olive`, `slate`) e aplica os tokens
+`--project-<cor>-bg` e `--project-<cor>-fg`; o `UnitChip` com `color` usa `--project-<cor>-unit-bg`
+com o mesmo `fg`. Sem `color`: projeto em `accent-light` + `accent-text`, UM neutra. Contraste de
+cada par no ADR-068 (mínimo 5,36:1).
+
 | Ícone de domínio | lucide |
 |---|---|
 | Projeto/Cliente | `Folder` |
