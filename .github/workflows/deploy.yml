@@ -1,7 +1,10 @@
 name: Deploy
 
+# ADR-070: só depois do CI verde num push na main; workflow_dispatch fica para deploy manual
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
@@ -14,6 +17,9 @@ concurrency:
 jobs:
   deploy:
     name: Deploy no glpi-srv
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
     timeout-minutes: 25 # build frio no servidor
     steps:

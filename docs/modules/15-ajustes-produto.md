@@ -228,6 +228,18 @@ duas fontes (subconjunto latin, arquivos variáveis, licença OFL) ficam em `src
 `--font-archivo`). Os pesos não mudam: Inter 100–900 e Archivo 600–800. Subconjuntos fora do latin não
 entram; a UI é só em português.
 
+## Instabilidade no CI #121 (âncoras da ajuda)
+
+O E2E do CI #121 (`97dc45f`, merge do PR #40 na `main`) falhou em `help.spec.ts` "âncoras #mcp e
+#mcp-hermes rolam até a seção", só no perfil desktop; a mesma linha passou no mobile e em todos
+os runs anteriores. O teste abria `/ajuda#mcp` e logo trocava o hash para `#mcp-hermes`. A troca
+só de hash é navegação na mesma página e não espera nada: se a hidratação ainda não terminou, o
+roteador do Next rola de volta para a âncora inicial (`#mcp`) depois da troca, e `#mcp-hermes` fica
+fora da tela. Correção: `waitForLoadState("networkidle")` antes da segunda navegação. Não é
+defeito do app: quem abre o link direto cai na âncora certa. Validado com `--repeat-each=15` no
+build de produção local (15/15). A falha do E2E `pull_request` do PR #40 (run #118) era outra: o
+download das fontes, seção anterior.
+
 ## Fechamento
 
 - **Migrações novas (em ordem):** `0014_mobile_unit_drop_fields`, `0015_waiting_status_category`,
