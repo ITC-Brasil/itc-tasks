@@ -45,6 +45,33 @@ Decididas sem o Matheus, pela opção mais conservadora. Cada uma pode ser revis
 - **Item 4 — seletor de data:** o prazo da tarefa é um `<input type="date">` nativo; a subtarefa
   usa o mesmo, em tamanho menor, sempre visível na linha.
 - **Item 4 — sem ADR:** nenhuma decisão com alternativa razoável além das listadas aqui.
+- **Item 5 — aba Menções:** continua só com tarefas da equipe (como era). Menção numa tarefa
+  pessoal não notifica ninguém, então não há o que listar.
+- **Item 5 — aba padrão:** "Minhas tarefas" = tarefas com você como responsável, pessoais ou da
+  equipe. A pessoal é sempre atribuída ao criador, então todas as suas pessoais abertas entram.
+- **Item 5 — modo Cards:** manteve o agrupamento por prazo (Vencidas, Hoje, Esta semana, Depois)
+  com TaskCard, não um quadro por status. `V` `K` leva a Cards. Se a ideia era um Kanban com
+  arraste dentro de Minhas tarefas, é um item novo.
+- **Item 5 — Cards e Lista só com abertas; Calendário com tudo:** as concluídas aparecem riscadas
+  só no Calendário.
+- **Item 5 — última visão:** as preferências não guardam visão por pessoa; ficou só a URL.
+- **Item 5 — tarefa pessoal no detalhe:** Responsável, Ciclo e Marco somem (não se aplicam).
+  "Mover para a equipe" sem Projeto/Cliente mostra o erro e a pessoa escolhe o projeto no próprio
+  detalhe antes de tentar de novo; não há diálogo próprio.
+- **Item 5 — depois da conversão:** comentários, anexos e histórico do período pessoal ficam
+  visíveis à equipe. A ajuda avisa.
+- **Item 5 — vínculos:** dá para vincular uma tarefa pessoal a uma da equipe; quem não vê a
+  pessoal não vê o vínculo.
+- **Item 5 — rastro de exclusão:** `task_deletions.title` de uma pessoal é "(tarefa pessoal)".
+- **Item 5 — `CHECK` extra no banco:** além do `CHECK` do projeto, `tasks_personal_owner_ck`
+  garante responsável = criador e sem ciclo nem marco na pessoal. Não estava no prompt.
+- **Item 5 — `project_id` deixou de ser `NOT NULL`:** é o que o `CHECK` pedido exige. Não remove
+  dado, mas afrouxa uma restrição; conta como aditiva.
+- **Item 5 — seção da ajuda:** entrou como 14ª seção (`#pessoais`), no fim, para não renumerar as
+  outras.
+- **Item 5 — lembretes:** o dono recebe os lembretes das 08:00 e o resumo das próprias pessoais.
+- **Item 5 — Row Level Security:** não adotado (ADR-069). A garantia é do aplicativo; quem acessa
+  o banco direto vê tudo.
 
 ## Item 1 — Unidades Móveis sem Modelo, Placa e Base (ADR-066)
 
@@ -117,3 +144,93 @@ Decididas sem o Matheus, pela opção mais conservadora. Cada uma pode ser revis
 - **Testes:** `tests/integration/tasks.test.ts` (prazo, eventos, data inválida),
   `mcp.test.ts` (`checklistDue`), `notifications.test.ts` (aviso da tarefa e das subtarefas,
   concluída fora, e-mail do resumo); `tests/e2e/tasks.spec.ts` (definir, recarregar, vencida, concluir).
+
+## Item 5 — Tarefas pessoais e nova Minhas tarefas (ADR-069)
+
+- **Banco:** `drizzle/0018_task_visibility.sql`: tipo `task_visibility`, `tasks.visibility`
+  (padrão `team`), `project_id` sem `NOT NULL`, `tasks_team_project_ck`,
+  `tasks_personal_owner_ck` e o índice parcial `tasks_personal_creator_idx`.
+- **Regra de leitura:** `visibleTo(actor)`, `teamOnly`, `assertVisible` e `lockTask(tx, id, actor)`
+  em `src/server/services/tasks.ts`.
+
+| Caminho | Onde | Como |
+|---|---|---|
+| Detalhe `/tarefas/<n>` | `getTaskByNumber` | `visibleTo`; quem não vê recebe 404 |
+| Kanban, Lista, Calendário | `listTasks` (padrão) | `visibleTo` + `teamOnly` |
+| Minhas tarefas | `listTasks` com `visibility` `all`/`personal` | `visibleTo` |
+| Busca ⌘K | `searchTasks` | `visibleTo` |
+| Vínculos | `getTaskByNumber`, `linkRow` | `visibleTo` na outra ponta |
+| Comentários, histórico, anexos | `listComments`, `listActivity`, `listAttachments` | `assertVisible` |
+| Download de anexo | `getAttachment` + `/api/attachments/[id]` | join em `tasks` com `visibleTo` |
+| Toda escrita | `lockTask` (tarefa, checklist, vínculo, comentário, anexo, exclusão, mover, em massa) | `visibleTo` |
+| Ciclos e marcos | `listCycles`, `pendingTasks`, `cycleLoad`, `closeCycle`, `listMilestones` | `teamOnly` (e `CHECK`) |
+| Painel | `projectDashboard` | `teamOnly` |
+| Automações | `record` (não enfileira), `snapshot`, `overdue` | `teamOnly` |
+| Notificações | `fanout` (só o dono), joins de `listNotifications`, push e resumo | dono |
+| SSE | `forSession` em `src/server/realtime.ts`, usado por `/api/events` | `owner` no evento |
+| MCP | `taskIdOf`, `getTaskSummary`, `getTaskDetail`, `listTasksForAgent` | `visibleTo` |
+| Atividade de agentes | `listAgentActivity` | `visibleTo` |
+| Subtarefas no calendário | `listChecklistDue` | `visibleTo` |
+
+  Filtros salvos e templates não guardam dado de tarefa, e o app não tem exportação: nada a
+  filtrar neles.
+- **Regras de escrita:** pessoal só por pessoa ou agente; responsável sempre o criador; sem ciclo
+  nem marco; Projeto/Cliente opcional. `visibility: "team"` no `updateTask` converte (exige
+  projeto, grava `field_changed` com `field: "visibility"`). O schema não aceita `"personal"` no
+  update.
+- **MCP:** `create_task.visibility`, `list_tasks.visibility` (`team` padrão, `personal`, `all`),
+  `update_task.visibility: "team"`, `TaskSummary.visibility`.
+- **Telas:** criação rápida com "Tarefa pessoal" (`quick-create.tsx`); `PersonalMark` no TaskCard,
+  na Lista e no ⌘K; detalhe com o chip, "Mover para a equipe" e sem Responsável, Ciclo e Marco;
+  Minhas tarefas (`src/app/(app)/page.tsx`) com 5 abas (`?aba=`) e 3 modos (`?visao=`);
+  `MonthCalendar` com `path` e `subtasks`; atalhos `V` `K`/`L`/`C` em Minhas tarefas
+  (`app-shell.tsx`, `shortcut-list.ts`); ajuda `#pessoais`.
+- **Testes:** `tests/integration/personal-tasks.test.ts` (10 testes: cada caminho de leitura e de
+  escrita com dono, outro membro, admin, agente do dono, agente de outra pessoa e sistema; `CHECK`s
+  do banco; conversão; exclusão) e `tests/e2e/personal.spec.ts` (criar sem projeto, abas, não
+  aparecer na Lista da equipe, Cards/Lista/Calendário e atalhos, 404 para outro membro, mover para
+  a equipe, axe nos dois temas).
+- **Bug pego pelo teste:** converter para a equipe informando o projeto na mesma chamada batia no
+  `CHECK`; o projeto principal agora é gravado junto com a visibilidade.
+
+## Auditoria de segurança (só o que o módulo mudou)
+
+Feita em 12/11/2026, pelas cinco categorias da skill `project-docs`.
+
+| Categoria | Resultado |
+|---|---|
+| Autorização e vazamento de dados | **Sem achado aberto.** Tarefa pessoal: todos os `from(tasks)`/`join(tasks)` de `src/server` conferidos (tabela do Item 5). Os dois que não usam `visibleTo` são internos: `fanout` (lê a tarefa e entrega só ao dono) e a contagem de tarefas do marco em `saveMilestone` (pessoal não tem marco, por `CHECK`). `removeLink`, `updateChecklistItem`, `removeChecklistItem` e `editComment` não travavam a tarefa; agora passam por `lockTask`. Cor do projeto: só admin escreve (`assertAdmin`). |
+| Validação de entrada | **Sem achado.** `visibility` por `z.enum`/`z.literal`; `color` por `z.enum(PROJECT_COLORS)` (hex recusado, com teste); `dueDate` da subtarefa por `z.iso.date`; `checklistDue.index` validado antes de qualquer escrita. |
+| Injeção | **Sem achado.** SQL novo só por Drizzle com parâmetros. Os estilos dos chips usam `var(--project-<chave>-…)` com a chave validada pelo enum; nada de valor livre no `style`. Sem `dangerouslySetInnerHTML`. |
+| Segredos e configuração | **Sem achado.** Nenhuma variável nova, nenhum segredo em arquivo. `scripts/migrate.mjs` só ganhou um SQL fixo. |
+| Dependências e infraestrutura | **Sem achado.** Nenhuma dependência nova. `0014` (o `DROP`): aborta com dado em qualquer UM, ativa ou arquivada; testado com o arquivo real. |
+
+Riscos aceitos e limites:
+- A garantia das tarefas pessoais é do aplicativo. Acesso direto ao banco, a um dump ou ao volume
+  de anexos mostra tudo.
+- O número `TI-<n>` de uma tarefa pessoal é visível por omissão (a sequência pula). Aprovado.
+- Quem tem o token de agente de uma pessoa lê as tarefas pessoais dela.
+- O service worker guarda a última versão de cada tela no navegador da pessoa (ADR-054, ADR-064);
+  num computador compartilhado, o login de outra pessoa limpa o cache.
+
+## Fechamento
+
+- **Migrações novas (em ordem):** `0014_mobile_unit_drop_fields`, `0015_waiting_status_category`,
+  `0016_project_color`, `0017_checklist_due_date`, `0018_task_visibility`.
+  - **`0014` aborta se houver dado** em `model`, `plate` ou `base` de qualquer UM. Em produção as
+    colunas estão vazias segundo o Matheus; se a migração falhar no deploy, o container não sobe
+    com a versão nova e o valor precisa ser tratado à mão.
+  - Depois do pull, em desenvolvimento: `npm run db:migrate` e `npm run db:seed` (o seed cria o
+    status "Aguardando"). Em produção o entrypoint faz os dois passos.
+- **ADRs:** 066 (UMs), 067 (Aguardando), 068 (cores), 069 (tarefas pessoais).
+- **Sem dependência nova.**
+- **Histórico de commits, com duas ressalvas:** `a7a5475` (`feat(db): add waiting status category`)
+  não passa no typecheck sozinho; o commit seguinte (`b7d6d3c`) completa. `1cd2d9c` deixou
+  `listMilestones` quebrada por um commit; `e09ee63` corrige.
+- **Ficou de fora:** `StatusBadge` (o componente não existe no código, só o `StatusIcon`); chips de
+  projeto no Calendário (ele não mostra chips); preferência de última visão; E2E no perfil mobile
+  para o que é novo (os specs novos rodam só no desktop); atualizar o artefato do Design System.
+- **Ambiente local nesta sessão:** o Docker Desktop foi iniciado para subir o Postgres; a fila
+  `pgboss.job` do banco `itc_tasks_test` foi esvaziada (estava com ~4 mil jobs de execuções
+  antigas e estourava o tempo de um teste); as cores Azul, Rosa e Oliva ficaram aplicadas a QMPR,
+  BSBIA e SEDET no banco de desenvolvimento pelo E2E.

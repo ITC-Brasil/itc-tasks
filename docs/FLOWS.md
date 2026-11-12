@@ -10,6 +10,7 @@ flowchart LR
   Login[Entrar] --> Minhas[Minhas tarefas]
   Minhas --> Detalhe
   Minhas -->|C| Criar[Criação rápida]
+  Minhas -->|abas e modos Cards · Lista · Calendário| Minhas
   subgraph Tarefas
     Kanban <--> Lista <--> Calendario[Calendário]
   end
@@ -179,6 +180,21 @@ sequenceDiagram
   UI->>BA: desativa (enabled = false, ADR-049)
   Note over BA: próxima chamada ao /mcp com essa chave → 401
 ```
+
+## 10. Tarefa pessoal (ADR-069)
+
+```mermaid
+flowchart TD
+  C[Criação rápida com "Tarefa pessoal"] --> S[tasksService.createTask<br/>visibility = personal, responsável = criador]
+  S --> M[Minhas tarefas: abas Minhas tarefas e Pessoais]
+  M --> D[Detalhe /tarefas/n]
+  D -->|Mover para a equipe, com Projeto/Cliente| T[visibility = team<br/>evento field_changed visibility]
+  T --> E[Kanban, Lista, Calendário, painel, automações e notificações da equipe]
+  X[Outra pessoa, admin ou agente de outra pessoa] -->|URL, busca, MCP, SSE, anexo| N[NOT_FOUND / 404 / nada na lista]
+```
+
+Toda leitura passa por `visibleTo(actor)`; toda escrita e leitura por id, por `lockTask`/`assertVisible`
+(`src/server/services/tasks.ts`). O dono recebe os lembretes de prazo; ninguém mais é notificado.
 
 ## 9. Arquivar cadastro
 
