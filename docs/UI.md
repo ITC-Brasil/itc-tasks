@@ -31,6 +31,18 @@ projeto (`blue`, `indigo`, `violet`, `magenta`, `rose`, `brown`, `olive`, `slate
 com o mesmo `fg`. Sem `color`: projeto em `accent-light` + `accent-text`, UM neutra. Contraste de
 cada par no ADR-068 (mínimo 5,36:1).
 
+**Tarefa pessoal (ADR-069).** `PersonalMark` (`badges.tsx`): `Lock` do lucide, 14 px, `text-muted`,
+com "Tarefa pessoal" para leitor de tela e `title`. Vai ao lado do título no TaskCard, na Lista e na
+busca ⌘K. No detalhe, um `TextChip` "Tarefa pessoal", a frase "Só você vê esta tarefa." e o botão
+secundário "Mover para a equipe". Na criação rápida, checkbox "Tarefa pessoal"; marcado, somem
+Responsável e Ciclo e o Projeto/Cliente deixa de ser exigido.
+
+**Minhas tarefas (Módulo 15).** Abas na URL (`?aba=`: vazio, `pessoais`, `atribuidas`, `criadas`,
+`mencoes`) e modos na URL (`?visao=`: vazio = Cards, `lista`, `calendario`; `?mes=` no calendário).
+Cards = TaskCard agrupado por prazo; Lista = `TaskTable`; Calendário = `MonthCalendar` com `path="/"`
+e as subtarefas abertas com prazo (ícone `ListChecks`, "Subtarefa de TI-n"). Não há preferência
+salva de última visão: só a URL.
+
 | Ícone de domínio | lucide |
 |---|---|
 | Projeto/Cliente | `Folder` |
@@ -42,6 +54,8 @@ cada par no ADR-068 (mínimo 5,36:1).
 | Automação | `Zap` |
 | Notificações | `Bell` |
 | Subtarefas | `ListChecks` |
+| Tarefa pessoal | `Lock` |
+| Aguardando | `Hourglass` |
 
 ## 3. Estados de cada tela
 
@@ -61,6 +75,7 @@ Empty states com texto definido:
 | Tela | Título | Frase | CTA |
 |---|---|---|---|
 | Minhas tarefas | Nada pendente por aqui | Você não tem tarefas abertas neste ciclo. Crie uma ou puxe algo do backlog. | Criar tarefa |
+| Minhas tarefas › Pessoais | Nenhuma tarefa pessoal aberta | Tarefa pessoal só você vê. Marque “Tarefa pessoal” ao criar. | Criar tarefa |
 | Kanban (coluna) | — | (coluna vazia mostra só "Nova tarefa") | — |
 | Notificações | Tudo em dia | Avisos de atribuições, menções e prazos aparecem aqui. | Preferências |
 | Automações | Nenhuma automação | Regras "quando isto, faça aquilo" economizam cliques repetidos. | Nova automação |
@@ -87,7 +102,7 @@ Empty states com texto definido:
 | `G` `T` | Ir para Tarefas |
 | `G` `C` | Ir para o ciclo atual |
 | `G` `N` | Ir para Notificações |
-| `V` `K` / `V` `L` / `V` `C` | Visão Kanban / Lista / Calendário (só em Tarefas; mantém os filtros da URL) |
+| `V` `K` / `V` `L` / `V` `C` | Visão Kanban / Lista / Calendário em Tarefas (mantém os filtros da URL); em Minhas tarefas, Cards / Lista / Calendário (mantém a aba) |
 | `⌘↵` | Enviar (criar, comentar) |
 | `Esc` | Fechar modal/painel |
 | `?` | Mostrar atalhos |
@@ -144,6 +159,6 @@ A navegação pela lista por teclado (`J`/`K`, `Enter`, `X`) ficou fora por deci
 
 ## 11. Ajuda
 
-- `/ajuda` (ADR-065), para qualquer papel logado: manual em 13 seções com âncoras estáveis (`primeiro-acesso`, `tela-principal`, `criar-tarefa`, `visoes`, `detalhe`, `busca`, `planejamento`, `notificacoes`, `templates-automacoes`, `mcp` com `mcp-claude-code`, `mcp-claude-desktop` e `mcp-hermes`, `celular`, `atalhos`, `papeis`).
+- `/ajuda` (ADR-065), para qualquer papel logado: manual em 14 seções com âncoras estáveis (`pessoais`, do Módulo 15, e `primeiro-acesso`, `tela-principal`, `criar-tarefa`, `visoes`, `detalhe`, `busca`, `planejamento`, `notificacoes`, `templates-automacoes`, `mcp` com `mcp-claude-code`, `mcp-claude-desktop` e `mcp-hermes`, `celular`, `atalhos`, `papeis`).
 - Ilustrações só com componentes do Design System e dados fixos; sem capturas de tela.
 - Pontos de entrada: "Ajuda" no menu do usuário (e no "Mais" do celular), "Abrir ajuda" no ⌘K, "Manual completo" no diálogo de atalhos, "Como conectar um agente" em Agentes e MCP.

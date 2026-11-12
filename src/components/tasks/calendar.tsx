@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Flag } from "lucide-react";
+import { ChevronLeft, ChevronRight, Flag, ListChecks } from "lucide-react";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { monthGrid, shiftMonth } from "@/lib/dates";
@@ -15,15 +15,20 @@ export function MonthCalendar({
   milestones,
   today,
   query,
+  path = "/tarefas/calendario",
+  subtasks = [],
 }: {
   month: string;
   tasks: TaskRow[];
   milestones: { id: string; name: string; dueOn: string | null; code: string }[];
   today: string;
   query: string; // filtros atuais, mantidos ao trocar de mês
+  path?: string; // Minhas tarefas usa o mesmo calendário em "/"
+  // Módulo 15: subtarefas abertas com prazo, com ícone e rótulo próprios
+  subtasks?: { id: string; text: string; dueDate: string; number: number }[];
 }) {
-  const href = (m: string) =>
-    `/tarefas/calendario?${[query, `mes=${m}`].filter(Boolean).join("&")}`;
+  const href = (m: string) => `${path}?${[query, `mes=${m}`].filter(Boolean).join("&")}`;
+  const subs = Map.groupBy(subtasks, (s) => s.dueDate);
   const title = new Date(`${month}-01T12:00:00Z`).toLocaleDateString("pt-BR", {
     month: "long",
     year: "numeric",
@@ -104,6 +109,26 @@ export function MonthCalendar({
                       >
                         <Flag className="size-3 flex-none" strokeWidth={1.75} aria-hidden="true" />
                         <span className="truncate">{m.name}</span>
+                      </Link>
+                    </li>
+                  ))}
+                  {(subs.get(day) ?? []).map((s) => (
+                    <li key={s.id}>
+                      <Link
+                        href={`/tarefas/${s.number}`}
+                        className={cn(
+                          "flex items-center gap-1 rounded-sm px-1 py-0.5 text-xs hover:bg-muted",
+                          day < today && "border-l-2 border-err",
+                        )}
+                        title={`Subtarefa de TI-${s.number}: ${s.text}`}
+                      >
+                        <ListChecks
+                          className="size-3 flex-none text-muted"
+                          strokeWidth={1.75}
+                          aria-hidden="true"
+                        />
+                        <span className="sr-only">Subtarefa de TI-{s.number}:</span>
+                        <span className="truncate">{s.text}</span>
                       </Link>
                     </li>
                   ))}

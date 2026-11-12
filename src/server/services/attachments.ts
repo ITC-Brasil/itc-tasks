@@ -1,13 +1,13 @@
 /* eslint-disable security/detect-non-literal-fs-filename -- caminho = UPLOADS_DIR + uuid gerado aqui */
 import { mkdir, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { attachments, user } from "@/db/schema";
+import { attachments, tasks, user } from "@/db/schema";
 import { env } from "@/lib/env";
 import { taskIdSchema } from "@/lib/validation/tasks";
 import type { Actor } from "@/server/actor";
-import { TaskError, lockTask, record } from "./tasks";
+import { TaskError, assertVisible, lockTask, record, visibleTo } from "./tasks";
 
 // ADR-025/048: arquivo em UPLOADS_DIR/<uuid>, metadados em `attachments`, até 25 MB
 export const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
@@ -67,7 +67,7 @@ export async function addAttachment(actor: Actor, taskId: string, file: File) {
   await writeFile(storagePath(storageKey), Buffer.from(await file.arrayBuffer()));
   try {
     return await db.transaction(async (tx) => {
-      await lockTask(tx, id);
+      await lockTask(tx, id, actor);
       const [row] = await tx
         .insert(attachments)
         .values({
@@ -91,14 +91,20 @@ export async function addAttachment(actor: Actor, taskId: string, file: File) {
 }
 
 /** Metadados e caminho no disco; null se não existir. */
-export async function getAttachment(attachmentId: string) {
+export async function getAttachment(actor: Actor, attachmentId: string) {
   const id = taskIdSchema.safeParse(attachmentId);
   if (!id.success) return null;
-  const [row] = await db.select().from(attachments).where(eq(attachments.id, id.data));
-  return row ? { ...row, path: storagePath(row.storageKey) } : null;
+  // ADR-069: anexo de tarefa que o ator não vê responde como inexistente
+  const [row] = await db
+    .select({ attachment: attachments })
+    .from(attachments)
+    .innerJoin(tasks, eq(tasks.id, attachments.taskId))
+    .where(and(eq(attachments.id, id.data), visibleTo(actor)));
+  return row ? { ...row.attachment, path: storagePath(row.attachment.storageKey) } : null;
 }
 
-export async function listAttachments(taskId: string) {
+export async function listAttachments(actor: Actor, taskId: string) {
+  await assertVisible(actor, taskId); // ADR-069
   return db
     .select({
       id: attachments.id,

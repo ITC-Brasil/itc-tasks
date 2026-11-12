@@ -85,7 +85,7 @@ it("o criador exclui: dependentes, arquivo e rota somem; fica o rastro; o númer
   await addChecklistItem(ana, t.id, "passo");
   await addComment(ana, t.id, doc("comentário"));
   const file = await addAttachment(ana, t.id, new File(["conteúdo"], "nota.txt"));
-  const path = (await getAttachment(file.id))!.path;
+  const path = (await getAttachment({ kind: "system" }, file.id))!.path;
 
   expect(await deleteTasks(ana, { taskIds: [t.id] })).toBe(1);
 

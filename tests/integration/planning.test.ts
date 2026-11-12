@@ -74,8 +74,10 @@ it("ciclo: um ativo por vez; encerrar leva as marcadas e solta as demais (ADR-05
   expect(await cycleOf(carry.id)).toBe(b.id);
   expect(await cycleOf(drop.id)).toBeNull();
   expect(await cycleOf(done.id)).toBe(a.id);
-  expect((await listActivity(carry.id)).at(-1)?.text).toBe(`moveu para o Ciclo ${b.number}`);
-  expect((await listActivity(drop.id)).at(-1)?.text).toBe("tirou do ciclo");
+  expect((await listActivity({ kind: "system" }, carry.id)).at(-1)?.text).toBe(
+    `moveu para o Ciclo ${b.number}`,
+  );
+  expect((await listActivity({ kind: "system" }, drop.id)).at(-1)?.text).toBe("tirou do ciclo");
 
   await expect(updateTask(ana, carry.id, { cycleId: a.id })).rejects.toThrow("já foi encerrado");
   await startCycle(ana, b.id);

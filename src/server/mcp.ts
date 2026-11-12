@@ -38,6 +38,9 @@ import {
 
 // ADR-009/ADR-049: as ferramentas só validam, chamam services e mapeiam erros (ADR-003)
 
+const LIST_TASKS =
+  "Lista tarefas com filtros; mais novas primeiro. Só as da equipe, salvo visibility personal ou all.";
+
 const ok = (data: Record<string, unknown>): CallToolResult => ({
   content: [{ type: "text", text: JSON.stringify(data) }],
   structuredContent: data,
@@ -97,9 +100,7 @@ export function createMcpServer(actor: AgentActor, access: Access[]) {
   };
 
   // ── Leitura ──
-  tool("list_tasks", "read", "Lista tarefas com filtros; mais novas primeiro.", mcpListTasks, (i) =>
-    listTasksForAgent(actor, i),
-  );
+  tool("list_tasks", "read", LIST_TASKS, mcpListTasks, (i) => listTasksForAgent(actor, i));
   tool("get_task", "read", "Detalhe de uma tarefa (TI-142, 142).", mcpTaskId, (i) =>
     getTaskDetail(actor, i.id),
   );
@@ -134,7 +135,7 @@ export function createMcpServer(actor: AgentActor, access: Access[]) {
   tool(
     "create_task",
     "write",
-    "Cria tarefa. projectIds é obrigatório (códigos; o primeiro é o principal).",
+    "Cria tarefa. projectIds é obrigatório (códigos; o primeiro é o principal), menos com visibility 'personal' (tarefa que só o dono do token vê).",
     mcpCreateTask,
     async (i) => {
       const task = await createTask(actor, await toCreateInput(actor, i));
@@ -154,7 +155,7 @@ export function createMcpServer(actor: AgentActor, access: Access[]) {
       ...rest
     }) => {
       // M-044: tudo resolvido e validado antes da primeira escrita; índices = checklist de antes
-      const taskId = await taskIdOf(id);
+      const taskId = await taskIdOf(actor, id);
       const patch = await toUpdateInput(actor, rest);
       const itemIds = await checklistIdsAt(
         actor,
@@ -179,7 +180,7 @@ export function createMcpServer(actor: AgentActor, access: Access[]) {
     },
   );
   tool("complete_task", "write", "Conclui a tarefa; idempotente.", mcpCompleteTask, async (i) => {
-    const taskId = await taskIdOf(i.id);
+    const taskId = await taskIdOf(actor, i.id);
     await completeTask(actor, taskId);
     if (i.comment?.trim()) await addComment(actor, taskId, await markdownToDoc(i.comment));
     return (await getTaskSummary(actor, i.id)).summary;
@@ -190,7 +191,7 @@ export function createMcpServer(actor: AgentActor, access: Access[]) {
     "Comenta na tarefa (markdown; @email menciona).",
     mcpAddComment,
     async (i) => {
-      const row = await addComment(actor, await taskIdOf(i.id), await markdownToDoc(i.body));
+      const row = await addComment(actor, await taskIdOf(actor, i.id), await markdownToDoc(i.body));
       return { commentId: row.id, createdAt: row.createdAt.toISOString() };
     },
   );

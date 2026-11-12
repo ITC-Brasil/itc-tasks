@@ -307,10 +307,10 @@ it("vários Projetos/Clientes e UMs; UM de projeto não escolhido recusada (ADR-
   });
 });
 
-it("migração 0007 preenche task_projects de toda tarefa", async () => {
+it("migração 0007 preenche task_projects de toda tarefa com Projeto/Cliente", async () => {
   const [{ missing }] = (
     await db.execute<{ missing: number }>(
-      sql`SELECT count(*)::int AS missing FROM tasks t WHERE NOT EXISTS
+      sql`SELECT count(*)::int AS missing FROM tasks t WHERE t.project_id IS NOT NULL AND NOT EXISTS
         (SELECT 1 FROM task_projects tp WHERE tp.task_id = t.id AND tp.project_id = t.project_id)`,
     )
   ).rows;

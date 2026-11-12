@@ -13,6 +13,8 @@ import {
 } from "@/db/schema";
 import { priorityLabel } from "@/components/tasks/badges";
 import type { Priority } from "@/lib/validation/tasks";
+import type { Actor } from "@/server/permissions";
+import { assertVisible } from "./tasks";
 
 // ADR-048: o histórico formata o payload cru do ADR-042 com os nomes atuais
 
@@ -80,6 +82,8 @@ function fieldChange(p: Payload, names: Names) {
       return p.to ? `ligou ao marco ${name(names, p.to)}` : "tirou do marco";
     case "position":
       return "moveu para o topo da coluna";
+    case "visibility":
+      return "moveu a tarefa pessoal para a equipe"; // ADR-069
     default:
       return `alterou ${p.field ?? "um campo"}`;
   }
@@ -133,7 +137,8 @@ async function allNames(): Promise<Names> {
 }
 
 /** Eventos da tarefa já formatados, mais antigos primeiro. */
-export async function listActivity(taskId: string) {
+export async function listActivity(actor: Actor, taskId: string) {
+  await assertVisible(actor, taskId); // ADR-069
   const [rows, names] = await Promise.all([
     db
       .select({

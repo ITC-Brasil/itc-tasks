@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus } from "lucide-react";
+import { Lock, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -32,7 +32,8 @@ const EVENT = "itc:quick-create";
  * Abre a criação rápida de qualquer lugar (botões, atalho `C`); o Kanban passa o status da coluna,
  * a tela Templates passa o template.
  */
-export const openQuickCreate = (preset?: { statusId?: string; templateId?: string }) =>
+type Preset = { statusId?: string; templateId?: string; personal?: boolean };
+export const openQuickCreate = (preset?: Preset) =>
   window.dispatchEvent(new CustomEvent(EVENT, { detail: preset }));
 
 export function CreateTaskButton() {
@@ -66,6 +67,8 @@ export function QuickCreate() {
   const [mobileUnitIds, setMobileUnitIds] = useState<string[]>([]);
   // UI.md: "Criar outra" mantém Projeto/Cliente, UM e ciclo (fora do `form`, que é limpo)
   const [cycleId, setCycleId] = useState("");
+  // ADR-069: tarefa pessoal (só quem cria vê); fica marcada no "Criar outra"
+  const [personal, setPersonal] = useState(false);
   const [another, setAnother] = useState(false);
   // M-086: descrição fechada por padrão; o template a abre preenchida; a chave remonta o editor
   const [desc, setDesc] = useState<{ open: false | "click" | "template"; key: number }>({
@@ -82,9 +85,9 @@ export function QuickCreate() {
     // offline: a criação fica fora do fieldset do shell; todas as entradas passam por aqui (ADR-054)
     if (!navigator.onLine)
       return void toast.error("Sem conexão. Crie a tarefa quando a rede voltar.");
-    const preset = (e as CustomEvent<{ statusId?: string; templateId?: string } | undefined>)
-      ?.detail;
+    const preset = (e as CustomEvent<Preset | undefined>)?.detail;
     if (preset?.statusId) setForm((f) => ({ ...f, statusId: preset.statusId! }));
+    setPersonal(!!preset?.personal);
     setOpen(true);
     // recarrega a cada abertura: cadastros podem ter mudado
     getTaskFormOptionsAction().then(
@@ -146,9 +149,14 @@ export function QuickCreate() {
 
   function onSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (!projectIds.length) return setError(PROJECT_REQUIRED);
+    if (!personal && !projectIds.length) return setError(PROJECT_REQUIRED);
     startTransition(async () => {
-      const result = await createTaskAction({ ...form, projectIds, mobileUnitIds, cycleId });
+      // a pessoal é sempre de quem cria e não entra em ciclo: o service define o responsável
+      const result = await createTaskAction(
+        personal
+          ? { ...form, assigneeId: "", projectIds, mobileUnitIds, visibility: "personal" }
+          : { ...form, projectIds, mobileUnitIds, cycleId },
+      );
       if (!result.ok) return setError(result.error);
       const { number } = result.data;
       toast.success(`TI-${number} criada`, {
@@ -212,6 +220,21 @@ export function QuickCreate() {
             onChange={(e) => set("title", e.target.value)}
             autoComplete="off"
           />
+          {/* a dica fica fora do <label>: o nome do checkbox é só "Tarefa pessoal" */}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+            <label className="flex items-center gap-2">
+              <Checkbox
+                checked={personal}
+                onCheckedChange={(v) => {
+                  setPersonal(v);
+                  setError(null);
+                }}
+              />
+              <Lock className="size-4 text-muted" strokeWidth={1.75} aria-hidden="true" />
+              Tarefa pessoal
+            </label>
+            <span className="text-muted">Só você vê; Projeto/Cliente opcional.</span>
+          </div>
           {desc.open ? (
             <div className="flex flex-col gap-1.5">
               <span className="text-sm font-medium">Descrição</span>
@@ -262,12 +285,14 @@ export function QuickCreate() {
                   value={form.priority}
                   onChange={(v) => set("priority", v as Priority)}
                 />
-                <Pick
-                  label="Responsável"
-                  items={items.people}
-                  value={form.assigneeId}
-                  onChange={(v) => set("assigneeId", v)}
-                />
+                {!personal && (
+                  <Pick
+                    label="Responsável"
+                    items={items.people}
+                    value={form.assigneeId}
+                    onChange={(v) => set("assigneeId", v)}
+                  />
+                )}
                 <Input
                   aria-label="Chamado GLPI"
                   placeholder="Chamado GLPI"
@@ -277,7 +302,9 @@ export function QuickCreate() {
                   value={form.glpiTicket}
                   onChange={(e) => set("glpiTicket", e.target.value)}
                 />
-                <Pick label="Ciclo" items={items.cycles} value={cycleId} onChange={setCycleId} />
+                {!personal && (
+                  <Pick label="Ciclo" items={items.cycles} value={cycleId} onChange={setCycleId} />
+                )}
                 <Input
                   type="date"
                   aria-label="Prazo"

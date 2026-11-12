@@ -2161,3 +2161,68 @@ O Matheus pediu só a sigla no card e uma cor por projeto, com a UM num tom mais
   quem atualiza é o Cowork.
 - Com mais de 8 projetos ativos as cores se repetem; a sigla continua sendo o identificador.
 - Cor nova na paleta = três tokens em cada tema, a chave em `PROJECT_COLORS` e a linha na tabela.
+
+---
+
+## ADR-069 — Tarefas pessoais: `tasks.visibility` e um único escopo de leitura, `visibleTo(actor)` (Módulo 15)
+
+**Status:** Accepted
+**Date:** 2026-11-12
+**Module:** 15 — Ajustes de produto (item 5)
+
+**Context**
+O time quer anotar tarefas que só quem criou enxerga, fora da rotina da equipe, sem perder checklist,
+comentários, anexos, prazo e calendário. Até aqui toda tarefa é visível a todos os membros e todos
+os caminhos de leitura partem dessa premissa (vários nem recebem o `Actor`).
+
+**Decision** (decisões de produto aprovadas pelo Matheus no prompt do módulo)
+- **Modelo:** coluna `tasks.visibility` (`task_visibility`: `team` | `personal`, padrão `team`).
+  Não é tabela nova. Migração aditiva.
+- **Dono:** quem criou (`creator_id`). Só o dono vê e edita. **Nem o admin** vê tarefa pessoal de
+  outra pessoa. O agente (MCP) age em nome do dono do token: lê e escreve as pessoais do dono e
+  nunca as de outra pessoa; continua sem excluir.
+- **Uma regra de leitura:** `visibleTo(actor)` em `src/server/services/tasks.ts` devolve a condição
+  SQL `visibility = 'team' OR creator_id = <pessoa do ator>` (automação e sistema: só `team`).
+  - Consultas de visão usam `visibleTo`; as da equipe (Kanban, Lista, Calendário, painel, ciclos,
+    marcos) somam `visibility = 'team'`, para a pessoal não aparecer nem para o dono.
+  - Leituras por id (comentários, histórico, anexos, detalhe) e **toda** escrita passam por
+    `lockTask(tx, id, actor)` ou `assertVisible(actor, id)`, que aplicam a mesma condição e respondem
+    `NOT_FOUND` (a tela dá 404), sem dizer que a tarefa existe.
+  - O filtro fica no service. A UI só deixa de mostrar o que o service já não devolve.
+- **Fora da rotina:** tarefa pessoal não tem ciclo nem marco, não conta no painel, não dispara
+  automação e não notifica outra pessoa (menção numa pessoal não avisa ninguém). O dono ainda
+  recebe os lembretes de prazo e os avisos do próprio agente. O SSE leva o dono no evento e
+  `/api/events` só o repassa à sessão dele.
+- **Responsável:** sempre o dono. Garantido no service e por `CHECK` no banco.
+- **Projeto/Cliente opcional na pessoal:** exceção à regra "Projeto/Cliente obrigatório", que segue
+  valendo para a equipe no banco (`project_id` deixa de ser `NOT NULL` e ganha
+  `CHECK (visibility = 'personal' OR project_id IS NOT NULL)`), no Zod e no service.
+- **Número e URL:** mesma sequência `TI-<n>` e `/tarefas/<n>`. O número pode pular para os outros.
+- **Status:** mesmo workflow da equipe.
+- **Conversão:** pessoal → equipe pelo dono (exige Projeto/Cliente; grava `field_changed` com
+  `field: "visibility"`). Equipe → pessoal **não existe**, para nenhuma tarefa da equipe sumir.
+  Depois da conversão, o histórico e os comentários do período pessoal ficam visíveis à equipe.
+- **Vínculos:** o alvo de um vínculo precisa ser visível a quem vincula, e o detalhe só lista
+  vínculos com tarefas que o leitor vê.
+- **Exclusão:** o dono exclui as próprias (ADR-063). Em `task_deletions` o título de uma pessoal é
+  gravado como "(tarefa pessoal)", para o rastro não guardar o conteúdo.
+- **MCP:** `create_task` ganha `visibility` (padrão `team`); `list_tasks` ganha `visibility`
+  (`team` padrão, `personal`, `all`); `update_task` aceita `visibility: "team"` para converter.
+
+**Alternatives considered**
+- **Tabela `personal_tasks`:** descartada. Duplicaria checklist, comentários, anexos, calendário e
+  as visões.
+- **Filtro na UI ou por tela:** descartada. Um caminho esquecido (busca, MCP, SSE, anexo pela URL)
+  vazaria; o risco fica numa função só, coberta por teste em cada caminho.
+- **Row Level Security do Postgres:** descartada por ora. O app usa um papel só e um pool sem
+  contexto de sessão; exigiria `SET LOCAL` em toda transação. Pode vir depois como segunda camada.
+- **Admin vê tudo:** descartada pelo Matheus. A tarefa pessoal é da pessoa, não da operação.
+- **Sequência de número separada:** descartada. Conversão para a equipe trocaria o número e a URL.
+- **Conversão equipe → pessoal:** descartada. Seria um jeito de esconder trabalho da equipe.
+
+**Consequences**
+- Função nova que lê tarefa precisa usar `visibleTo`, `lockTask` ou `assertVisible`; o teste de
+  integração `personal-tasks.test.ts` cobre cada caminho com dono, outro membro, admin e agentes.
+- `tasks.project_id` passa a aceitar nulo no tipo; o código que supunha projeto trata a ausência.
+- Quem tem acesso direto ao banco ou ao backup continua vendo tudo: a garantia é do aplicativo.
+- A regra "Projeto/Cliente obrigatório" do CLAUDE.md passa a valer para tarefas da equipe.

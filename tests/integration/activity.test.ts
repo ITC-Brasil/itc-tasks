@@ -35,7 +35,7 @@ it("histórico mostra pessoa, sistema e texto formatado; comentário fica de for
     content: [{ type: "paragraph", content: [{ type: "text", text: "oi" }] }],
   });
 
-  const rows = await listActivity(task.id);
+  const rows = await listActivity({ kind: "system" }, task.id);
   const lines = rows.map((r) => `${r.actor} ${r.text}`);
   expect(lines).toEqual(
     expect.arrayContaining([

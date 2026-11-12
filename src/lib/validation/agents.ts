@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { STATUS_CATEGORIES } from "./catalog";
-import { PRIORITIES, taskNumberSchema } from "./tasks";
+import { PRIORITIES, VISIBILITIES, taskNumberSchema } from "./tasks";
 
 // ── Tokens (ADR-049) ────────────────────────────────────────────────
 
@@ -29,6 +29,10 @@ export const mcpListTasks = {
   assignee: z.string().max(200).optional().describe("e-mail, 'me' ou 'none'"),
   dueBefore: date.optional(),
   overdue: z.boolean().optional(),
+  visibility: z
+    .enum(["team", "personal", "all"])
+    .optional()
+    .describe("team (padrão) = tarefas da equipe; personal = as pessoais do dono do token; all"),
   limit: z.number().int().min(1).max(100).optional(),
   cursor: z.string().max(20).optional(),
   cycle: z
@@ -60,11 +64,21 @@ const taskFields = {
     .describe("'current' (ciclo ativo) ou o número do ciclo"),
 };
 
-export const mcpCreateTask = taskFields;
+export const mcpCreateTask = {
+  ...taskFields,
+  visibility: z
+    .enum(VISIBILITIES)
+    .optional()
+    .describe("personal = só o dono do token vê; projectIds vira opcional (padrão team)"),
+};
 export const mcpUpdateTask = {
   ...mcpTaskId,
   ...taskFields,
   title: taskFields.title.optional(),
+  visibility: z
+    .literal("team")
+    .optional()
+    .describe("move a tarefa pessoal para a equipe (exige Projeto/Cliente); o inverso não existe"),
   checklistToggle: z
     .array(z.object({ index: z.number().int().min(0), done: z.boolean() }))
     .max(50)

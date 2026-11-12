@@ -29,9 +29,9 @@ async function Detail({ params }: { params: PageProps<"/tarefas/[number]">["para
   ]);
   if (!task) notFound();
   const [comments, activity, attachments] = await Promise.all([
-    listComments(task.id),
-    listActivity(task.id),
-    listAttachments(task.id),
+    listComments(actor, task.id),
+    listActivity(actor, task.id),
+    listAttachments(actor, task.id),
   ]);
   return (
     <>
