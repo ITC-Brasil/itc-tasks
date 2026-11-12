@@ -3,7 +3,7 @@ import type { Priority } from "@/lib/validation/tasks";
 import { cn } from "@/lib/utils";
 
 // Design System: StatusIcon/StatusBadge, PriorityIcon/PriorityBadge, Chip
-export type Category = "backlog" | "todo" | "in_progress" | "done";
+export type Category = "backlog" | "todo" | "in_progress" | "waiting" | "done";
 
 /** A forma diferencia a categoria mesmo sem cor. */
 export function StatusIcon({ category, className }: { category: Category; className?: string }) {

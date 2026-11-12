@@ -11,7 +11,7 @@ import {
 import { ArchiveButton, FieldLabel, FormDialog, FormSelect, Situation, useRun } from "../config-ui";
 import { Card } from "@/components/ui/card";
 
-type Category = "backlog" | "todo" | "in_progress" | "done";
+type Category = "backlog" | "todo" | "in_progress" | "waiting" | "done";
 type Status = { id: string; name: string; category: Category; archivedAt: Date | null };
 
 export const CATEGORIES: { value: Category; label: string }[] = [

@@ -47,8 +47,22 @@ try {
   await client.query(
     `INSERT INTO workflow_statuses (name, category, position)
      SELECT * FROM (VALUES ('Backlog', 'backlog'::status_category, 1), ('A fazer', 'todo', 2),
-       ('Em andamento', 'in_progress', 3), ('Concluído', 'done', 4)) v
+       ('Em andamento', 'in_progress', 3), ('Aguardando', 'waiting', 4), ('Concluído', 'done', 5)) v
      WHERE NOT EXISTS (SELECT 1 FROM workflow_statuses)`,
+  );
+  // ADR-067: banco semeado antes do Módulo 15 ganha "Aguardando" logo antes do primeiro `done`
+  // (mesmo SQL de scripts/migrate.mjs: os dois arquivos vão soltos para o container)
+  await client.query(
+    `WITH slot AS (
+       SELECT min(position) AS p FROM workflow_statuses
+       WHERE category = 'done'
+         AND NOT EXISTS (SELECT 1 FROM workflow_statuses WHERE category = 'waiting')
+     ), shifted AS (
+       UPDATE workflow_statuses w SET position = w.position + 1
+       FROM slot WHERE w.position >= slot.p
+     )
+     INSERT INTO workflow_statuses (name, category, position)
+     SELECT 'Aguardando', 'waiting', p FROM slot WHERE p IS NOT NULL`,
   );
   await client.query(
     `INSERT INTO labels (name, color_token)
