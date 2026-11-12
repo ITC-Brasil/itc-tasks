@@ -40,7 +40,7 @@ export function MobileUnitDialog({ unit, clients }: { unit?: MobileUnit; clients
       done={unit ? "Unidade Móvel salva" : "Unidade Móvel criada"}
       save={(form) => saveMobileUnitAction(unit?.id ?? null, form)}
     >
-      <FieldLabel label="Código">
+      <FieldLabel label="UM">
         <Input
           name="code"
           required
@@ -53,7 +53,7 @@ export function MobileUnitDialog({ unit, clients }: { unit?: MobileUnit; clients
       </FieldLabel>
       <FormSelect
         name="projectId"
-        label="Projeto/Cliente"
+        label="Projeto"
         items={options}
         defaultValue={unit?.projectId ?? ""}
       />
@@ -67,8 +67,8 @@ export function MobileUnitsTable({ units, clients }: { units: MobileUnit[]; clie
       <table className="w-full text-sm">
         <thead className="text-left text-muted">
           <tr>
-            <th className="px-4 py-3 font-medium">Código</th>
-            <th className="px-4 py-3 font-medium">Cliente</th>
+            <th className="px-4 py-3 font-medium">UM</th>
+            <th className="px-4 py-3 font-medium">Projeto</th>
             <th className="px-4 py-3 font-medium">Situação</th>
             <th className="px-4 py-3">
               <span className="sr-only">Ações</span>
