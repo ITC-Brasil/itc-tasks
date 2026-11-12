@@ -217,6 +217,17 @@ Riscos aceitos e limites:
 - O service worker guarda a última versão de cada tela no navegador da pessoa (ADR-054, ADR-064);
   num computador compartilhado, o login de outra pessoa limpa o cache.
 
+## Instabilidade no CI do PR #40 (fontes)
+
+O E2E do `pull_request` do PR #40 falhou no `npm run build`, antes de qualquer teste, enquanto o
+do `push` do mesmo commit passou: `next/font/google` baixa Inter e Archivo de `fonts.gstatic.com`
+durante o build e a requisição falhou ("next/font/google queries have exactly one entry"). A
+causa é a dependência de rede no build, que vale também para o build no servidor. Correção: as
+duas fontes (subconjunto latin, arquivos variáveis, licença OFL) ficam em `src/app/fonts/` e
+`src/app/layout.tsx` usa `next/font/local` com as mesmas variáveis CSS (`--font-inter`,
+`--font-archivo`). Os pesos não mudam: Inter 100–900 e Archivo 600–800. Subconjuntos fora do latin não
+entram; a UI é só em português.
+
 ## Fechamento
 
 - **Migrações novas (em ordem):** `0014_mobile_unit_drop_fields`, `0015_waiting_status_category`,
