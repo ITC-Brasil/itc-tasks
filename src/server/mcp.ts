@@ -144,9 +144,15 @@ export function createMcpServer(actor: AgentActor, access: Access[]) {
   tool(
     "update_task",
     "write",
-    "Altera só os campos enviados. checklist acrescenta itens; checklistToggle.index conta sobre o checklist de antes desta chamada.",
+    "Altera só os campos enviados. checklist acrescenta itens; checklistToggle.index e checklistDue.index contam sobre o checklist de antes desta chamada.",
     mcpUpdateTask,
-    async ({ id, checklist = [], checklistToggle: toggles = [], ...rest }) => {
+    async ({
+      id,
+      checklist = [],
+      checklistToggle: toggles = [],
+      checklistDue: dues = [],
+      ...rest
+    }) => {
       // M-044: tudo resolvido e validado antes da primeira escrita; índices = checklist de antes
       const taskId = await taskIdOf(id);
       const patch = await toUpdateInput(actor, rest);
@@ -155,12 +161,20 @@ export function createMcpServer(actor: AgentActor, access: Access[]) {
         id,
         toggles.map((t) => t.index),
       );
+      const dueIds = await checklistIdsAt(
+        actor,
+        id,
+        dues.map((d) => d.index),
+      );
       // ponytail: campos, checklist e toggles em transações separadas; o histórico registra cada uma
       await updateTask(actor, taskId, patch);
       for (const text of checklist) await addChecklistItem(actor, taskId, text);
       for (const [n, itemId] of itemIds.entries())
         // eslint-disable-next-line security/detect-object-injection -- n é o índice do próprio array
         await updateChecklistItem(actor, itemId, { done: toggles[n].done });
+      for (const [n, itemId] of dueIds.entries())
+        // eslint-disable-next-line security/detect-object-injection -- n é o índice do próprio array
+        await updateChecklistItem(actor, itemId, { dueDate: dues[n].dueDate });
       return (await getTaskSummary(actor, id)).summary;
     },
   );
