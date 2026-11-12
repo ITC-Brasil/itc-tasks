@@ -120,9 +120,6 @@ export function createMcpServer(actor: AgentActor, access: Access[]) {
       mobileUnits: units
         .map((u) => ({
           code: u.code,
-          model: u.model ?? undefined,
-          plate: u.plate ?? undefined,
-          base: u.base ?? undefined,
           project: codeOf(u.projectId),
         }))
         .filter((u) => !i.project || u.project?.toUpperCase() === i.project.toUpperCase()),

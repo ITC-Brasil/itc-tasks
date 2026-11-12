@@ -28,9 +28,6 @@ export type ProjectInput = z.input<typeof projectSchema>;
 
 export const mobileUnitSchema = z.object({
   code: z.string().trim().toUpperCase().min(1, "Informe o código").max(20),
-  model: optionalText(80),
-  plate: optionalText(10),
-  base: optionalText(80),
   projectId: z.uuid("Escolha o Projeto/Cliente da Unidade Móvel"), // ADR-044
 });
 export type MobileUnitInput = z.input<typeof mobileUnitSchema>;

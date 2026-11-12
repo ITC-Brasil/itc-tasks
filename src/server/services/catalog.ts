@@ -86,9 +86,6 @@ export async function listMobileUnits(_actor: Actor, { includeArchived }: ListOp
     .select({
       id: mobileUnits.id,
       code: mobileUnits.code,
-      model: mobileUnits.model,
-      plate: mobileUnits.plate,
-      base: mobileUnits.base,
       projectId: mobileUnits.projectId,
       projectName: projects.name,
       archivedAt: mobileUnits.archivedAt,
