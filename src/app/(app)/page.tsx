@@ -1,4 +1,4 @@
-import { Inbox } from "lucide-react";
+import { Inbox, Lock } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
 import { Topbar } from "@/components/layout/topbar";
@@ -16,21 +16,35 @@ const BUCKETS: [DueBucket, string][] = [
   ["week", "Esta semana"],
   ["later", "Depois"],
 ];
+// ADR-069: a aba vai na URL (?aba=); sem o parâmetro, "Minhas tarefas"
 const TABS = [
-  { aba: "", label: "Atribuídas" },
+  { aba: "", label: "Minhas tarefas" },
+  { aba: "pessoais", label: "Pessoais" },
+  { aba: "atribuidas", label: "Atribuídas" },
   { aba: "criadas", label: "Criadas" },
   { aba: "mencoes", label: "Menções" },
 ];
+type Scope = NonNullable<Parameters<typeof listTasks>[2]>;
+/** O que cada aba lista; o service ainda aplica o visibleTo(actor) em todas. */
+function scopeOf(aba: unknown, userId: string): Scope {
+  switch (aba) {
+    case "pessoais": // criadas pela pessoa e visíveis só para ela
+      return { visibility: "personal" };
+    case "atribuidas": // da equipe, atribuídas à pessoa
+      return { assigneeId: userId };
+    case "criadas": // da equipe, criadas pela pessoa (as pessoais ficam na aba própria)
+      return { creatorId: userId };
+    case "mencoes":
+      return { mentionedUserId: userId };
+    default: // tudo o que a pessoa tem de resolver: as pessoais (sempre dela) e as da equipe com ela
+      return { visibility: "all", assigneeId: userId };
+  }
+}
 
 async function Mine({ searchParams }: PageProps<"/">) {
   const { actor } = await requireUser();
   const aba = (await searchParams).aba;
-  const scope =
-    aba === "criadas"
-      ? { creatorId: actor.userId }
-      : aba === "mencoes"
-        ? { mentionedUserId: actor.userId }
-        : { assigneeId: actor.userId };
+  const scope = scopeOf(aba, actor.userId);
   const today = todayISO();
   const { tasks } = await listTasks(actor, {}, { ...scope, openOnly: true });
   tasks.sort((a, b) => (a.dueDate ?? "9999").localeCompare(b.dueDate ?? "9999"));
@@ -39,7 +53,7 @@ async function Mine({ searchParams }: PageProps<"/">) {
     <main className="p-4 md:p-6">
       <nav aria-label="Abas" className="mb-4 flex gap-1 border-b">
         {TABS.map((t) => {
-          const active = t.aba === String(aba ?? "");
+          const active = t.aba === (TABS.some((x) => x.aba === aba) ? aba : "");
           return (
             <Link
               key={t.label}
@@ -58,9 +72,19 @@ async function Mine({ searchParams }: PageProps<"/">) {
         })}
       </nav>
       {tasks.length === 0 ? (
-        <EmptyState icon={Inbox} title="Nada pendente por aqui" action={<CreateTaskButton />}>
-          Você não tem tarefas abertas neste ciclo. Crie uma ou puxe algo do backlog.
-        </EmptyState>
+        aba === "pessoais" ? (
+          <EmptyState
+            icon={Lock}
+            title="Nenhuma tarefa pessoal aberta"
+            action={<CreateTaskButton />}
+          >
+            Tarefa pessoal só você vê. Marque “Tarefa pessoal” ao criar.
+          </EmptyState>
+        ) : (
+          <EmptyState icon={Inbox} title="Nada pendente por aqui" action={<CreateTaskButton />}>
+            Você não tem tarefas abertas neste ciclo. Crie uma ou puxe algo do backlog.
+          </EmptyState>
+        )
       ) : (
         BUCKETS.map(([bucket, label]) => {
           const list = groups.get(bucket);
