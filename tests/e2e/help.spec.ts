@@ -48,6 +48,9 @@ test("abre pelo menu do usuário e pelo ⌘K; axe nos dois temas", async ({ page
 test("âncoras #mcp e #mcp-hermes rolam até a seção", async ({ page }) => {
   await page.goto("/ajuda#mcp");
   await expect.poll(() => inView(page, "mcp")).toBe(true);
+  // a troca só de hash não recarrega a página: antes, esperar a hidratação, senão o roteador
+  // do Next rola de volta para #mcp depois da troca (falha intermitente no CI #121)
+  await page.waitForLoadState("networkidle");
   await page.goto("/ajuda#mcp-hermes");
   await expect.poll(() => inView(page, "mcp-hermes")).toBe(true);
   await expect(page.locator("#mcp-hermes")).toContainText("mcp_servers");
