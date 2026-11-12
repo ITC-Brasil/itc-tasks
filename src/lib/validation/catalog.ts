@@ -13,6 +13,30 @@ export const catalogIdSchema = z.uuid();
 
 export const PROJECT_KINDS = ["project", "client", "internal"] as const;
 
+// ADR-068: paleta fechada; o banco guarda a chave, nunca hex. Tokens --project-<chave>-* no globals.css
+export const PROJECT_COLORS = [
+  "blue",
+  "indigo",
+  "violet",
+  "magenta",
+  "rose",
+  "brown",
+  "olive",
+  "slate",
+] as const;
+export type ProjectColor = (typeof PROJECT_COLORS)[number];
+// Map evita indexação dinâmica de objeto
+export const PROJECT_COLOR_NAMES = new Map<ProjectColor, string>([
+  ["blue", "Azul"],
+  ["indigo", "Anil"],
+  ["violet", "Violeta"],
+  ["magenta", "Magenta"],
+  ["rose", "Rosa"],
+  ["brown", "Marrom"],
+  ["olive", "Oliva"],
+  ["slate", "Cinza-azulado"],
+]);
+
 export const projectSchema = z.object({
   code: z
     .string()
@@ -23,14 +47,17 @@ export const projectSchema = z.object({
   kind: z.enum(PROJECT_KINDS),
   // default_assignee_id fica no banco sem uso (ADR-045)
   glpiEntity: optionalText(80),
+  // ADR-068: "" (Padrão no formulário) limpa a cor; ausente não mexe
+  color: z
+    .enum(PROJECT_COLORS)
+    .or(z.literal(""))
+    .nullish()
+    .transform((v) => (v === undefined ? undefined : v || null)),
 });
 export type ProjectInput = z.input<typeof projectSchema>;
 
 export const mobileUnitSchema = z.object({
   code: z.string().trim().toUpperCase().min(1, "Informe o código").max(20),
-  model: optionalText(80),
-  plate: optionalText(10),
-  base: optionalText(80),
   projectId: z.uuid("Escolha o Projeto/Cliente da Unidade Móvel"), // ADR-044
 });
 export type MobileUnitInput = z.input<typeof mobileUnitSchema>;
@@ -52,7 +79,7 @@ export const labelSchema = z.object({
 });
 export type LabelInput = z.input<typeof labelSchema>;
 
-export const STATUS_CATEGORIES = ["backlog", "todo", "in_progress", "done"] as const;
+export const STATUS_CATEGORIES = ["backlog", "todo", "in_progress", "waiting", "done"] as const; // ADR-022, ADR-067
 
 export const statusNameSchema = z.string().trim().min(1, "Informe o nome").max(40);
 

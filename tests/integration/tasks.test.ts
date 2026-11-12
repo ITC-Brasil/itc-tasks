@@ -215,6 +215,18 @@ it("checklist e vínculos (bloqueia ↔ bloqueada por)", async () => {
     "checklist_changed",
     "link_added",
   ]);
+
+  // Módulo 15: prazo da subtarefa, com evento; pode passar do prazo da tarefa; data inválida recusa
+  await updateTask(actor, a.id, { dueDate: "2031-01-10" });
+  const late = await updateChecklistItem(actor, item.id, { dueDate: "2031-02-01" });
+  expect(late.dueDate).toBe("2031-02-01");
+  await expect(updateChecklistItem(actor, item.id, { dueDate: "amanhã" })).rejects.toThrow();
+  const none = await updateChecklistItem(actor, item.id, { dueDate: null });
+  expect(none.dueDate).toBeNull();
+  const actions = (await events(a.id))
+    .filter((e) => e.type === "checklist_changed")
+    .map((e) => (e.payload as { action: string; dueDate?: string }).action);
+  expect(actions.slice(-2)).toEqual(["due_set", "due_cleared"]);
 });
 
 it("tarefa criada pelo sistema: ator system, criador = primeiro admin ativo (ADR-045)", async () => {
@@ -295,10 +307,10 @@ it("vários Projetos/Clientes e UMs; UM de projeto não escolhido recusada (ADR-
   });
 });
 
-it("migração 0007 preenche task_projects de toda tarefa", async () => {
+it("migração 0007 preenche task_projects de toda tarefa com Projeto/Cliente", async () => {
   const [{ missing }] = (
     await db.execute<{ missing: number }>(
-      sql`SELECT count(*)::int AS missing FROM tasks t WHERE NOT EXISTS
+      sql`SELECT count(*)::int AS missing FROM tasks t WHERE t.project_id IS NOT NULL AND NOT EXISTS
         (SELECT 1 FROM task_projects tp WHERE tp.task_id = t.id AND tp.project_id = t.project_id)`,
     )
   ).rows;

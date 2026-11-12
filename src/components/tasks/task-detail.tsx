@@ -1,6 +1,15 @@
 "use client";
 
-import { ListChecks, MessageSquare, Paperclip, Trash2, Upload, X } from "lucide-react";
+import {
+  Calendar,
+  ListChecks,
+  Lock,
+  MessageSquare,
+  Paperclip,
+  Trash2,
+  Upload,
+  X,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useOptimistic, useRef, useState, useTransition } from "react";
@@ -10,6 +19,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { relativeTime } from "@/lib/dates";
+import { cn } from "@/lib/utils";
 import type { Priority, UpdateTaskInput } from "@/lib/validation/tasks";
 import {
   type TaskFormOptions,
@@ -26,7 +36,15 @@ import type { listActivity } from "@/server/services/activity";
 import type { listAttachments } from "@/server/services/attachments";
 import type { listComments } from "@/server/services/comments";
 import type { getTaskByNumber } from "@/server/services/tasks";
-import { GlpiChip, LabelChip, ProjectChip, StatusIcon, UnitChip, glpiUrl } from "./badges";
+import {
+  GlpiChip,
+  LabelChip,
+  ProjectChip,
+  StatusIcon,
+  TextChip,
+  UnitChip,
+  glpiUrl,
+} from "./badges";
 import { CommentBody, CommentEditor } from "./comment-editor";
 import { DeleteTasksDialog } from "./delete-tasks-dialog";
 import { DescriptionEditor } from "./description-editor";
@@ -64,6 +82,7 @@ export function TaskDetail({
   options,
   glpiBaseUrl,
   canDelete,
+  today,
 }: {
   task: Task;
   comments: Comment[];
@@ -72,6 +91,7 @@ export function TaskDetail({
   options: TaskFormOptions;
   glpiBaseUrl: string;
   canDelete: boolean;
+  today: string;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -105,18 +125,48 @@ export function TaskDetail({
   const items = optionItems(options);
   const labelsById = new Map([...task.labels, ...options.labels].map((l) => [l.id, l] as const));
   const done = view.checklist.filter((c) => c.done).length;
+  // ADR-069: a pessoal é sempre de quem criou e fica fora de ciclos e marcos
+  const personal = task.visibility === "personal";
 
   return (
     <main className="grid gap-6 p-4 md:p-6 lg:grid-cols-[minmax(0,1fr)_288px]">
       <article className="flex min-w-0 flex-col gap-6">
         <header className="flex flex-col gap-3">
           <InlineTitle value={view.title} onSave={(title) => save({ title })} />
+          {personal && (
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <TextChip>
+                <Lock
+                  className="mr-1 inline size-3.5 align-[-2px]"
+                  strokeWidth={1.75}
+                  aria-hidden="true"
+                />
+                Tarefa pessoal
+              </TextChip>
+              <span className="text-muted">Só você vê esta tarefa.</span>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() =>
+                  startTransition(async () => {
+                    const result = await updateTaskAction(task.id, task.number, {
+                      visibility: "team",
+                    });
+                    if (!result.ok) return void toast.error(result.error);
+                    toast.success(`TI-${task.number} movida para a equipe`);
+                  })
+                }
+              >
+                Mover para a equipe
+              </Button>
+            </div>
+          )}
           <div className="flex flex-wrap gap-1.5">
             {task.projects.map((p) => (
-              <ProjectChip key={p.id} code={p.code} name={p.name} />
+              <ProjectChip key={p.id} code={p.code} name={p.name} color={p.color} full />
             ))}
             {task.units.map((u) => (
-              <UnitChip key={u.id} code={u.code} />
+              <UnitChip key={u.id} code={u.code} color={u.color} />
             ))}
             {view.glpiTicket && (
               <GlpiChip ticket={view.glpiTicket} href={glpiUrl(glpiBaseUrl, view.glpiTicket)} />
@@ -160,11 +210,35 @@ export function TaskDetail({
                     )
                   }
                 />
-                <span className={c.done ? "text-muted line-through" : undefined}>{c.text}</span>
+                <span className={cn("min-w-0 flex-1", c.done && "text-muted line-through")}>
+                  {c.text}
+                </span>
+                {/* mesmo padrão do prazo da tarefa: ícone em err, texto normal; concluída não atrasa */}
+                {!c.done && c.dueDate && c.dueDate < today && (
+                  <>
+                    <Calendar
+                      className="size-3.5 flex-none text-err"
+                      strokeWidth={1.75}
+                      aria-hidden="true"
+                    />
+                    <span className="sr-only">(vencida)</span>
+                  </>
+                )}
+                <Input
+                  key={c.dueDate}
+                  type="date"
+                  aria-label={`Prazo de ${c.text}`}
+                  className="h-7 w-auto flex-none px-1.5 text-xs tabular-nums"
+                  defaultValue={c.dueDate ?? ""}
+                  onChange={(e) => {
+                    const dueDate = e.currentTarget.value || null;
+                    act({}, () => updateChecklistItemAction(c.id, task.number, { dueDate }));
+                  }}
+                />
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  className="ml-auto group-hover:opacity-100 focus-visible:opacity-100 md:opacity-0"
+                  className="group-hover:opacity-100 focus-visible:opacity-100 md:opacity-0"
                   aria-label={`Remover ${c.text}`}
                   onClick={() => act({}, () => removeChecklistItemAction(c.id, task.number))}
                 >
@@ -213,14 +287,16 @@ export function TaskDetail({
             onChange={(v) => save({ priority: v as Priority })}
           />
         </Prop>
-        <Prop label="Responsável">
-          <Pick
-            label="Responsável"
-            items={withCurrent(items.people, task.assigneeId, task.assigneeName)}
-            value={view.assigneeId ?? ""}
-            onChange={(v) => save({ assigneeId: v || null })}
-          />
-        </Prop>
+        {!personal && (
+          <Prop label="Responsável">
+            <Pick
+              label="Responsável"
+              items={withCurrent(items.people, task.assigneeId, task.assigneeName)}
+              value={view.assigneeId ?? ""}
+              onChange={(v) => save({ assigneeId: v || null })}
+            />
+          </Prop>
+        )}
         <Prop label="Projeto/Cliente">
           <PickMany
             label="Projeto/Cliente"
@@ -229,7 +305,8 @@ export function TaskDetail({
               items.projects,
             )}
             value={view.projectIds}
-            onChange={(projectIds) => projectIds.length && save({ projectIds })}
+            // a da equipe nunca fica sem Projeto/Cliente; a pessoal pode
+            onChange={(projectIds) => (personal || projectIds.length) && save({ projectIds })}
           />
         </Prop>
         <Prop label="Unidade Móvel">
@@ -265,30 +342,34 @@ export function TaskDetail({
             onChange={(e) => save({ dueDate: e.currentTarget.value || null })}
           />
         </Prop>
-        <Prop label="Ciclo">
-          <Pick
-            label="Ciclo"
-            items={withCurrent(
-              items.cycles,
-              task.cycleId,
-              task.cycleNumber ? `Ciclo ${task.cycleNumber}` : null,
-            )}
-            value={view.cycleId ?? ""}
-            onChange={(v) => save({ cycleId: v || null })}
-          />
-        </Prop>
-        <Prop label="Marco">
-          <Pick
-            label="Marco"
-            items={withCurrent(
-              items.milestones(view.projectIds),
-              task.milestoneId,
-              task.milestoneName,
-            )}
-            value={view.milestoneId ?? ""}
-            onChange={(v) => save({ milestoneId: v || null })}
-          />
-        </Prop>
+        {!personal && (
+          <>
+            <Prop label="Ciclo">
+              <Pick
+                label="Ciclo"
+                items={withCurrent(
+                  items.cycles,
+                  task.cycleId,
+                  task.cycleNumber ? `Ciclo ${task.cycleNumber}` : null,
+                )}
+                value={view.cycleId ?? ""}
+                onChange={(v) => save({ cycleId: v || null })}
+              />
+            </Prop>
+            <Prop label="Marco">
+              <Pick
+                label="Marco"
+                items={withCurrent(
+                  items.milestones(view.projectIds),
+                  task.milestoneId,
+                  task.milestoneName,
+                )}
+                value={view.milestoneId ?? ""}
+                onChange={(v) => save({ milestoneId: v || null })}
+              />
+            </Prop>
+          </>
+        )}
         <Prop label="Etiquetas">
           <PickMany
             label="Etiquetas"

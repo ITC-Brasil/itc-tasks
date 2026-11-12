@@ -61,7 +61,8 @@ Arquivos planejados: `src/db/schema/enums.ts`, `catalog.ts`, `tasks.ts`, `planni
 // src/db/schema/enums.ts
 import { pgEnum } from 'drizzle-orm/pg-core';
 
-export const statusCategory = pgEnum('status_category', ['backlog', 'todo', 'in_progress', 'done']);
+export const taskVisibility = pgEnum('task_visibility', ['team', 'personal']);   // ADR-069 (0018)
+export const statusCategory = pgEnum('status_category', ['backlog', 'todo', 'in_progress', 'waiting', 'done']); // waiting: ADR-067
 export const taskPriority   = pgEnum('task_priority', ['none', 'low', 'medium', 'high', 'urgent']);
 export const projectKind    = pgEnum('project_kind', ['client', 'internal', 'project']); // ADR-044
 export const actorKind      = pgEnum('actor_kind', ['user', 'agent', 'automation', 'system']);
@@ -91,6 +92,7 @@ export const projects = pgTable('projects', {
   kind: projectKind('kind').notNull().default('client'),
   defaultAssigneeId: text('default_assignee_id').references(() => user.id),
   glpiEntity: text('glpi_entity'),
+  color: text('color'),                         // ADR-068: chave da paleta (blue, indigo…), nunca hex; nulo = ciano padrão
   archivedAt: timestamp('archived_at', { withTimezone: true }),
   ...timestamps,
 }, (t) => [uniqueIndex('projects_code_uq').on(t.code)]);
@@ -98,9 +100,7 @@ export const projects = pgTable('projects', {
 export const mobileUnits = pgTable('mobile_units', {
   id: uuid('id').primaryKey().defaultRandom(),
   code: text('code').notNull(),                 // ex. UM-07
-  model: text('model'),
-  plate: text('plate'),
-  base: text('base'),
+  // model, plate e base removidos em 0014_mobile_unit_drop_fields (ADR-066)
   projectId: uuid('project_id').references(() => projects.id),
   archivedAt: timestamp('archived_at', { withTimezone: true }),
   ...timestamps,
@@ -143,7 +143,8 @@ export const tasks = pgTable('tasks', {
   descriptionText: text('description_text').notNull().default(''),
   statusId: uuid('status_id').notNull().references(() => workflowStatuses.id),
   priority: taskPriority('priority').notNull().default('none'),
-  projectId: uuid('project_id').notNull().references(() => projects.id),   // principal; todos em task_projects (ADR-045)
+  projectId: uuid('project_id').references(() => projects.id),   // principal; todos em task_projects (ADR-045). Obrigatório na tarefa da equipe (CHECK), opcional na pessoal (ADR-069)
+  visibility: taskVisibility('visibility').notNull().default('team'),   // ADR-069: 'personal' = só quem criou vê
   mobileUnitId: uuid('mobile_unit_id').references(() => mobileUnits.id),
   glpiTicket: integer('glpi_ticket'),                             // ADR-023
   assigneeId: text('assignee_id').references(() => user.id),
@@ -168,6 +169,9 @@ export const tasks = pgTable('tasks', {
   index('tasks_cycle_idx').on(t.cycleId),
   index('tasks_glpi_idx').on(t.glpiTicket),
   index('tasks_search_idx').using('gin', t.search),
+  index('tasks_personal_creator_idx').on(t.creatorId).where(sql`visibility = 'personal'`),                       // ADR-069
+  check('tasks_team_project_ck', sql`visibility = 'personal' OR project_id IS NOT NULL`),
+  check('tasks_personal_owner_ck', sql`visibility = 'team' OR (assignee_id = creator_id AND cycle_id IS NULL AND milestone_id IS NULL)`),
 ]);
 
 export const checklistItems = pgTable('checklist_items', {          // "Subtarefas" — ADR-019
@@ -176,6 +180,7 @@ export const checklistItems = pgTable('checklist_items', {          // "Subtaref
   text: text('text').notNull(),
   done: boolean('done').notNull().default(false),
   assigneeId: text('assignee_id').references(() => user.id),
+  dueDate: date('due_date'),                    // Módulo 15: prazo da subtarefa (0017); pode passar do prazo da tarefa
   position: text('position').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
@@ -393,7 +398,7 @@ CREATE SEQUENCE IF NOT EXISTS task_number_seq START 1;
 
 | Dado | Valores |
 |---|---|
-| Status | Backlog (`backlog`), A fazer (`todo`), Em andamento (`in_progress`), Concluído (`done`) |
+| Status | Backlog (`backlog`), A fazer (`todo`), Em andamento (`in_progress`), Aguardando (`waiting`, ADR-067), Concluído (`done`) |
 | Etiquetas | rede (`info`), hardware (`sev-medium`), segurança (`bordo`), campo (`accent`) |
 | Automações | as 6 regras da tela Automações; "Etiquetar tarefas de UM" desligada |
 | Admin | `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`, `role = 'admin'` |

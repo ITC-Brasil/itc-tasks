@@ -40,8 +40,8 @@ trabalho (ADR-001). Faltam também três coisas que nenhuma ferramenta pronta tr
 ### 4.1 Tarefas (núcleo)
 
 - **T1** Criar tarefa com título, descrição rica, responsável, prioridade (Sem / Baixa / Média / Alta / Urgente), prazo, etiquetas, anexos.
-- **T2** Campos ITC: **um ou mais Projetos/Clientes (pelo menos um obrigatório)**, nenhuma ou várias Unidades Móveis (cada UM de um dos projetos da tarefa), Chamado GLPI opcional (número; link automático) (ADR-045).
-- **T3** Subtarefas como checklist com responsável opcional e progresso (ADR-019).
+- **T2** Campos ITC: **um ou mais Projetos/Clientes (pelo menos um obrigatório na tarefa da equipe; opcional na tarefa pessoal, ADR-069)**, nenhuma ou várias Unidades Móveis (cada UM de um dos projetos da tarefa), Chamado GLPI opcional (número; link automático) (ADR-045).
+- **T3** Subtarefas como checklist com responsável opcional, progresso (ADR-019) e prazo próprio opcional (Módulo 15): pode passar do prazo da tarefa, concluída não fica atrasada, e entra no lembrete das 08:00 do responsável pela tarefa.
 - **T4** Vínculos "bloqueia / bloqueada por" e "relacionada".
 - **T5** Comentários com @menção; histórico de alterações mostrando pessoa, agente ou automação.
 - **T6** ID visível `TI-<número>` (ADR-021).
@@ -54,12 +54,13 @@ trabalho (ADR-001). Faltam também três coisas que nenhuma ferramenta pronta tr
 
 ### 4.2 Workflow
 
-- **W1** Status configuráveis pelo admin, cada um numa categoria fixa: Backlog, A fazer, Em andamento, Concluído (ADR-022).
+- **W1** Status configuráveis pelo admin, cada um numa categoria fixa: Backlog, A fazer, Em andamento, Aguardando, Concluído (ADR-022, ADR-067). Aguardando é a tarefa iniciada e parada por terceiro; conta como aberta e pode ficar atrasada.
 - **W2** Mudar para um status `done` marca a tarefa como concluída; sair dele desmarca.
 
 ### 4.3 Visões
 
-- **V1** Minhas tarefas: vencidas, hoje, esta semana, depois; abas Atribuídas / Criadas / Menções.
+- **V1** Minhas tarefas: vencidas, hoje, esta semana, depois. Abas (Módulo 15): Minhas tarefas (pessoais + da equipe atribuídas a mim), Pessoais, Atribuídas, Criadas, Menções, na URL (`?aba=`). Modos Cards, Lista e Calendário (`?visao=`), com `V` `K`/`L`/`C`.
+- **V1b** Tarefa pessoal (ADR-069): só quem criou vê e edita, nem o admin; fora das visões da equipe, do painel, de ciclos, marcos, automações e notificações a outras pessoas; Projeto/Cliente opcional; responsável sempre o criador; mesma sequência `TI-<n>`; pode ser movida para a equipe (exige Projeto/Cliente), nunca o inverso.
 - **V2** Kanban por status com arrastar e soltar, contagem por coluna e "Nova tarefa" na coluna.
 - **V3** Lista em tabela com seleção em massa (mover status, atribuir, mudar ciclo, arquivar).
 - **V4** Calendário mensal com prazos e marcos.
@@ -83,7 +84,7 @@ trabalho (ADR-001). Faltam também três coisas que nenhuma ferramenta pronta tr
 ### 4.6 Cadastros
 
 - **C1** Projetos/Clientes: nome, sigla única (2 a 12 letras ou números), tipo (Projeto / Cliente / Interno), entidade no GLPI, ativo/arquivado (ADR-044). Sem responsável padrão: o responsável é escolhido por quem cria a tarefa (ADR-045).
-- **C2** Unidades Móveis: código único, modelo, placa, base, Projeto/Cliente (obrigatório, ADR-044), ativa/arquivada, contagem de tarefas abertas.
+- **C2** Unidades Móveis: código único (rótulo "UM"), Projeto/Cliente (obrigatório, ADR-044), ativa/arquivada, contagem de tarefas abertas.
 - **C3** Etiquetas com cor dos tokens. **C4** Membros (admin cria, desativa, troca papel).
 
 ### 4.7 Agentes (MCP)

@@ -23,7 +23,7 @@ import { type TaskFormOptions, bulkUpdateTasksAction } from "@/server/actions/ta
 import { type Actor, canDeleteTask } from "@/server/permissions";
 import type { TaskRow } from "@/server/services/tasks";
 import { DeleteTasksDialog } from "./delete-tasks-dialog";
-import { PriorityIcon, ProjectChip, StatusIcon, priorityLabel } from "./badges";
+import { PersonalMark, PriorityIcon, ProjectChip, StatusIcon, priorityLabel } from "./badges";
 import { Pick, optionItems } from "./fields";
 import { DueDate } from "./task-card";
 
@@ -76,9 +76,12 @@ export function TaskTable({
     col.accessor("title", {
       header: "Título",
       cell: (c) => (
-        <Link href={`/tarefas/${c.row.original.number}`} className="font-medium hover:underline">
-          {c.getValue()}
-        </Link>
+        <span className="inline-flex items-center gap-1.5">
+          <Link href={`/tarefas/${c.row.original.number}`} className="font-medium hover:underline">
+            {c.getValue()}
+          </Link>
+          {c.row.original.visibility === "personal" && <PersonalMark />}
+        </span>
       ),
     }),
     col.accessor((t) => statusName.get(t.statusId) ?? "", {
@@ -107,7 +110,7 @@ export function TaskTable({
       cell: (c) => (
         <span className="flex flex-wrap gap-1">
           {c.row.original.projects.map((p) => (
-            <ProjectChip key={p.id} code={p.code} name={p.name} />
+            <ProjectChip key={p.id} code={p.code} name={p.name} color={p.color} />
           ))}
         </span>
       ),

@@ -99,6 +99,7 @@ const STATUSES: [Category, string][] = [
   ["backlog", "Backlog"],
   ["todo", "A fazer"],
   ["in_progress", "Em andamento"],
+  ["waiting", "Aguardando"],
   ["done", "Concluído"],
 ];
 const PRIORITIES = [
@@ -112,8 +113,8 @@ const PRIORITIES = [
 const SAMPLE = {
   number: 142,
   title: "Trocar nobreak do rack 2",
-  projects: [{ id: "p", code: "TRL", name: "Transportadora Litoral" }],
-  units: ["UM-07"],
+  projects: [{ id: "p", code: "TRL", name: "Transportadora Litoral", color: "blue" }],
+  units: [{ code: "UM-07", color: "blue" }],
   labels: [{ name: "Infra", colorToken: "label-teal" }],
   priority: "high",
   dueDate: "2000-01-01",
@@ -165,7 +166,11 @@ function TelaPrincipal() {
     >
       <p>
         Ao entrar você cai em Minhas tarefas: o que está com você, agrupado por prazo (vencidas,
-        hoje, esta semana).
+        hoje, esta semana). As abas e os modos Cards, Lista e Calendário estão em{" "}
+        <a href="#pessoais" className="text-accent-text underline">
+          Tarefas pessoais e Minhas tarefas
+        </a>
+        .
       </p>
       <Items
         items={[
@@ -212,18 +217,23 @@ function TelaPrincipal() {
             ))}
           </ul>
           <div className="flex flex-wrap gap-1.5">
-            <ProjectChip code="TRL" name="Transportadora Litoral" />
-            <UnitChip code="UM-07" />
+            <ProjectChip code="TRL" name="Transportadora Litoral" color="blue" full />
+            <UnitChip code="UM-07" color="blue" />
             <GlpiChipExample />
           </div>
         </Card>
         <TaskCard task={SAMPLE} today="2000-01-02" />
       </div>
       <p>
-        A forma do círculo diz o status mesmo sem cor. As barras indicam a prioridade (Baixa, Média,
-        Alta) e o quadrado com <b>!</b> marca Urgente. O prazo vencido aparece com o ícone em
-        vermelho. O código <Code>TI-142</Code> é o número da tarefa e também o endereço dela:{" "}
-        <Code>/tarefas/142</Code>.
+        No card, o chip do Projeto/Cliente mostra só a sigla; o nome completo aparece ao passar o
+        mouse. O administrador pode dar uma cor a cada Projeto/Cliente (Configurações ›
+        Projetos/Clientes), e as Unidades Móveis dele aparecem num tom mais suave da mesma cor. A
+        forma do ícone diz o status mesmo sem cor. A ampulheta é <b>Aguardando</b>: tarefa iniciada
+        e parada por algo fora do alcance da equipe (compra a caminho, retorno de fornecedor). Ela
+        continua aberta e aparece como atrasada se passar do prazo. As barras indicam a prioridade
+        (Baixa, Média, Alta) e o quadrado com <b>!</b> marca Urgente. O prazo vencido aparece com o
+        ícone em vermelho. O código <Code>TI-142</Code> é o número da tarefa e também o endereço
+        dela: <Code>/tarefas/142</Code>.
       </p>
     </Section>
   );
@@ -272,7 +282,7 @@ function Visoes() {
       <p>
         As três mostram as mesmas tarefas com os mesmos filtros. Troque pelas abas no topo ou com{" "}
         <Kbd>V</Kbd> <Kbd>K</Kbd>, <Kbd>V</Kbd> <Kbd>L</Kbd> e <Kbd>V</Kbd> <Kbd>C</Kbd>; os filtros
-        continuam.
+        continuam. Tarefas pessoais não aparecem aqui: elas ficam em Minhas tarefas.
       </p>
       <h3 className="text-h3">Kanban</h3>
       <p>
@@ -305,7 +315,10 @@ function Detalhe() {
       </p>
       <Items
         items={[
-          ["Subtarefas", "Lista de verificação com responsável por item e barra de progresso."],
+          [
+            "Subtarefas",
+            "Lista de verificação com progresso. Cada subtarefa pode ter prazo próprio; vencida fica marcada em vermelho, e o responsável pela tarefa recebe o lembrete das 08:00.",
+          ],
           ["Vínculos", "“Bloqueada por” e “Relacionada” ligam uma tarefa a outra."],
           [
             "Comentários",
@@ -487,7 +500,11 @@ const TOOLS: [string, string, string][] = [
   ["list_projects", "Ler", "Projetos/Clientes ativos"],
   ["list_mobile_units", "Ler", "Unidades Móveis ativas"],
   ["list_cycles", "Ler", "Ciclos, para o agente achar o certo"],
-  ["create_task", "Escrever", "Cria a tarefa; sem Projeto/Cliente é recusada"],
+  [
+    "create_task",
+    "Escrever",
+    "Cria a tarefa; sem Projeto/Cliente é recusada, salvo tarefa pessoal (visibility personal)",
+  ],
   ["update_task", "Escrever", "Muda campos, ciclo e subtarefas"],
   ["add_comment", "Escrever", "Comenta, aceitando menção por e-mail"],
   ["complete_task", "Escrever", "Conclui a tarefa"],
@@ -628,11 +645,11 @@ function Papeis() {
         rows={[
           [
             <b key="m">Membro</b>,
-            "Criar e editar qualquer tarefa, excluir as que criou, planejar ciclos e marcos, comentar, usar templates, gerenciar os próprios tokens e preferências",
+            "Criar e editar qualquer tarefa da equipe e as próprias tarefas pessoais, excluir as que criou, planejar ciclos e marcos, comentar, usar templates, gerenciar os próprios tokens e preferências",
           ],
           [
             <b key="a">Administrador</b>,
-            "Tudo do membro, mais: membros, workflow, cadastros, automações, excluir qualquer tarefa e gerenciar tokens de qualquer pessoa",
+            "Tudo do membro, mais: membros, workflow, cadastros, automações, excluir qualquer tarefa da equipe e gerenciar tokens de qualquer pessoa. Não vê tarefas pessoais de outras pessoas",
           ],
           [
             <b key="g">Agente</b>,
@@ -646,6 +663,78 @@ function Papeis() {
         tarefas antigas continuam com o nome certo. Falta um projeto ou UM? Peça ao administrador.
       </p>
       <Note>Dúvida ou problema no app? Abra um chamado no GLPI ou fale com o administrador.</Note>
+    </Section>
+  );
+}
+
+function Pessoais() {
+  return (
+    <Section
+      id="pessoais"
+      n="14"
+      kicker="Tarefas pessoais e Minhas tarefas"
+      title="O que é só seu e tudo o que está com você"
+    >
+      <p>
+        <b>Tarefa pessoal</b> é uma tarefa que só você vê. Ninguém mais da equipe a enxerga, nem o
+        administrador. Ela não aparece no Kanban, na Lista nem no Calendário da equipe, não conta no
+        painel, não entra em ciclo nem em marco, não dispara automações e não avisa outras pessoas
+        (uma @menção nela não notifica ninguém).
+      </p>
+      <Items
+        items={[
+          [
+            "Criar",
+            <>
+              Na criação (<Kbd>C</Kbd>), marque <b>Tarefa pessoal</b>. O Projeto/Cliente passa a ser
+              opcional e a tarefa fica sempre com você como responsável.
+            </>,
+          ],
+          [
+            "Reconhecer",
+            "O cadeado ao lado do título, nos cards, na lista, na busca e no detalhe, marca a tarefa pessoal.",
+          ],
+          [
+            "Mover para a equipe",
+            <>
+              No detalhe, <b>Mover para a equipe</b> transforma a tarefa pessoal numa tarefa da
+              equipe. É preciso ter um Projeto/Cliente. O caminho inverso não existe, e o que já
+              estava escrito nela (comentários, histórico) passa a ser visível a todos.
+            </>,
+          ],
+          [
+            "Número",
+            <>
+              Usa a mesma sequência TI-n das tarefas da equipe. Por isso a numeração pode pular para
+              os outros.
+            </>,
+          ],
+          [
+            "Agente",
+            "O seu agente (MCP) lê e escreve as suas tarefas pessoais; o de outra pessoa nunca as vê.",
+          ],
+        ]}
+      />
+      <h3 className="text-h3">Abas de Minhas tarefas</h3>
+      <Table
+        head={["Aba", "Mostra"]}
+        rows={[
+          [
+            <b key="m">Minhas tarefas</b>,
+            "Tudo o que você tem de resolver: as pessoais e as da equipe atribuídas a você",
+          ],
+          [<b key="p">Pessoais</b>, "As tarefas pessoais, que só você vê"],
+          [<b key="a">Atribuídas</b>, "As tarefas da equipe atribuídas a você"],
+          [<b key="c">Criadas</b>, "As tarefas da equipe que você criou"],
+          [<b key="n">Menções</b>, "As tarefas em que alguém mencionou você"],
+        ]}
+      />
+      <p>
+        Em qualquer aba, escolha <b>Cards</b>, <b>Lista</b> ou <b>Calendário</b> no canto direito,
+        ou use <Kbd>V</Kbd> <Kbd>K</Kbd>, <Kbd>V</Kbd> <Kbd>L</Kbd> e <Kbd>V</Kbd> <Kbd>C</Kbd>. A
+        aba e o modo ficam no endereço da página. No Calendário aparecem também as subtarefas
+        abertas com prazo.
+      </p>
     </Section>
   );
 }
@@ -664,4 +753,5 @@ export const SECTIONS = [
   { id: "celular", title: "No celular", C: Celular },
   { id: "atalhos", title: "Atalhos de teclado", C: Atalhos },
   { id: "papeis", title: "Papéis e cadastros", C: Papeis },
+  { id: "pessoais", title: "Tarefas pessoais e Minhas tarefas", C: Pessoais },
 ];

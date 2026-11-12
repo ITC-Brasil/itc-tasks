@@ -22,7 +22,7 @@ import {
 } from "@/lib/validation/planning";
 import type { Actor } from "@/server/actor";
 import { listProjects } from "./catalog";
-import { TaskError, lockTask, record } from "./tasks";
+import { TaskError, lockTask, record, teamOnly } from "./tasks";
 
 // ADR-053: admin e member planejam; nada é excluído (ciclo encerra, marco conclui)
 
@@ -57,7 +57,7 @@ export async function listCycles(state?: "planned" | "active" | "closed") {
       done: count(sql`CASE WHEN ${tasks.completedAt} IS NOT NULL THEN 1 END`),
     })
     .from(cycles)
-    .leftJoin(tasks, and(eq(tasks.cycleId, cycles.id), isNull(tasks.archivedAt)))
+    .leftJoin(tasks, and(eq(tasks.cycleId, cycles.id), isNull(tasks.archivedAt), teamOnly))
     .where(state ? eq(cycles.state, state) : undefined)
     .groupBy(cycles.id)
     .orderBy(desc(cycles.number));
@@ -140,7 +140,14 @@ export async function pendingTasks(cycleId: string) {
   return db
     .select({ id: tasks.id, number: tasks.number, title: tasks.title })
     .from(tasks)
-    .where(and(eq(tasks.cycleId, cycleId), isNull(tasks.archivedAt), isNull(tasks.completedAt)))
+    .where(
+      and(
+        eq(tasks.cycleId, cycleId),
+        isNull(tasks.archivedAt),
+        isNull(tasks.completedAt),
+        teamOnly,
+      ),
+    )
     .orderBy(asc(tasks.number));
 }
 
@@ -150,7 +157,14 @@ export async function cycleLoad(cycleId: string) {
     .select({ name: sql<string>`coalesce(${user.name}, 'Sem responsável')`, open: count() })
     .from(tasks)
     .leftJoin(user, eq(user.id, tasks.assigneeId))
-    .where(and(eq(tasks.cycleId, cycleId), isNull(tasks.archivedAt), isNull(tasks.completedAt)))
+    .where(
+      and(
+        eq(tasks.cycleId, cycleId),
+        isNull(tasks.archivedAt),
+        isNull(tasks.completedAt),
+        teamOnly,
+      ),
+    )
     .groupBy(user.name)
     .orderBy(desc(count()), asc(user.name));
 }
@@ -183,9 +197,11 @@ export async function closeCycle(actor: Actor, id: string, input: { carryTaskIds
     const pending = await tx
       .select({ id: tasks.id })
       .from(tasks)
-      .where(and(eq(tasks.cycleId, id), isNull(tasks.archivedAt), isNull(tasks.completedAt)));
+      .where(
+        and(eq(tasks.cycleId, id), isNull(tasks.archivedAt), isNull(tasks.completedAt), teamOnly),
+      );
     for (const { id: taskId } of pending) {
-      await lockTask(tx, taskId);
+      await lockTask(tx, taskId, actor);
       const to = carryTaskIds.includes(taskId) ? next.id : null;
       await tx
         .update(tasks)
@@ -215,6 +231,7 @@ export async function listMilestones(projectId?: string) {
       projectId: milestones.projectId,
       projectCode: projects.code,
       projectName: projects.name,
+      projectColor: projects.color,
       dueOn: milestones.dueOn,
       closedAt: milestones.closedAt,
       total: count(tasks.id),
@@ -222,9 +239,9 @@ export async function listMilestones(projectId?: string) {
     })
     .from(milestones)
     .innerJoin(projects, eq(projects.id, milestones.projectId))
-    .leftJoin(tasks, and(eq(tasks.milestoneId, milestones.id), isNull(tasks.archivedAt)))
+    .leftJoin(tasks, and(eq(tasks.milestoneId, milestones.id), isNull(tasks.archivedAt), teamOnly))
     .where(projectId ? eq(milestones.projectId, projectId) : undefined)
-    .groupBy(milestones.id, projects.code, projects.name)
+    .groupBy(milestones.id, projects.code, projects.name, projects.color)
     .orderBy(
       sql`${milestones.closedAt} IS NOT NULL`,
       sql`${milestones.dueOn} ASC NULLS LAST`,
@@ -307,7 +324,8 @@ export async function projectDashboard(
     tasks.id,
     db.select({ id: taskProjects.taskId }).from(taskProjects).where(inScope),
   );
-  const base = and(isNull(tasks.archivedAt), inProject);
+  // ADR-069: tarefa pessoal não conta no painel, mesmo com Projeto/Cliente
+  const base = and(isNull(tasks.archivedAt), inProject, teamOnly);
   const open = and(base, isNull(tasks.completedAt));
   const since = sql`now() - make_interval(days => ${days})`;
   const doneInPeriod = and(base, sql`${tasks.completedAt} >= ${since}`);

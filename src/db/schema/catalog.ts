@@ -1,5 +1,6 @@
 // Cadastros: arquivados, nunca excluídos (ADR-018)
 import { integer, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import type { ProjectColor } from "../../lib/validation/catalog";
 import { user } from "./auth";
 import { projectKind, statusCategory } from "./enums";
 
@@ -20,6 +21,7 @@ export const projects = pgTable(
     kind: projectKind("kind").notNull().default("client"),
     defaultAssigneeId: text("default_assignee_id").references(() => user.id),
     glpiEntity: text("glpi_entity"),
+    color: text("color").$type<ProjectColor>(), // ADR-068: chave da paleta, nunca hex; nulo = ciano
     archivedAt: timestamp("archived_at", { withTimezone: true }),
     ...timestamps,
   },
@@ -31,9 +33,6 @@ export const mobileUnits = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     code: text("code").notNull(), // ex. UM-07
-    model: text("model"),
-    plate: text("plate"),
-    base: text("base"),
     projectId: uuid("project_id").references(() => projects.id),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
     ...timestamps,

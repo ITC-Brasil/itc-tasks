@@ -82,7 +82,7 @@ it("só o autor edita; edição marca editedAt e grava evento", async () => {
   const edited = await editComment(ana, c.id, doc(text("corrigido")));
   expect(edited.bodyText).toBe("corrigido");
   expect(edited.editedAt).not.toBeNull();
-  const [row] = await listComments(task.id);
+  const [row] = await listComments({ kind: "system" }, task.id);
   expect(row.authorName).toBe("Ana");
   const types = (
     await db

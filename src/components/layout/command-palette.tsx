@@ -4,7 +4,7 @@ import { Command } from "cmdk";
 import { CalendarDays, CircleHelp, List, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { StatusIcon } from "@/components/tasks/badges";
+import { PersonalMark, StatusIcon } from "@/components/tasks/badges";
 import { openQuickCreate } from "@/components/tasks/quick-create";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import type { SearchHit } from "@/server/services/tasks";
@@ -95,6 +95,7 @@ export function CommandPalette({ isAdmin }: { isAdmin: boolean }) {
                     <span className={t.category === "done" ? "truncate line-through" : "truncate"}>
                       {t.title}
                     </span>
+                    {t.visibility === "personal" && <PersonalMark />}
                     {t.glpiTicket && (
                       <span className="ml-auto text-xs text-muted tabular-nums">
                         #{t.glpiTicket}

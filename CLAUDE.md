@@ -4,7 +4,7 @@ ITC Tasks é o gestor de tarefas do dia a dia do time de TI do Grupo ITC Brasil 
 substituto do Windshift. Toda tarefa tem Projeto/Cliente (obrigatório), Unidade Móvel e
 Chamado GLPI (opcionais), e agentes operam o app por um servidor MCP embutido em `/mcp`.
 
-**Estado:** Módulos 00 a 11 na `main`; produção no ar em `https://tasks.itcbr.xyz` desde 18/10/2026. Módulo 12 (migração do Windshift e implantação) em revisão em 18/10/2026; o merge dele liga o deploy automático.
+**Estado:** Módulos 00 a 14 na `main`; produção no ar em `https://tasks.itcbr.xyz` desde 18/10/2026, com deploy automático no merge. Módulo 15 (ajustes de produto: UMs, Aguardando, cores, prazo de subtarefa, tarefas pessoais) na `develop`, em revisão desde 12/11/2026.
 
 ## Stack (versões exatas — após o scaffold, a fonte é o `package.json`)
 
@@ -27,12 +27,13 @@ Chamado GLPI (opcionais), e agentes operam o app por um servidor MCP embutido em
 ## Regras invioláveis
 
 - **Toda escrita passa por `src/server/services/`** com um `Actor` (`user` | `agent` | `automation` | `system`). Server Actions e ferramentas MCP só validam, chamam o service e mapeiam erros (ADR-003).
-- **Projeto/Cliente é obrigatório** em toda tarefa (pelo menos um; vários em `task_projects`, ADR-045) — no banco (`NOT NULL` no principal), no Zod e no service. Vale para UI e MCP.
+- **Projeto/Cliente é obrigatório** em toda tarefa da equipe (pelo menos um; vários em `task_projects`, ADR-045) — no banco (`CHECK tasks_team_project_ck`), no Zod e no service. Vale para UI e MCP. Única exceção: tarefa pessoal (ADR-069), em que é opcional.
+- **Toda leitura de tarefa passa por `visibleTo(actor)`** (ou `lockTask`/`assertVisible`) em `src/server/services/tasks.ts`: tarefa pessoal só o criador e o agente dele veem, nem o admin (ADR-069). Visões e números da equipe usam `teamOnly`.
 - **Cadastros nunca são excluídos**, só arquivados (`archivedAt`) (ADR-018). Tarefas podem ser excluídas pelo admin ou por quem criou (ADR-063); agente nunca exclui.
 - **Zod no servidor sempre**, schemas em `src/lib/validation/` (ADR-006).
 - **`task_events` é só-inserção**; toda escrita grava um evento com o `Actor`. Única exceção: a exclusão definitiva da tarefa leva os eventos dela, com rastro em `task_deletions` (ADR-063).
 - **Sem SQL cru** fora de `src/db/` e `src/server/services/`.
-- **Migrações só aditivas** (sem `DROP` nem reescrita de dados): não há backup definido (`docs/INFRA.md` §9).
+- **Migrações só aditivas** (sem `DROP` nem reescrita de dados): não há backup definido (`docs/INFRA.md` §9). Única exceção já usada: `0014`, ADR-066.
 - **Testes de integração só no banco `itc_tasks_test`.**
 - Decisão nova com alternativa razoável → **ADR em `docs/DECISIONS.md` antes do código**. Não reabrir ADR sem escrever outro.
 
@@ -69,7 +70,7 @@ Não criar variantes paralelas desses componentes.
 - Produção no `glpi-srv` (`/home/glpissh/docker/itc-tasks`), publicado pelo túnel `itcbr-tunnel` do host em `localhost:3021`; sem container de túnel (ADR-028). Uploads ≤ 25 MB, SSE com heartbeat de 25 s (ADR-020, ADR-025).
 - "Subtarefas" = `checklist_items`, não tarefas filhas (ADR-019).
 - ID visível `TI-<number>`; URLs `/tarefas/<number>` (ADR-021).
-- Status em 4 categorias fixas: `backlog`, `todo`, `in_progress`, `done` (ADR-022).
+- Status em 5 categorias fixas: `backlog`, `todo`, `in_progress`, `waiting`, `done` (ADR-022, ADR-067).
 - GLPI só como número + link (`GLPI_BASE_URL`), sem integração (ADR-023).
 
 ## Modo de execução

@@ -4,7 +4,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { shortDate } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import type { TaskRow } from "@/server/services/tasks";
-import { LabelChip, PriorityIcon, ProjectChip, UnitChip } from "./badges";
+import { LabelChip, PersonalMark, PriorityIcon, ProjectChip, UnitChip } from "./badges";
 
 /** Prazo com ícone; vencido em `err` (ícone) e texto normal (contraste). */
 export function DueDate({ due, overdue }: { due: string; overdue: boolean }) {
@@ -38,13 +38,14 @@ export function TaskCard({
         <span className="mr-1.5 text-xs text-muted tabular-nums">TI-{task.number}</span>
         {task.title}
       </Link>
+      {task.visibility === "personal" && <PersonalMark className="ml-1.5 align-middle" />}
       {(task.projects.length > 0 || task.units.length > 0 || task.labels.length > 0) && (
         <div className="mt-2 flex flex-wrap gap-1">
           {task.projects.map((p) => (
-            <ProjectChip key={p.id} code={p.code} name={p.name} />
+            <ProjectChip key={p.id} code={p.code} name={p.name} color={p.color} />
           ))}
           {task.units.map((u) => (
-            <UnitChip key={u} code={u} />
+            <UnitChip key={u.code} code={u.code} color={u.color} />
           ))}
           {task.labels.map((l) => (
             <LabelChip key={l.name} name={l.name} colorToken={l.colorToken} />

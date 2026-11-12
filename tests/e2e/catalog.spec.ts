@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { axe, login } from "./session";
+import { axeBothThemes, axe, createTask, login } from "./session";
 
 const email = process.env.SEED_ADMIN_EMAIL;
 const password = process.env.SEED_ADMIN_PASSWORD;
@@ -66,14 +66,67 @@ test("cria Unidade Móvel com Projeto/Cliente", async ({ page }) => {
   await login(page);
   await page.goto("/config/unidades");
   await page.waitForLoadState("networkidle");
+  await expect(page.getByRole("columnheader", { name: "UM", exact: true })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Projeto", exact: true })).toBeVisible();
+  for (const gone of ["Modelo", "Placa", "Base"]) {
+    await expect(page.getByRole("columnheader", { name: gone })).toHaveCount(0);
+  }
   await page.getByRole("button", { name: "Criar Unidade Móvel" }).click();
   const dialog = page.getByRole("dialog");
-  await dialog.getByLabel("Código").fill(code.toLowerCase());
+  for (const gone of ["Modelo", "Placa", "Base"]) {
+    await expect(dialog.getByLabel(gone)).toHaveCount(0);
+  }
+  await dialog.getByLabel("UM", { exact: true }).fill(code.toLowerCase());
   await dialog.getByRole("button", { name: "Criar Unidade Móvel" }).click();
   await expect(dialog.getByRole("alert")).toHaveText("Escolha o Projeto/Cliente da Unidade Móvel");
-  await dialog.getByLabel("Projeto/Cliente").click();
+  await dialog.getByLabel("Projeto", { exact: true }).click();
   await page.getByRole("option").first().click();
   await dialog.getByRole("button", { name: "Criar Unidade Móvel" }).click();
   await expect(dialog).toBeHidden();
   await expect(page.getByRole("row", { name: code })).toContainText("Ativo");
+});
+
+test("cor por Projeto/Cliente: três cores, chip só com a sigla e UM no tom suave (ADR-068)", async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(isMobile, "Kanban: desktop");
+  test.slow();
+  await login(page);
+  await page.goto("/config/projetos");
+  await page.waitForLoadState("networkidle");
+  // três cores da paleta; oliva é o par de menor contraste
+  for (const [name, color] of [
+    ["QMPR", "Azul"],
+    ["BSBIA", "Rosa"],
+    ["SEDET", "Oliva"],
+  ]) {
+    await page.getByRole("button", { name: `Editar ${name}`, exact: true }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog
+      .locator("label")
+      .filter({ has: page.getByRole("radio", { name: color, exact: true }) })
+      .click();
+    await expect(dialog.getByRole("radio", { name: color, exact: true })).toBeChecked();
+    await dialog.getByRole("button", { name: "Salvar" }).click();
+    await expect(dialog).toBeHidden();
+  }
+  await axeBothThemes(page);
+
+  const title = `E2E cor ${Date.now()}`;
+  await createTask(page, title, "QMPR · QMPR");
+  await page.goto("/tarefas");
+  await page.getByLabel("Projeto/Cliente").click();
+  await page.getByRole("option", { name: "QMPR · QMPR" }).click();
+  await page.keyboard.press("Escape");
+  await page.waitForURL(/projeto=/);
+  const card = page.getByRole("listitem").filter({ has: page.getByRole("link", { name: title }) });
+  const chip = card.locator("span[title='QMPR']").first();
+  await expect(chip).toBeVisible();
+  // só a sigla aparece; o nome completo fica para o leitor de tela e no tooltip
+  await expect(chip.locator(".sr-only")).toHaveText("· QMPR");
+  expect(await chip.evaluate((el) => (el as HTMLElement).style.background)).toContain(
+    "--project-blue-bg",
+  );
+  await axeBothThemes(page);
 });

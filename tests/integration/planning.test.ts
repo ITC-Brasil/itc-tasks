@@ -16,7 +16,13 @@ import {
   setMilestoneClosed,
   startCycle,
 } from "@/server/services/planning";
-import { bulkUpdateTasks, completeTask, createTask, updateTask } from "@/server/services/tasks";
+import {
+  bulkUpdateTasks,
+  completeTask,
+  createTask,
+  firstStatus,
+  updateTask,
+} from "@/server/services/tasks";
 
 const system: Actor = { kind: "system" };
 const run = String(Date.now()).slice(-6);
@@ -68,8 +74,10 @@ it("ciclo: um ativo por vez; encerrar leva as marcadas e solta as demais (ADR-05
   expect(await cycleOf(carry.id)).toBe(b.id);
   expect(await cycleOf(drop.id)).toBeNull();
   expect(await cycleOf(done.id)).toBe(a.id);
-  expect((await listActivity(carry.id)).at(-1)?.text).toBe(`moveu para o Ciclo ${b.number}`);
-  expect((await listActivity(drop.id)).at(-1)?.text).toBe("tirou do ciclo");
+  expect((await listActivity({ kind: "system" }, carry.id)).at(-1)?.text).toBe(
+    `moveu para o Ciclo ${b.number}`,
+  );
+  expect((await listActivity({ kind: "system" }, drop.id)).at(-1)?.text).toBe("tirou do ciclo");
 
   await expect(updateTask(ana, carry.id, { cycleId: a.id })).rejects.toThrow("já foi encerrado");
   await startCycle(ana, b.id);
@@ -175,6 +183,17 @@ it("painel Todos: tarefa em dois projetos conta uma vez; barras por projeto (M-1
   const one = await projectDashboard(ana, { projectId: a.id });
   expect(one.open).toBe(1);
   expect(one.byProject).toEqual([]);
+});
+
+it("Aguardando conta como aberta e vencida no painel e não preenche completedAt (ADR-067)", async () => {
+  const p = await createProject(system, { code: `W${run}`, name: `Espera ${run}`, kind: "client" });
+  const waiting = await db.transaction((tx) => firstStatus(tx, "waiting"));
+  const t = await createTask(ana, { title: "Parada", projectIds: [p.id], dueDate: "2020-01-01" });
+  const moved = await updateTask(ana, t.id, { statusId: waiting.id });
+  expect(moved.completedAt).toBeNull();
+  const d = await projectDashboard(ana, { projectId: p.id });
+  expect(d).toMatchObject({ open: 1, overdue: 1, done: 0 });
+  expect(d.byStatus).toEqual([{ name: waiting.name, category: "waiting", n: 1 }]);
 });
 
 it("violação de unique numa corrida vira TaskError (M-061)", async () => {

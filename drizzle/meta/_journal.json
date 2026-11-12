@@ -99,6 +99,41 @@
       "when": 1792393852431,
       "tag": "0013_task_deletions",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1794466784761,
+      "tag": "0014_mobile_unit_drop_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1794467129569,
+      "tag": "0015_waiting_status_category",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1794468321050,
+      "tag": "0016_project_color",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1794469180175,
+      "tag": "0017_checklist_due_date",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1794469747533,
+      "tag": "0018_task_visibility",
+      "breakpoints": true
     }
   ]
 }

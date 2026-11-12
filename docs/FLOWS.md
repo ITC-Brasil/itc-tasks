@@ -10,6 +10,7 @@ flowchart LR
   Login[Entrar] --> Minhas[Minhas tarefas]
   Minhas --> Detalhe
   Minhas -->|C| Criar[Criação rápida]
+  Minhas -->|abas e modos Cards · Lista · Calendário| Minhas
   subgraph Tarefas
     Kanban <--> Lista <--> Calendario[Calendário]
   end
@@ -110,6 +111,9 @@ sequenceDiagram
   Note over B: em erro: rollback do cache + toast<br/>"Não foi possível mover. Tente de novo."
 ```
 
+Soltar em "Aguardando" (categoria `waiting`, ADR-067) segue o mesmo fluxo: `completedAt` fica nulo, a tarefa
+continua aberta nos contadores e nos lembretes de prazo, e as automações com condição `done` não disparam.
+
 ## 5. Automação
 
 ```mermaid
@@ -143,7 +147,7 @@ flowchart TD
   QH -->|sim| P[web-push para cada push_subscription<br/>410 Gone → remove assinatura]
   QH -->|não| H[fica só no app]
   PREF -->|email| D[entra no resumo diário 08:00]
-  CRON[pg-boss schedule 08:00] --> DUE[prazo hoje · vencidas] --> FO
+  CRON[pg-boss schedule 08:00] --> DUE[prazo hoje · vencidas<br/>tarefas e subtarefas abertas] --> FO
 ```
 
 ## 7. Ciclo de vida de um ciclo
@@ -176,6 +180,21 @@ sequenceDiagram
   UI->>BA: desativa (enabled = false, ADR-049)
   Note over BA: próxima chamada ao /mcp com essa chave → 401
 ```
+
+## 10. Tarefa pessoal (ADR-069)
+
+```mermaid
+flowchart TD
+  C[Criação rápida com "Tarefa pessoal"] --> S[tasksService.createTask<br/>visibility = personal, responsável = criador]
+  S --> M[Minhas tarefas: abas Minhas tarefas e Pessoais]
+  M --> D[Detalhe /tarefas/n]
+  D -->|Mover para a equipe, com Projeto/Cliente| T[visibility = team<br/>evento field_changed visibility]
+  T --> E[Kanban, Lista, Calendário, painel, automações e notificações da equipe]
+  X[Outra pessoa, admin ou agente de outra pessoa] -->|URL, busca, MCP, SSE, anexo| N[NOT_FOUND / 404 / nada na lista]
+```
+
+Toda leitura passa por `visibleTo(actor)`; toda escrita e leitura por id, por `lockTask`/`assertVisible`
+(`src/server/services/tasks.ts`). O dono recebe os lembretes de prazo; ninguém mais é notificado.
 
 ## 9. Arquivar cadastro
 

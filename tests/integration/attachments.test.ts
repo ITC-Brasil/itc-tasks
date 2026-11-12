@@ -36,11 +36,15 @@ it("grava o arquivo no volume, a linha e o evento; tipo vem da extensão", async
   const row = await addAttachment(duda, task.id, file);
   expect(row.fileName).toBe("roteador.LOG");
   expect(row.mimeType).toBe("text/plain");
-  const stored = await getAttachment(row.id);
+  const stored = await getAttachment({ kind: "system" }, row.id);
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- caminho do próprio service
   expect(await readFile(stored!.path, "utf8")).toBe("log do roteador");
-  expect((await listAttachments(task.id)).map((a) => a.fileName)).toEqual(["roteador.LOG"]);
-  expect((await listActivity(task.id)).map((a) => a.text)).toContain("anexou roteador.LOG");
+  expect((await listAttachments({ kind: "system" }, task.id)).map((a) => a.fileName)).toEqual([
+    "roteador.LOG",
+  ]);
+  expect((await listActivity({ kind: "system" }, task.id)).map((a) => a.text)).toContain(
+    "anexou roteador.LOG",
+  );
 
   await expect(addAttachment(duda, task.id, new File(["x"], "script.exe"))).rejects.toMatchObject({
     code: "UNSUPPORTED_TYPE",
@@ -53,12 +57,12 @@ it("grava o arquivo no volume, a linha e o evento; tipo vem da extensão", async
   await expect(addAttachment(duda, crypto.randomUUID(), new File(["x"], "a.txt"))).rejects.toThrow(
     "Tarefa não encontrada",
   );
-  expect(await listAttachments(task.id)).toHaveLength(1);
+  expect(await listAttachments({ kind: "system" }, task.id)).toHaveLength(1);
 });
 
 it("id inválido ou inexistente → null", async () => {
-  expect(await getAttachment("nao-uuid")).toBeNull();
-  expect(await getAttachment(crypto.randomUUID())).toBeNull();
+  expect(await getAttachment({ kind: "system" }, "nao-uuid")).toBeNull();
+  expect(await getAttachment({ kind: "system" }, crypto.randomUUID())).toBeNull();
 });
 
 it("cleanFileName tira caminho e controle", () => {

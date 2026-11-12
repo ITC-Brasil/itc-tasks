@@ -1,12 +1,22 @@
-import { Folder, Ticket, Truck } from "lucide-react";
+import { Folder, Hourglass, Lock, Ticket, Truck } from "lucide-react";
+import type { ProjectColor } from "@/lib/validation/catalog";
 import type { Priority } from "@/lib/validation/tasks";
 import { cn } from "@/lib/utils";
 
 // Design System: StatusIcon/StatusBadge, PriorityIcon/PriorityBadge, Chip
-export type Category = "backlog" | "todo" | "in_progress" | "done";
+export type Category = "backlog" | "todo" | "in_progress" | "waiting" | "done";
 
 /** A forma diferencia a categoria mesmo sem cor. */
 export function StatusIcon({ category, className }: { category: Category; className?: string }) {
+  // ADR-067: ampulheta em `warn`, só no ícone (warn nunca é texto no tema claro)
+  if (category === "waiting")
+    return (
+      <Hourglass
+        aria-hidden="true"
+        strokeWidth={1.75}
+        className={cn("size-4 flex-none text-warn", className)}
+      />
+    );
   const color =
     category === "done" ? "text-ok" : category === "in_progress" ? "text-info" : "text-muted";
   return (
@@ -95,22 +105,62 @@ export function PriorityIcon({ priority, className }: { priority: Priority; clas
 const chip =
   "inline-flex h-[22px] max-w-full items-center gap-1 rounded-sm px-1.5 text-xs font-medium [&>span]:truncate";
 
-export function ProjectChip({ code, name }: { code: string; name: string }) {
+// ADR-068: a chave da paleta vira os tokens do chip; sem cor, o visual de sempre
+const tint = (color: ProjectColor | null | undefined, bg: "bg" | "unit-bg") =>
+  color
+    ? { background: `var(--project-${color}-${bg})`, color: `var(--project-${color}-fg)` }
+    : undefined;
+
+/**
+ * ADR-068: compacto mostra só a sigla; o nome fica no tooltip e para o leitor de tela.
+ * `full` (detalhe da tarefa, Marcos) mostra "SIGLA · Nome". `color` é a cor do projeto.
+ */
+export function ProjectChip({
+  code,
+  name,
+  full,
+  color,
+}: {
+  code: string;
+  name: string;
+  full?: boolean;
+  color?: ProjectColor | null;
+}) {
   return (
-    <span className={cn(chip, "bg-accent-light text-accent-text")} title={name}>
+    <span
+      className={cn(chip, !color && "bg-accent-light text-accent-text")}
+      style={tint(color, "bg")}
+      title={name}
+    >
       <Folder className="size-3.5 flex-none" aria-hidden="true" />
       <span>
-        <span className="tabular-nums">{code}</span> · {name}
+        <span className="tabular-nums">{code}</span>
+        <span className={full ? undefined : "sr-only"}> · {name}</span>
       </span>
     </span>
   );
 }
 
-export function UnitChip({ code }: { code: string }) {
+/** `color` é a cor do projeto da UM: mesmo texto, fundo mais suave (ADR-068). */
+export function UnitChip({ code, color }: { code: string; color?: ProjectColor | null }) {
   return (
-    <span className={cn(chip, "bg-muted text-base")} title={code}>
+    <span
+      className={cn(chip, !color && "bg-muted text-base")}
+      style={tint(color, "unit-bg")}
+      title={code}
+    >
       <Truck className="size-3.5 flex-none" aria-hidden="true" />
       <span className="tabular-nums">{code}</span>
+    </span>
+  );
+}
+
+/** ADR-069: marca discreta de tarefa pessoal (só quem criou vê). */
+export function PersonalMark({ className }: { className?: string }) {
+  return (
+    <span title="Tarefa pessoal: só você vê" className={cn("inline-flex flex-none", className)}>
+      <Lock className="size-3.5 text-muted" strokeWidth={1.75} aria-hidden="true" />
+      <span className="sr-only">Tarefa pessoal</span>
     </span>
   );
 }

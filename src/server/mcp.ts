@@ -38,6 +38,9 @@ import {
 
 // ADR-009/ADR-049: as ferramentas só validam, chamam services e mapeiam erros (ADR-003)
 
+const LIST_TASKS =
+  "Lista tarefas com filtros; mais novas primeiro. Só as da equipe, salvo visibility personal ou all.";
+
 const ok = (data: Record<string, unknown>): CallToolResult => ({
   content: [{ type: "text", text: JSON.stringify(data) }],
   structuredContent: data,
@@ -97,9 +100,7 @@ export function createMcpServer(actor: AgentActor, access: Access[]) {
   };
 
   // ── Leitura ──
-  tool("list_tasks", "read", "Lista tarefas com filtros; mais novas primeiro.", mcpListTasks, (i) =>
-    listTasksForAgent(actor, i),
-  );
+  tool("list_tasks", "read", LIST_TASKS, mcpListTasks, (i) => listTasksForAgent(actor, i));
   tool("get_task", "read", "Detalhe de uma tarefa (TI-142, 142).", mcpTaskId, (i) =>
     getTaskDetail(actor, i.id),
   );
@@ -108,6 +109,7 @@ export function createMcpServer(actor: AgentActor, access: Access[]) {
       code: p.code,
       name: p.name,
       kind: p.kind,
+      color: p.color ?? undefined, // ADR-068: chave da paleta
     })),
   }));
   tool("list_mobile_units", "read", "Unidades Móveis ativas.", mcpListMobileUnits, async (i) => {
@@ -120,9 +122,6 @@ export function createMcpServer(actor: AgentActor, access: Access[]) {
       mobileUnits: units
         .map((u) => ({
           code: u.code,
-          model: u.model ?? undefined,
-          plate: u.plate ?? undefined,
-          base: u.base ?? undefined,
           project: codeOf(u.projectId),
         }))
         .filter((u) => !i.project || u.project?.toUpperCase() === i.project.toUpperCase()),
@@ -136,7 +135,7 @@ export function createMcpServer(actor: AgentActor, access: Access[]) {
   tool(
     "create_task",
     "write",
-    "Cria tarefa. projectIds é obrigatório (códigos; o primeiro é o principal).",
+    "Cria tarefa. projectIds é obrigatório (códigos; o primeiro é o principal), menos com visibility 'personal' (tarefa que só o dono do token vê).",
     mcpCreateTask,
     async (i) => {
       const task = await createTask(actor, await toCreateInput(actor, i));
@@ -146,16 +145,27 @@ export function createMcpServer(actor: AgentActor, access: Access[]) {
   tool(
     "update_task",
     "write",
-    "Altera só os campos enviados. checklist acrescenta itens; checklistToggle.index conta sobre o checklist de antes desta chamada.",
+    "Altera só os campos enviados. checklist acrescenta itens; checklistToggle.index e checklistDue.index contam sobre o checklist de antes desta chamada.",
     mcpUpdateTask,
-    async ({ id, checklist = [], checklistToggle: toggles = [], ...rest }) => {
+    async ({
+      id,
+      checklist = [],
+      checklistToggle: toggles = [],
+      checklistDue: dues = [],
+      ...rest
+    }) => {
       // M-044: tudo resolvido e validado antes da primeira escrita; índices = checklist de antes
-      const taskId = await taskIdOf(id);
+      const taskId = await taskIdOf(actor, id);
       const patch = await toUpdateInput(actor, rest);
       const itemIds = await checklistIdsAt(
         actor,
         id,
         toggles.map((t) => t.index),
+      );
+      const dueIds = await checklistIdsAt(
+        actor,
+        id,
+        dues.map((d) => d.index),
       );
       // ponytail: campos, checklist e toggles em transações separadas; o histórico registra cada uma
       await updateTask(actor, taskId, patch);
@@ -163,11 +173,14 @@ export function createMcpServer(actor: AgentActor, access: Access[]) {
       for (const [n, itemId] of itemIds.entries())
         // eslint-disable-next-line security/detect-object-injection -- n é o índice do próprio array
         await updateChecklistItem(actor, itemId, { done: toggles[n].done });
+      for (const [n, itemId] of dueIds.entries())
+        // eslint-disable-next-line security/detect-object-injection -- n é o índice do próprio array
+        await updateChecklistItem(actor, itemId, { dueDate: dues[n].dueDate });
       return (await getTaskSummary(actor, id)).summary;
     },
   );
   tool("complete_task", "write", "Conclui a tarefa; idempotente.", mcpCompleteTask, async (i) => {
-    const taskId = await taskIdOf(i.id);
+    const taskId = await taskIdOf(actor, i.id);
     await completeTask(actor, taskId);
     if (i.comment?.trim()) await addComment(actor, taskId, await markdownToDoc(i.comment));
     return (await getTaskSummary(actor, i.id)).summary;
@@ -178,7 +191,7 @@ export function createMcpServer(actor: AgentActor, access: Access[]) {
     "Comenta na tarefa (markdown; @email menciona).",
     mcpAddComment,
     async (i) => {
-      const row = await addComment(actor, await taskIdOf(i.id), await markdownToDoc(i.body));
+      const row = await addComment(actor, await taskIdOf(actor, i.id), await markdownToDoc(i.body));
       return { commentId: row.id, createdAt: row.createdAt.toISOString() };
     },
   );

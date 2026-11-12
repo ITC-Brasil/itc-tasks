@@ -1,5 +1,5 @@
 import { sessionActor } from "@/server/actor";
-import { subscribe } from "@/server/realtime";
+import { forSession, subscribe } from "@/server/realtime";
 import { stillSignedIn } from "@/server/services/members";
 
 // API.md §3 / ADR-020: SSE com ping a cada 25 s por causa do túnel
@@ -21,10 +21,9 @@ export async function GET(request: Request) {
       };
       controller.enqueue(encoder.encode("retry: 5000\n\n"));
       const unsubscribe = await subscribe((e) => {
-        if (e.event !== "notification.created") return send(e.event, e.data);
-        // ADR-050: aviso só para a aba da própria pessoa, sem o userId
-        const { userId, ...rest } = JSON.parse(e.data) as { userId: string };
-        if (userId === actor.userId) send(e.event, JSON.stringify(rest));
+        // ADR-050 e ADR-069: aviso só para a própria pessoa; tarefa pessoal só para o dono
+        const data = forSession(e, actor.userId);
+        if (data) send(e.event, data);
       });
       // issue #27: membro desativado (ou com a senha redefinida) perde o stream no próximo ping
       const ping = setInterval(async () => {

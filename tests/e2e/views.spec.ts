@@ -103,3 +103,47 @@ test("Kanban move o card, filtros vão para a URL e a Lista atualiza em massa", 
   await expect(row).toContainText("Urgente");
   await axeBothThemes(page);
 });
+
+test("Kanban: mover para Aguardando pelo teclado (ADR-067)", async ({ page }) => {
+  test.slow();
+  const title = `E2E espera ${Date.now()}`;
+  await login(page);
+  await createTask(page, title, "QMPR · QMPR");
+  // com o filtro do projeto o quadro fica leve, como no teste acima
+  await page.goto("/tarefas/lista");
+  await page.getByLabel("Projeto/Cliente").click();
+  await page.getByRole("option", { name: "QMPR · QMPR" }).click();
+  await page.keyboard.press("Escape");
+  await page.waitForURL(/projeto=/);
+  // o arraste por teclado anda uma coluna: a tarefa parte de "Em andamento", vizinha de Aguardando
+  const row = page.getByRole("row").filter({ hasText: title });
+  await row.getByRole("checkbox").check();
+  await page.getByRole("toolbar", { name: "Ações em massa" }).getByLabel("Mover para…").click();
+  await page.getByRole("option", { name: "Em andamento" }).click();
+  await expect(row).toContainText("Em andamento");
+
+  await page.getByRole("link", { name: "Kanban" }).click();
+  await page.waitForURL(/\/tarefas\?projeto=/);
+  const target = page.getByRole("region", { name: "Aguardando" });
+  const grip = page
+    .getByRole("listitem")
+    .filter({ has: page.getByRole("link", { name: title }) })
+    .getByRole("button", { name: /^Mover TI-/ });
+  await grip.focus();
+  await page.keyboard.press("Space");
+  await expect(grip).toHaveAttribute("aria-pressed", "true");
+  const live = page.getByRole("status").filter({ hasText: "Draggable item" });
+  const before = await live.textContent();
+  await page.keyboard.press("ArrowRight");
+  await expect(live).not.toHaveText(before ?? "");
+  const moved = page.waitForResponse((r) => r.request().method() === "POST");
+  await page.keyboard.press("Space");
+  await expect(target.getByRole("link", { name: title })).toBeVisible();
+  await moved;
+  await page.reload();
+  await expect(target.getByRole("link", { name: title })).toBeVisible();
+  await axeBothThemes(page);
+  // continua aberta: aparece na Lista com o status novo
+  await page.getByRole("link", { name: "Lista" }).click();
+  await expect(page.getByRole("row").filter({ hasText: title })).toContainText("Aguardando");
+});

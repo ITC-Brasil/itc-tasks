@@ -123,8 +123,20 @@ it("cria, lê, atualiza, comenta e conclui pelos códigos legíveis, como agente
     id: Number(id.replace("TI-", "")),
     priority: "low",
     checklistToggle: [{ index: 0, done: true }],
+    checklistDue: [{ index: 1, dueDate: "2031-05-20" }],
   });
   expect(updated.structuredContent).toMatchObject({ priority: "low", projects: [code] });
+  // Módulo 15: prazo da subtarefa pelo índice, e null limpa
+  const due = await call(readKey, "get_task", { id });
+  expect(due.structuredContent.checklist).toMatchObject([
+    { text: "Levar cabo", done: true },
+    { text: "Testar", done: false, dueDate: "2031-05-20" },
+  ]);
+  await call(writeKey, "update_task", { id, checklistDue: [{ index: 1, dueDate: null }] });
+  const cleared = await call(readKey, "get_task", { id });
+  expect(
+    (cleared.structuredContent.checklist as { dueDate?: string }[])[1].dueDate,
+  ).toBeUndefined();
 
   const listed = await call(readKey, "list_tasks", { project: code, query: "#48213" });
   expect((listed.structuredContent.tasks as { id: string }[]).map((t) => t.id)).toEqual([id]);

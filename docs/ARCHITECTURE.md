@@ -113,6 +113,7 @@ Estas não são limites operacionais: elas moldaram decisões.
 
 - Sessões em cookie HTTP-only; tokens MCP por `Authorization: Bearer`, verificados pelo plugin `apiKey` e convertidos em `Actor`.
 - Permissões checadas no service, nunca só no cliente ou só na rota.
+- **Escopo de leitura de tarefa (ADR-069):** `visibleTo(actor)` em `src/server/services/tasks.ts` é a única regra de quem lê uma tarefa (`visibility = 'team'` ou criada pela pessoa do ator; automação e sistema só `team`). Consultas de lista e busca a usam direto; leitura por id (comentários, histórico, anexos) usa `assertVisible`; toda escrita começa em `lockTask(tx, id, actor)`. As visões e os números da equipe somam `teamOnly`. O SSE filtra por dono em `forSession` (`src/server/realtime.ts`) e o fanout de notificações só entrega ao dono. Função nova que toca `tasks` usa um desses quatro pontos e ganha um caso em `tests/integration/personal-tasks.test.ts`.
 - Rate limit: Better Auth nas rotas de auth; 60 req/min por token no `/mcp` (contador em Postgres).
 - Cabeçalhos estáticos em `next.config.ts` (ADR-059): CSP sem nonce (`'unsafe-inline'` em script/style; `frame-ancestors 'none'`, `object-src 'none'`, `base-uri`/`form-action`/`connect-src 'self'`), `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Cross-Origin-Opener-Policy: same-origin`, `Permissions-Policy` e HSTS (só produção).
 - Segredos só em variáveis de ambiente validadas por `src/lib/env.ts`.

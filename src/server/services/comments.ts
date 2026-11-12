@@ -7,6 +7,7 @@ import {
   TaskError,
   creatorFor,
   docText,
+  assertVisible,
   lockTask,
   mentionIds,
   record,
@@ -46,7 +47,7 @@ export async function addComment(actor: Actor, taskId: string, body: unknown) {
   const authorId = author(actor);
   const data = await parse(body);
   return db.transaction(async (tx) => {
-    await lockTask(tx, id);
+    await lockTask(tx, id, actor);
     const [row] = await tx
       .insert(comments)
       .values({
@@ -70,6 +71,7 @@ export async function editComment(actor: Actor, commentId: string, body: unknown
     const [current] = await tx.select().from(comments).where(eq(comments.id, id)).for("update");
     if (!current) throw new TaskError("NOT_FOUND", "Comentário não encontrado");
     if (current.authorId !== authorId) throw new ForbiddenError();
+    await lockTask(tx, current.taskId, actor);
     const [row] = await tx
       .update(comments)
       .set({ ...data, editedAt: new Date() })
@@ -83,7 +85,8 @@ export async function editComment(actor: Actor, commentId: string, body: unknown
 }
 
 /** Comentários da tarefa, mais antigos primeiro, com autor e token (agente). */
-export async function listComments(taskId: string) {
+export async function listComments(actor: Actor, taskId: string) {
+  await assertVisible(actor, taskId); // ADR-069
   return db
     .select({
       id: comments.id,

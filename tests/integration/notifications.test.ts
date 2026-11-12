@@ -21,7 +21,12 @@ import {
   subscribePush,
   unreadCount,
 } from "@/server/services/notifications";
-import { createTask, updateTask } from "@/server/services/tasks";
+import {
+  addChecklistItem,
+  createTask,
+  updateChecklistItem,
+  updateTask,
+} from "@/server/services/tasks";
 
 // o CI não tem SMTP: o env é lido no import, antes do mock do nodemailer valer
 vi.hoisted(() => {
@@ -285,6 +290,45 @@ it("08:00: prazo hoje e vencida uma vez só, e resumo por e-mail sem reenviar", 
   expect(mine).toHaveLength(1);
   expect(mine[0].text).toContain(`TI-${hoje.number} Vence hoje`);
   expect(mine[0].text).toContain(`TI-${ontem.number} Venceu ontem`);
+});
+
+it("08:00: subtarefa aberta com prazo avisa o responsável da tarefa; concluída não (Módulo 15)", async () => {
+  const now = new Date();
+  const today = todayISO(now);
+  const t = await createTask(ana, {
+    title: "Com subtarefas",
+    projectIds: [projectId],
+    assigneeId: bia.userId,
+    dueDate: today,
+  });
+  const [hoje, feita, ontem] = [
+    await addChecklistItem(ana, t.id, "Comprar cabo"),
+    await addChecklistItem(ana, t.id, "Já feita"),
+    await addChecklistItem(ana, t.id, "Ligar para o fornecedor"),
+  ];
+  await updateChecklistItem(ana, hoje.id, { dueDate: today });
+  await updateChecklistItem(ana, feita.id, { dueDate: today, done: true });
+  await updateChecklistItem(ana, ontem.id, { dueDate: addDays(today, -1) });
+  await drain(t.id);
+  sent.length = 0;
+  await daily(now);
+  await daily(now); // repetido: não duplica
+  const rows = await db
+    .select({ event: notifications.event, data: notifications.data })
+    .from(notifications)
+    .where(and(eq(notifications.userId, bia.userId), eq(notifications.taskId, t.id)));
+  const reminders = rows
+    .filter((r) => r.event === "due_today" || r.event === "overdue")
+    .map((r) => `${r.event}:${(r.data as { subtask?: string }).subtask ?? "tarefa"}`)
+    .sort();
+  // o aviso da tarefa e os das subtarefas convivem; a concluída fica de fora
+  expect(reminders).toEqual([
+    "due_today:Comprar cabo",
+    "due_today:tarefa",
+    "overdue:Ligar para o fornecedor",
+  ]);
+  const mail = sent.filter((m) => m.to === `bia-n${run}@t.test`).at(-1);
+  expect(mail?.text).toContain(`subtarefa “Comprar cabo” vence hoje em TI-${t.number}`);
 });
 
 it("push: assinatura validada, teste entregue e assinatura expirada (410) apagada", async () => {

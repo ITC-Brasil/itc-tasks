@@ -45,8 +45,9 @@ Projetos, UMs, status e pessoas podem ser referenciados por **código legível**
 ```ts
 input: {
   query?: string;                 // busca em título/descrição; "#48213" busca por GLPI
+  visibility?: 'team'|'personal'|'all';   // ADR-069: padrão 'team'; 'personal' = as pessoais do dono do token
   status?: string[];              // nomes de status
-  category?: ('backlog'|'todo'|'in_progress'|'done')[];
+  category?: ('backlog'|'todo'|'in_progress'|'waiting'|'done')[];  // waiting = Aguardando, conta como aberta (ADR-067)
   project?: string;               // código, ex. "TRL"; casa com qualquer projeto da tarefa (task_projects)
   mobileUnit?: string;            // "UM-07"; casa com qualquer UM da tarefa (task_mobile_units)
   assignee?: string | 'me' | 'none';
@@ -57,7 +58,7 @@ input: {
   cursor?: string;
 }
 output: { tasks: TaskSummary[]; nextCursor?: string }
-TaskSummary = { id: "TI-142", title, status, category, priority, projects: ["TRL"],
+TaskSummary = { id: "TI-142", title, status, category, priority, visibility: 'team'|'personal', projects: ["TRL"],
                 mobileUnits: ["UM-07"], glpiTicket?: 48213, assignee?: email,
                 dueDate?: "2026-10-16", url }
 ```
@@ -65,17 +66,17 @@ TaskSummary = { id: "TI-142", title, status, category, priority, projects: ["TRL
 #### `get_task`
 ```ts
 input:  { id: string | number }
-output: TaskSummary & { description: string /* markdown */, checklist: { text, done, assignee? }[],
+output: TaskSummary & { description: string /* markdown */, checklist: { text, done, dueDate?, assignee? }[],
          links: { kind: 'blocks'|'blocked_by'|'relates', id }[], labels: string[],
          comments: { author, viaAgent: boolean, body, createdAt }[] /* últimos 20 */,
          glpiUrl?: string, createdAt, updatedAt, completedAt? }
 ```
 
 #### `list_projects`
-`input: {}` → `output: { projects: { code, name, kind }[] }` — só ativos.
+`input: {}` → `output: { projects: { code, name, kind, color? }[] }` — só ativos. `color` é a chave da paleta de projeto (ADR-068); a escrita da cor é só pela tela.
 
 #### `list_mobile_units`
-`input: { project?: string }` → `output: { mobileUnits: { code, model?, plate?, base?, project? }[] }` — só ativas.
+`input: { project?: string }` → `output: { mobileUnits: { code, project? }[] }` — só ativas. `model`, `plate` e `base` saíram no Módulo 15 (ADR-066).
 
 #### `list_cycles`
 `input: { state?: 'planned'|'active'|'closed' }` → `output: { cycles: { number, startsOn, endsOn, state, done, total }[] }`
@@ -86,7 +87,8 @@ output: TaskSummary & { description: string /* markdown */, checklist: { text, d
 ```ts
 input: {
   title: string;                  // 1–200
-  projectIds: string[];           // OBRIGATÓRIO, 1–10 códigos ativos; o primeiro é o principal (ADR-045)
+  projectIds: string[];           // OBRIGATÓRIO na tarefa da equipe, 1–10 códigos ativos; o primeiro é o principal (ADR-045)
+  visibility?: 'team'|'personal'; // ADR-069: padrão 'team'. 'personal' = só o dono do token vê; projectIds opcional; sem assignee de outra pessoa e sem cycle
   description?: string;           // markdown → Tiptap JSON
   status?: string;                // padrão: primeiro status de categoria 'todo'
   priority?: 'none'|'low'|'medium'|'high'|'urgent';
@@ -106,10 +108,18 @@ Erro esperado sem `projectIds` (ou lista vazia): `VALIDATION` — "Escolha um Pr
 ```ts
 input: { id: string | number } & Partial<Omit<CreateTaskInput, never>> & {
   checklistToggle?: { index: number; done: boolean }[];
+  checklistDue?: { index: number; dueDate: string | null }[];   // Módulo 15: prazo da subtarefa (YYYY-MM-DD); null limpa
+  visibility?: 'team';            // ADR-069: move a tarefa pessoal para a equipe (exige Projeto/Cliente); 'personal' é recusado
 }
 output: TaskSummary
 ```
 Só os campos enviados mudam. Tudo é validado antes da primeira escrita: erro em qualquer parte → nada gravado. `checklist` acrescenta itens no fim; `checklistToggle.index` conta sobre o checklist **antes** desta chamada (0 = primeiro item atual). `projectIds: []` é recusado (`VALIDATION`); UM de projeto que não está na tarefa e remoção de projeto que ainda tem UM sua na tarefa também (ADR-045).
+
+**Tarefas pessoais (ADR-069).** O agente age em nome do dono do token: lê e escreve as tarefas
+pessoais do dono e nunca as de outra pessoa. Para outro token, uma tarefa pessoal responde
+`NOT_FOUND` em `get_task`, `update_task`, `complete_task` e `add_comment`, e não aparece em
+`list_tasks`. Numa pessoal, `assignee` de outra pessoa e `cycle` são recusados (`VALIDATION`).
+Agente não exclui tarefa, pessoal ou da equipe.
 
 #### `complete_task`
 `input: { id, comment?: string }` → move para o primeiro status de categoria `done`; idempotente.

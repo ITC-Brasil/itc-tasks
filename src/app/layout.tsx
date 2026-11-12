@@ -1,10 +1,19 @@
 import type { Metadata, Viewport } from "next";
-import { Archivo, Inter } from "next/font/google";
+import localFont from "next/font/local";
 import { ThemeProvider } from "next-themes";
 import "@/styles/globals.css";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-const archivo = Archivo({ subsets: ["latin"], weight: ["600", "800"], variable: "--font-archivo" });
+// fontes no repositório (subconjunto latin, variáveis): o build não depende de fonts.gstatic.com
+const inter = localFont({
+  src: "./fonts/inter-latin.woff2",
+  weight: "100 900",
+  variable: "--font-inter",
+});
+const archivo = localFont({
+  src: "./fonts/archivo-latin.woff2",
+  weight: "600 800",
+  variable: "--font-archivo",
+});
 
 const SPLASH = [
   [440, 956, 3],

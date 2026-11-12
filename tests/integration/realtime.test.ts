@@ -22,8 +22,8 @@ it("escrita de tarefa chega aos assinantes como task.changed, depois do commit",
     await expect.poll(() => got.length).toBeGreaterThanOrEqual(2);
     const mine = got.map((e) => JSON.parse(e.data)).filter((d) => d.id === task.id);
     expect(mine).toEqual([
-      { id: task.id, number: task.number, fields: ["created"], by: null },
-      { id: task.id, number: task.number, fields: ["field_changed"], by: null },
+      { id: task.id, number: task.number, fields: ["created"], by: null, owner: null },
+      { id: task.id, number: task.number, fields: ["field_changed"], by: null, owner: null },
     ]);
     expect(got.every((e) => e.event === "task.changed")).toBe(true);
 

@@ -4,6 +4,15 @@ export const PRIORITIES = ["none", "low", "medium", "high", "urgent"] as const;
 export type Priority = (typeof PRIORITIES)[number];
 
 export const PROJECT_REQUIRED = "Escolha um Projeto/Cliente para criar a tarefa.";
+// ADR-069: tarefa pessoal só o criador vê; Projeto/Cliente opcional nela
+export const VISIBILITIES = ["team", "personal"] as const;
+export type Visibility = (typeof VISIBILITIES)[number];
+export const PERSONAL_OWNER =
+  "Tarefa pessoal é sempre de quem criou: não dá para atribuir a outra pessoa.";
+export const PERSONAL_NO_PLANNING = "Tarefa pessoal não entra em ciclo nem em marco.";
+export const TEAM_NEEDS_PROJECT =
+  "Escolha um Projeto/Cliente antes de mover a tarefa para a equipe.";
+export const TASK_NEEDS_PROJECT = "A tarefa precisa de pelo menos um Projeto/Cliente";
 
 const uuid = z.uuid();
 // campo opcional de formulário: vazio vira null
@@ -20,7 +29,8 @@ const uniqueIds = (max: number) =>
 const projectIds = z
   .preprocess(
     (v) => v ?? [],
-    z.array(z.uuid(PROJECT_REQUIRED)).min(1, PROJECT_REQUIRED).max(10, "Até 10 Projetos/Clientes"),
+    // o mínimo de um (tarefa da equipe) é conferido no createTaskSchema, que conhece a visibilidade
+    z.array(z.uuid(PROJECT_REQUIRED)).max(10, "Até 10 Projetos/Clientes"),
   )
   .transform((ids) => [...new Set(ids)]);
 const glpiTicket = z.coerce
@@ -83,24 +93,32 @@ const fields = {
   milestoneId: optional(uuid),
 };
 
-export const createTaskSchema = z.object({
-  ...fields,
-  projectIds,
-  checklist: z.array(z.string().trim().min(1).max(200)).max(50).default([]),
-  // template de tarefa usado: conta o uso e troca `{UM}` no título (ADR-052)
-  templateId: uuid.optional(),
-});
+export const createTaskSchema = z
+  .object({
+    ...fields,
+    projectIds,
+    visibility: z.enum(VISIBILITIES).default("team"),
+    checklist: z.array(z.string().trim().min(1).max(200)).max(50).default([]),
+    // template de tarefa usado: conta o uso e troca `{UM}` no título (ADR-052)
+    templateId: uuid.optional(),
+  })
+  // Projeto/Cliente obrigatório na tarefa da equipe; opcional na pessoal (ADR-069)
+  .refine((d) => d.visibility === "personal" || d.projectIds.length > 0, {
+    path: ["projectIds"],
+    message: PROJECT_REQUIRED,
+  });
 export type CreateTaskInput = z.input<typeof createTaskSchema>;
 
-// só os campos enviados mudam; projectIds presente tem ao menos um (API.md › update_task)
+// só os campos enviados mudam; na tarefa da equipe, projectIds presente tem ao menos um (o service
+// confere, porque depende da visibilidade). `visibility: "team"` converte a pessoal (ADR-069).
 export const updateTaskSchema = z
   .object({
     ...fields,
     projectIds: z
       .array(uuid)
-      .min(1, "A tarefa precisa de pelo menos um Projeto/Cliente")
       .max(10, "Até 10 Projetos/Clientes")
       .transform((ids) => [...new Set(ids)]),
+    visibility: z.literal("team", "Tarefa da equipe não pode virar pessoal"),
     mobileUnitIds: uniqueIds(20),
     priority: z.enum(PRIORITIES),
     labelIds: z.array(uuid).max(20),
@@ -136,7 +154,12 @@ export const taskNumberSchema = z
 
 export const checklistTextSchema = z.string().trim().min(1, "Informe o texto").max(200);
 export const checklistItemSchema = z
-  .object({ text: checklistTextSchema, done: z.boolean(), assigneeId: optional(z.string()) })
+  .object({
+    text: checklistTextSchema,
+    done: z.boolean(),
+    assigneeId: optional(z.string()),
+    dueDate: optional(dueDate), // null limpa
+  })
   .partial();
 
 export const LINK_KINDS = ["blocks", "blocked_by", "relates"] as const;
