@@ -28,7 +28,7 @@ import {
 import { type Actor, assertAdmin } from "@/server/permissions";
 import { addComment } from "./comments";
 import { notifyFromAutomation } from "./notifications";
-import { lockTask, record, updateTask } from "./tasks";
+import { lockTask, record, teamOnly, updateTask } from "./tasks";
 
 // ADR-052: regras "Quando → Se → Então". Só o worker avalia; a tela só cadastra.
 
@@ -42,7 +42,8 @@ async function snapshot(taskId: string) {
     .select({ task: tasks, category: workflowStatuses.category })
     .from(tasks)
     .innerJoin(workflowStatuses, eq(workflowStatuses.id, tasks.statusId))
-    .where(eq(tasks.id, taskId));
+    // ADR-069: automação é da equipe; tarefa pessoal não tem snapshot e nenhuma regra roda
+    .where(and(eq(tasks.id, taskId), teamOnly));
   return task ?? null;
 }
 
@@ -190,6 +191,7 @@ export async function overdue(now = new Date()) {
       and(
         ne(workflowStatuses.category, "done"),
         isNull(tasks.archivedAt),
+        teamOnly,
         eq(tasks.dueDate, addDays(todayISO(now), -1)),
       ),
     );

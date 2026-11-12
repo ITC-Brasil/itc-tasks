@@ -13,6 +13,8 @@ import {
 } from "@/db/schema";
 import { priorityLabel } from "@/components/tasks/badges";
 import type { Priority } from "@/lib/validation/tasks";
+import type { Actor } from "@/server/permissions";
+import { assertVisible } from "./tasks";
 
 // ADR-048: o histórico formata o payload cru do ADR-042 com os nomes atuais
 
@@ -135,7 +137,8 @@ async function allNames(): Promise<Names> {
 }
 
 /** Eventos da tarefa já formatados, mais antigos primeiro. */
-export async function listActivity(taskId: string) {
+export async function listActivity(actor: Actor, taskId: string) {
+  await assertVisible(actor, taskId); // ADR-069
   const [rows, names] = await Promise.all([
     db
       .select({

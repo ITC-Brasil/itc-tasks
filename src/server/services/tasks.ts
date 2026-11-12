@@ -913,8 +913,12 @@ export async function removeLink(
 const assignee = alias(user, "assignee");
 
 /** Detalhe da tarefa pelo número visível (ADR-021). */
-export async function getTaskByNumber(_actor: Actor, number: number) {
-  const [task] = await db.select().from(tasks).where(eq(tasks.number, number));
+export async function getTaskByNumber(actor: Actor, number: number) {
+  // ADR-069: pessoal de outra pessoa não existe para quem lê (a página dá 404)
+  const [task] = await db
+    .select()
+    .from(tasks)
+    .where(and(eq(tasks.number, number), visibleTo(actor)));
   if (!task) return null;
   const [labelRows, checklist, linkRows, [refs], projectRows, unitRows] = await Promise.all([
     db
@@ -941,7 +945,13 @@ export async function getTaskByNumber(_actor: Actor, number: number) {
         tasks,
         sql`${tasks.id} = CASE WHEN ${taskLinks.fromTaskId} = ${task.id} THEN ${taskLinks.toTaskId} ELSE ${taskLinks.fromTaskId} END`,
       )
-      .where(or(eq(taskLinks.fromTaskId, task.id), eq(taskLinks.toTaskId, task.id)))
+      // `tasks` aqui é a outra ponta: vínculo com tarefa que o leitor não vê não aparece
+      .where(
+        and(
+          or(eq(taskLinks.fromTaskId, task.id), eq(taskLinks.toTaskId, task.id)),
+          visibleTo(actor),
+        ),
+      )
       .orderBy(asc(tasks.number)),
     // nomes atuais mesmo de cadastro arquivado ou pessoa desativada (não aparecem nos seletores)
     db
@@ -1033,9 +1043,12 @@ const RECENT_DONE_DAYS = 14;
  * `recentDone` (Kanban) só traz concluídas dos últimos 14 dias.
  */
 export async function listTasks(
-  _actor: Actor,
+  actor: Actor,
   input: Partial<TaskFilters>,
   scope: {
+    // ADR-069: `team` (padrão) = visões da equipe, sem pessoais nem para o dono; `personal` = só
+    // as pessoais de quem lê; `all` = as duas. Em todos os casos vale o visibleTo(actor).
+    visibility?: "team" | "personal" | "all";
     assigneeId?: string;
     creatorId?: string;
     mentionedUserId?: string;
@@ -1056,6 +1069,7 @@ export async function listTasks(
         title: tasks.title,
         creatorId: tasks.creatorId,
         createdVia: tasks.createdVia,
+        visibility: tasks.visibility,
         priority: tasks.priority,
         statusId: tasks.statusId,
         category: workflowStatuses.category,
@@ -1073,6 +1087,12 @@ export async function listTasks(
       .where(
         and(
           isNull(tasks.archivedAt),
+          visibleTo(actor),
+          scope.visibility === "all"
+            ? undefined
+            : scope.visibility === "personal"
+              ? eq(tasks.visibility, "personal")
+              : teamOnly,
           any(f.statusIds, (ids) => inArray(tasks.statusId, ids)),
           any(f.assigneeIds, (ids) => inArray(tasks.assigneeId, ids)),
           any(f.priorities, (ids) => inArray(tasks.priority, ids)),
@@ -1193,7 +1213,7 @@ export function prefixQuery(q: string) {
 }
 
 /** Título/descrição, `TI-142`, `#48213` (GLPI) e código de UM; abertas primeiro, até 20. */
-export async function searchTasks(_actor: Actor, input: string) {
+export async function searchTasks(actor: Actor, input: string) {
   const q = input.trim().slice(0, 100);
   if (!q) return [];
   const bare = q.replace(/^TI-?/i, "");
@@ -1210,12 +1230,14 @@ export async function searchTasks(_actor: Actor, input: string) {
       title: tasks.title,
       category: workflowStatuses.category,
       glpiTicket: tasks.glpiTicket,
+      visibility: tasks.visibility,
     })
     .from(tasks)
     .innerJoin(workflowStatuses, eq(workflowStatuses.id, tasks.statusId))
     .where(
       and(
         isNull(tasks.archivedAt),
+        visibleTo(actor), // ADR-069: a busca acha as pessoais só de quem busca
         or(
           number ? eq(tasks.number, Number(number)) : undefined,
           glpi ? eq(tasks.glpiTicket, Number(glpi)) : undefined,

@@ -154,7 +154,7 @@ export function createMcpServer(actor: AgentActor, access: Access[]) {
       ...rest
     }) => {
       // M-044: tudo resolvido e validado antes da primeira escrita; índices = checklist de antes
-      const taskId = await taskIdOf(id);
+      const taskId = await taskIdOf(actor, id);
       const patch = await toUpdateInput(actor, rest);
       const itemIds = await checklistIdsAt(
         actor,
@@ -179,7 +179,7 @@ export function createMcpServer(actor: AgentActor, access: Access[]) {
     },
   );
   tool("complete_task", "write", "Conclui a tarefa; idempotente.", mcpCompleteTask, async (i) => {
-    const taskId = await taskIdOf(i.id);
+    const taskId = await taskIdOf(actor, i.id);
     await completeTask(actor, taskId);
     if (i.comment?.trim()) await addComment(actor, taskId, await markdownToDoc(i.comment));
     return (await getTaskSummary(actor, i.id)).summary;
@@ -190,7 +190,7 @@ export function createMcpServer(actor: AgentActor, access: Access[]) {
     "Comenta na tarefa (markdown; @email menciona).",
     mcpAddComment,
     async (i) => {
-      const row = await addComment(actor, await taskIdOf(i.id), await markdownToDoc(i.body));
+      const row = await addComment(actor, await taskIdOf(actor, i.id), await markdownToDoc(i.body));
       return { commentId: row.id, createdAt: row.createdAt.toISOString() };
     },
   );

@@ -4,8 +4,9 @@ import { sessionActor } from "@/server/actor";
 import { getAttachment } from "@/server/services/attachments";
 
 export async function GET(_request: Request, { params }: RouteContext<"/api/attachments/[id]">) {
-  if (!(await sessionActor())) return new Response(null, { status: 401 });
-  const row = await getAttachment((await params).id);
+  const actor = await sessionActor();
+  if (!actor) return new Response(null, { status: 401 });
+  const row = await getAttachment(actor, (await params).id);
   if (!row) return new Response(null, { status: 404 });
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- UPLOADS_DIR + uuid do banco
   const stream = createReadStream(row.path);

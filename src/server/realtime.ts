@@ -48,6 +48,24 @@ function ensure() {
   return hub.client;
 }
 
+/**
+ * O que a sessão de `userId` pode receber de um evento, ou null. `notification.created` só para o
+ * destinatário (ADR-050); `task.changed` de tarefa pessoal só para o dono (ADR-069). Os campos
+ * `userId` e `owner` não saem do servidor.
+ */
+export function forSession(e: RealtimeEvent, userId: string): string | null {
+  const {
+    userId: to,
+    owner,
+    ...rest
+  } = JSON.parse(e.data) as {
+    userId?: string;
+    owner?: string | null;
+  };
+  if (e.event === "notification.created") return to === userId ? JSON.stringify(rest) : null;
+  return owner && owner !== userId ? null : JSON.stringify(rest);
+}
+
 /** Assina os eventos; devolve a função que cancela. Resolve quando o LISTEN está ativo. */
 export async function subscribe(listener: Listener) {
   hub.listeners.add(listener);

@@ -24,7 +24,7 @@ import { type Actor, ForbiddenError, type Role, isAdmin } from "@/server/permiss
 import { auth } from "@/server/auth";
 import { listComments } from "./comments";
 import { activeCycle, getCycleByNumber, listCycles } from "./planning";
-import { TaskError, docText, getTaskByNumber, listTasks } from "./tasks";
+import { TaskError, docText, getTaskByNumber, listTasks, visibleTo } from "./tasks";
 
 // ADR-049: tokens MCP e tradução entre o contrato do MCP (códigos legíveis) e os services
 
@@ -144,7 +144,8 @@ export async function listAgentActivity(actor: Actor, limit = 20) {
     .from(taskEvents)
     .innerJoin(apikey, eq(apikey.id, taskEvents.apiKeyId))
     .innerJoin(tasks, eq(tasks.id, taskEvents.taskId))
-    .where(isAdmin(actor) ? undefined : eq(apikey.referenceId, self))
+    // ADR-069: nem o admin vê a atividade de agente em tarefa pessoal de outra pessoa
+    .where(and(isAdmin(actor) ? undefined : eq(apikey.referenceId, self), visibleTo(actor)))
     .orderBy(desc(taskEvents.createdAt))
     .limit(limit);
 }
@@ -324,7 +325,7 @@ export async function getTaskSummary(actor: Actor, number: number) {
 export async function getTaskDetail(actor: Actor, number: number) {
   const { task, summary } = await getTaskSummary(actor, number);
   const [allComments, mail] = await Promise.all([
-    listComments(task.id),
+    listComments(actor, task.id),
     emails(task.checklist.map((c) => c.assigneeId)),
   ]);
   return {
@@ -363,8 +364,11 @@ export async function checklistIdsAt(actor: Actor, number: number, indexes: numb
   });
 }
 
-export async function taskIdOf(number: number) {
-  const [row] = await db.select({ id: tasks.id }).from(tasks).where(eq(tasks.number, number));
+export async function taskIdOf(actor: Actor, number: number) {
+  const [row] = await db
+    .select({ id: tasks.id })
+    .from(tasks)
+    .where(and(eq(tasks.number, number), visibleTo(actor)));
   if (!row) throw new TaskError("NOT_FOUND", `TI-${number} não encontrada`);
   return row.id;
 }

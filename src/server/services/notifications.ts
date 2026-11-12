@@ -33,6 +33,12 @@ import type { Actor } from "@/server/actor";
 import { type PushJob, QUEUES, enqueue } from "@/server/jobs";
 import { type Tx, mentionIds } from "./tasks";
 
+// ADR-069: o aviso só carrega número e título da tarefa que o destinatário vê
+const taskOfRecipient = and(
+  eq(tasks.id, notifications.taskId),
+  sql`(${tasks.visibility} = 'team' OR ${tasks.creatorId} = ${notifications.userId})`,
+);
+
 // ADR-050: quem recebe o quê, por qual canal. Só o worker chama fanout/push/daily.
 
 type UserActor = Extract<Actor, { kind: "user" }>;
@@ -158,7 +164,12 @@ export async function fanout(eventIds: string[]) {
         out.set(`${author}:agent_action`, { userId: author, event: "agent_action", data: {} });
     }
 
-    await deliver(tx, task.id, await actorLabel(tx, first), [...out.values()]);
+    // ADR-069: tarefa pessoal só avisa o dono (lembretes e o próprio agente); menção não avisa ninguém
+    const pending =
+      task.visibility === "personal"
+        ? [...out.values()].filter((p) => p.userId === task.creatorId)
+        : [...out.values()];
+    await deliver(tx, task.id, await actorLabel(tx, first), pending);
   });
 }
 
@@ -216,7 +227,7 @@ export async function pushNotification(notificationId: string, now = new Date())
     })
     .from(notifications)
     .innerJoin(user, eq(user.id, notifications.userId))
-    .leftJoin(tasks, eq(tasks.id, notifications.taskId))
+    .leftJoin(tasks, taskOfRecipient)
     .where(eq(notifications.id, notificationId));
   if (!n) return "gone" as const;
   if (!withinHours(now, n.start ?? "08:00", n.end ?? "18:00", env.APP_TIMEZONE))
@@ -390,7 +401,7 @@ async function digest(now: Date) {
     })
     .from(notifications)
     .innerJoin(user, eq(user.id, notifications.userId))
-    .leftJoin(tasks, eq(tasks.id, notifications.taskId))
+    .leftJoin(tasks, taskOfRecipient)
     .where(
       and(
         eq(notifications.email, true),
@@ -467,7 +478,7 @@ export async function listNotifications(actor: UserActor, tab: InboxTab) {
       title: tasks.title,
     })
     .from(notifications)
-    .leftJoin(tasks, eq(tasks.id, notifications.taskId))
+    .leftJoin(tasks, taskOfRecipient)
     .where(
       and(
         eq(notifications.userId, actor.userId),

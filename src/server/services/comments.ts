@@ -7,6 +7,7 @@ import {
   TaskError,
   creatorFor,
   docText,
+  assertVisible,
   lockTask,
   mentionIds,
   record,
@@ -84,7 +85,8 @@ export async function editComment(actor: Actor, commentId: string, body: unknown
 }
 
 /** Comentários da tarefa, mais antigos primeiro, com autor e token (agente). */
-export async function listComments(taskId: string) {
+export async function listComments(actor: Actor, taskId: string) {
+  await assertVisible(actor, taskId); // ADR-069
   return db
     .select({
       id: comments.id,
