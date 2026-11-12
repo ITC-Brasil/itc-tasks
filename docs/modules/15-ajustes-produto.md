@@ -35,6 +35,16 @@ Decididas sem o Matheus, pela opção mais conservadora. Cada uma pode ser revis
 - **Item 3 — nome acessível:** texto `sr-only` em vez de `aria-label` (o axe proíbe `aria-label`
   em `span` sem papel).
 - **Item 3 — MCP:** `color` só em `list_projects`. `TaskSummary.projects` continua lista de siglas.
+- **Item 4 — quem recebe o lembrete da subtarefa:** o responsável pela **tarefa** (como pedido),
+  não o responsável pelo item. Sem responsável na tarefa, ninguém é avisado.
+- **Item 4 — eventos de notificação:** reaproveitei `due_today` e `overdue` (mesmas preferências),
+  com `data.subtask` no aviso, em vez de criar tipos novos no enum. O aviso da tarefa e o de cada
+  subtarefa são independentes.
+- **Item 4 — MCP:** `checklistDue: [{ index, dueDate }]` no `update_task`, no mesmo formato do
+  `checklistToggle`. `create_task` continua recebendo só os textos do checklist.
+- **Item 4 — seletor de data:** o prazo da tarefa é um `<input type="date">` nativo; a subtarefa
+  usa o mesmo, em tamanho menor, sempre visível na linha.
+- **Item 4 — sem ADR:** nenhuma decisão com alternativa razoável além das listadas aqui.
 
 ## Item 1 — Unidades Móveis sem Modelo, Placa e Base (ADR-066)
 
@@ -88,3 +98,22 @@ Decididas sem o Matheus, pela opção mais conservadora. Cada uma pode ser revis
 - **Correção no caminho:** `listMilestones` precisou de `projects.color` no `GROUP BY` (commit
   `fix(planning)`); o E2E pegou, a suíte de integração do commit anterior não tinha sido rodada
   inteira.
+
+## Item 4 — Prazo nas subtarefas
+
+- **Banco:** `drizzle/0017_checklist_due_date.sql` (`checklist_items.due_date date`, nula).
+- **Validação e service:** `checklistItemSchema.dueDate` (`src/lib/validation/tasks.ts`);
+  `updateChecklistItem` grava `checklist_changed` com `action` `due_set` (e `dueDate`) ou
+  `due_cleared`. Prazo depois do prazo da tarefa é aceito. O histórico formata as duas ações
+  (`src/server/services/activity.ts`).
+- **Tela:** detalhe da tarefa (`task-detail.tsx`): campo de data por subtarefa (`aria-label`
+  "Prazo de <texto>", `tabular-nums`). Aberta e vencida: ícone `Calendar` em `err` e "(vencida)"
+  para leitor de tela, o mesmo padrão do prazo da tarefa. Concluída não aparece como atrasada.
+  `today` vem do servidor (`todayISO()` na página).
+- **MCP:** `get_task` → `checklist[].dueDate`; `update_task` → `checklistDue`.
+- **Notificações:** `reminders()` em `src/server/services/notifications.ts` inclui as subtarefas
+  não concluídas, de tarefas abertas, com prazo hoje ou ontem. Texto: "subtarefa “X” vence hoje em
+  TI-n Título" (`src/lib/notifications.ts`). Sem repetir no dia, por subtarefa.
+- **Testes:** `tests/integration/tasks.test.ts` (prazo, eventos, data inválida),
+  `mcp.test.ts` (`checklistDue`), `notifications.test.ts` (aviso da tarefa e das subtarefas,
+  concluída fora, e-mail do resumo); `tests/e2e/tasks.spec.ts` (definir, recarregar, vencida, concluir).

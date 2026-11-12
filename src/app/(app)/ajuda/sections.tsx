@@ -311,7 +311,10 @@ function Detalhe() {
       </p>
       <Items
         items={[
-          ["Subtarefas", "Lista de verificação com responsável por item e barra de progresso."],
+          [
+            "Subtarefas",
+            "Lista de verificação com progresso. Cada subtarefa pode ter prazo próprio; vencida fica marcada em vermelho, e o responsável pela tarefa recebe o lembrete das 08:00.",
+          ],
           ["Vínculos", "“Bloqueada por” e “Relacionada” ligam uma tarefa a outra."],
           [
             "Comentários",
