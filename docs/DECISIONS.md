@@ -2254,5 +2254,6 @@ O `deploy.yml` passa a disparar por `workflow_run` do workflow `CI` (`types: [co
 - O deploy começa ~6 min depois do merge (tempo do CI).
 - O servidor faz `git pull` da `main` atual (comando forçado da chave), não do SHA testado. Se
   houver dois merges seguidos, o primeiro deploy pode publicar o segundo commit antes do CI dele
-  terminar. Risco aceito: merges na `main` são raros e manuais; o deploy do segundo roda depois.
+  terminar. Risco aceito pelo Cowork e pelo Matheus (M-148, 12/11/2026): só pesa com dois merges muito
+  próximos; merges na `main` são raros e manuais, e o deploy do segundo roda depois.
 - `workflow_run` só vale com o `deploy.yml` na branch padrão (`main`): passa a valer no próximo merge.
