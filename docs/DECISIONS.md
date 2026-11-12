@@ -2226,3 +2226,33 @@ os caminhos de leitura partem dessa premissa (vários nem recebem o `Actor`).
 - `tasks.project_id` passa a aceitar nulo no tipo; o código que supunha projeto trata a ausência.
 - Quem tem acesso direto ao banco ou ao backup continua vendo tudo: a garantia é do aplicativo.
 - A regra "Projeto/Cliente obrigatório" do CLAUDE.md passa a valer para tarefas da equipe.
+
+## ADR-070 — Deploy só depois do CI verde na `main` (`workflow_run`)
+
+**Status:** Accepted
+**Date:** 2026-11-12
+**Module:** Pós-15 — infraestrutura
+
+**Context**
+O `deploy.yml` disparava em `push` na `main`, em paralelo ao CI. No merge do PR #40 (`97dc45f`),
+o CI #121 falhou no E2E e o deploy publicou do mesmo jeito: nada impedia um commit vermelho de ir
+para produção. Branch protection exige plano pago (INFRA §11, M-112).
+
+**Decision**
+O `deploy.yml` passa a disparar por `workflow_run` do workflow `CI` (`types: [completed]`,
+`branches: [main]`) e o job só roda com `conclusion == 'success'` e `event == 'push'`. O
+`workflow_dispatch` continua para deploy manual (que não passa pelo CI; uso consciente).
+
+**Alternatives considered**
+- *Deploy como job do `ci.yml` com `needs:` e `if: github.ref == 'refs/heads/main'`:* rejeitado.
+  Misturaria os secrets de produção no workflow que também roda em `pull_request` e tiraria o
+  `concurrency` e as `permissions: {}` próprios do deploy.
+- *Branch protection com checks exigidos:* exige GitHub Team (recusado em M-112).
+
+**Consequences**
+- Merge com CI vermelho não publica; corrige-se na `develop` e um novo merge publica.
+- O deploy começa ~6 min depois do merge (tempo do CI).
+- O servidor faz `git pull` da `main` atual (comando forçado da chave), não do SHA testado. Se
+  houver dois merges seguidos, o primeiro deploy pode publicar o segundo commit antes do CI dele
+  terminar. Risco aceito: merges na `main` são raros e manuais; o deploy do segundo roda depois.
+- `workflow_run` só vale com o `deploy.yml` na branch padrão (`main`): passa a valer no próximo merge.

@@ -288,7 +288,9 @@ Cuidados com o `.env` (aprendidos no go-live):
 ```
 feat/… ──PR──▶ develop ──PR (CI verde + 1 aprovação; ADR-034)──▶ main
                                                          │
-                                       GitHub Actions: deploy.yml
+                                       GitHub Actions: CI (push na main)
+                                                         │  só com conclusion == success (ADR-070)
+                                       GitHub Actions: deploy.yml (workflow_run)
                                                          │  ssh -p 2222 github-deploy@glpi.grupoitcbrasil.com.br
                                                          ▼
                               /home/glpissh/docker/itc-tasks/scripts/deploy.sh
@@ -298,7 +300,7 @@ feat/… ──PR──▶ develop ──PR (CI verde + 1 aprovação; ADR-034)�
 
 ### 7.2 `.github/workflows/deploy.yml`
 
-Dispara em `push` na `main` e em `workflow_dispatch`; `concurrency: deploy-production` sem cancelar o que está rodando; `permissions: {}`; `timeout-minutes: 25` (build frio). Sem action de terceiros para SSH.
+Dispara por `workflow_run` quando o workflow `CI` termina na `main`, e o job só roda se o CI deu `success` num `push` (ADR-070): merge com CI vermelho não publica. Também por `workflow_dispatch` (manual, sem passar pelo CI); `concurrency: deploy-production` sem cancelar o que está rodando; `permissions: {}`; `timeout-minutes: 25` (build frio). Sem action de terceiros para SSH.
 
 - **Host conferido:** o secret `DEPLOY_KNOWN_HOSTS` vira um `known_hosts`, e o `ssh` roda com `-o UserKnownHostsFile=known_hosts -o StrictHostKeyChecking=yes` (sem `accept-new`). A linha foi montada no servidor a partir de `/etc/ssh/ssh_host_ed25519_key.pub`, no formato `[glpi.grupoitcbrasil.com.br]:2222 ssh-ed25519 …`.
 - **Chave exclusiva do ITC Tasks** (não a do NoteScan), gerada fora do `~github-deploy/.ssh`; a privada só existe no secret `DEPLOY_SSH_KEY`. No job, ela fica num arquivo 600, apagado no fim (`if: always()`).
@@ -404,7 +406,7 @@ A primeira implantação foi em 18/10/2026; o registro está em `docs/modules/12
 | Item | Situação |
 |---|---|
 | Backup | Não definido por decisão de 17/10/2026 (§9); retomar depois |
-| `main` sem proteção no GitHub (risco aceito) | O repositório está no plano Free: branch protection, rulesets e environment com revisor exigem GitHub Team. Decisão do Matheus (M-112, 19/10/2026): **não assinar**. Risco aceito: a `main` só é protegida pelo hook local (ADR-034) e pela disciplina dos admins, e qualquer push ou merge nela publica direto em produção pelo `deploy.yml`, que roda como `github-deploy` (grupo `docker`). Issue #21 fechada como *not planned*. Mitigações sem custo recomendadas: 2FA obrigatório na organização e lista de admins revista |
+| `main` sem proteção no GitHub (risco aceito) | O repositório está no plano Free: branch protection, rulesets e environment com revisor exigem GitHub Team. Decisão do Matheus (M-112, 19/10/2026): **não assinar**. Risco aceito: a `main` só é protegida pelo hook local (ADR-034) e pela disciplina dos admins, e qualquer push ou merge nela com CI verde publica em produção pelo `deploy.yml` (ADR-070), que roda como `github-deploy` (grupo `docker`). Issue #21 fechada como *not planned*. Mitigações sem custo recomendadas: 2FA obrigatório na organização e lista de admins revista |
 | Chave de assinatura OIDC (`jwks`) do Authelia | Em 19/10/2026, um fragmento do fim dessa chave privada apareceu na sessão do Claude Code, num `grep` com contexto do `configuration.yml` durante o levantamento do Windshift. A chave inteira não foi exposta e nada foi copiado para arquivo. Decisão do Matheus (M-104): **não rotacionar**. Se o histórico daquela sessão for compartilhado, rever a decisão |
 | DMARC do `itcbr.xyz` | `p=none` (só monitora). SPF inclui o Titan e há DKIM no seletor `titan1`. Mantido por decisão de 18/10/2026; endurecer depois |
 | Se outros projetos devem trocar o token do remote por deploy key | Sugestão; fora do escopo do ITC Tasks |
