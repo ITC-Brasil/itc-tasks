@@ -13,6 +13,29 @@ export const catalogIdSchema = z.uuid();
 
 export const PROJECT_KINDS = ["project", "client", "internal"] as const;
 
+// ADR-068: paleta fechada; o banco guarda a chave, nunca hex. Tokens --project-<chave>-* no globals.css
+export const PROJECT_COLORS = [
+  "blue",
+  "indigo",
+  "violet",
+  "magenta",
+  "rose",
+  "brown",
+  "olive",
+  "slate",
+] as const;
+export type ProjectColor = (typeof PROJECT_COLORS)[number];
+export const PROJECT_COLOR_NAMES: Record<ProjectColor, string> = {
+  blue: "Azul",
+  indigo: "Anil",
+  violet: "Violeta",
+  magenta: "Magenta",
+  rose: "Rosa",
+  brown: "Marrom",
+  olive: "Oliva",
+  slate: "Cinza-azulado",
+};
+
 export const projectSchema = z.object({
   code: z
     .string()

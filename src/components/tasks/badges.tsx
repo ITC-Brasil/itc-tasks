@@ -1,4 +1,5 @@
 import { Folder, Hourglass, Ticket, Truck } from "lucide-react";
+import type { ProjectColor } from "@/lib/validation/catalog";
 import type { Priority } from "@/lib/validation/tasks";
 import { cn } from "@/lib/utils";
 
@@ -104,13 +105,33 @@ export function PriorityIcon({ priority, className }: { priority: Priority; clas
 const chip =
   "inline-flex h-[22px] max-w-full items-center gap-1 rounded-sm px-1.5 text-xs font-medium [&>span]:truncate";
 
+// ADR-068: a chave da paleta vira os tokens do chip; sem cor, o visual de sempre
+const tint = (color: ProjectColor | null | undefined, bg: "bg" | "unit-bg") =>
+  color
+    ? { background: `var(--project-${color}-${bg})`, color: `var(--project-${color}-fg)` }
+    : undefined;
+
 /**
  * ADR-068: compacto mostra só a sigla; o nome fica no tooltip e para o leitor de tela.
- * `full` (detalhe da tarefa, Marcos) mostra "SIGLA · Nome".
+ * `full` (detalhe da tarefa, Marcos) mostra "SIGLA · Nome". `color` é a cor do projeto.
  */
-export function ProjectChip({ code, name, full }: { code: string; name: string; full?: boolean }) {
+export function ProjectChip({
+  code,
+  name,
+  full,
+  color,
+}: {
+  code: string;
+  name: string;
+  full?: boolean;
+  color?: ProjectColor | null;
+}) {
   return (
-    <span className={cn(chip, "bg-accent-light text-accent-text")} title={name}>
+    <span
+      className={cn(chip, !color && "bg-accent-light text-accent-text")}
+      style={tint(color, "bg")}
+      title={name}
+    >
       <Folder className="size-3.5 flex-none" aria-hidden="true" />
       <span>
         <span className="tabular-nums">{code}</span>
@@ -120,9 +141,14 @@ export function ProjectChip({ code, name, full }: { code: string; name: string; 
   );
 }
 
-export function UnitChip({ code }: { code: string }) {
+/** `color` é a cor do projeto da UM: mesmo texto, fundo mais suave (ADR-068). */
+export function UnitChip({ code, color }: { code: string; color?: ProjectColor | null }) {
   return (
-    <span className={cn(chip, "bg-muted text-base")} title={code}>
+    <span
+      className={cn(chip, !color && "bg-muted text-base")}
+      style={tint(color, "unit-bg")}
+      title={code}
+    >
       <Truck className="size-3.5 flex-none" aria-hidden="true" />
       <span className="tabular-nums">{code}</span>
     </span>
