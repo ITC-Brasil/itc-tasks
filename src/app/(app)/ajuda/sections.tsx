@@ -99,6 +99,7 @@ const STATUSES: [Category, string][] = [
   ["backlog", "Backlog"],
   ["todo", "A fazer"],
   ["in_progress", "Em andamento"],
+  ["waiting", "Aguardando"],
   ["done", "Concluído"],
 ];
 const PRIORITIES = [
@@ -220,10 +221,12 @@ function TelaPrincipal() {
         <TaskCard task={SAMPLE} today="2000-01-02" />
       </div>
       <p>
-        A forma do círculo diz o status mesmo sem cor. As barras indicam a prioridade (Baixa, Média,
-        Alta) e o quadrado com <b>!</b> marca Urgente. O prazo vencido aparece com o ícone em
-        vermelho. O código <Code>TI-142</Code> é o número da tarefa e também o endereço dela:{" "}
-        <Code>/tarefas/142</Code>.
+        A forma do ícone diz o status mesmo sem cor. A ampulheta é <b>Aguardando</b>: tarefa
+        iniciada e parada por algo fora do alcance da equipe (compra a caminho, retorno de
+        fornecedor). Ela continua aberta e aparece como atrasada se passar do prazo. As barras
+        indicam a prioridade (Baixa, Média, Alta) e o quadrado com <b>!</b> marca Urgente. O prazo
+        vencido aparece com o ícone em vermelho. O código <Code>TI-142</Code> é o número da tarefa e
+        também o endereço dela: <Code>/tarefas/142</Code>.
       </p>
     </Section>
   );

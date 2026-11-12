@@ -18,6 +18,7 @@ export const CATEGORIES: { value: Category; label: string }[] = [
   { value: "backlog", label: "Backlog" },
   { value: "todo", label: "A fazer" },
   { value: "in_progress", label: "Em andamento" },
+  { value: "waiting", label: "Aguardando" },
   { value: "done", label: "Concluído" },
 ];
 const categoryLabel = (c: Category) => CATEGORIES.find((x) => x.value === c)?.label;
