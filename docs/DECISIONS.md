@@ -2010,3 +2010,37 @@ divergem do código (exclusão, senha, atalhos, barra inferior).
 - Texto da ajuda muda junto com a funcionalidade, no mesmo PR; a ajuda pode ficar desatualizada se
   ninguém lembrar dela, como qualquer documentação.
 - Atalho novo entra em `SHORTCUTS` e aparece sozinho no diálogo e na ajuda.
+
+---
+
+## ADR-066 — Exceção à regra de migrações só aditivas: `model`, `plate` e `base` saem de `mobile_units` (Módulo 15)
+
+**Status:** Accepted
+**Date:** 2026-11-12
+**Module:** 15 — Ajustes de produto (item 1)
+
+**Context**
+`mobile_units` tem `model`, `plate` e `base` desde o Módulo 03. As carretas são Unidades Móveis de
+Atendimento e os caminhões não são responsabilidade do time de TI: os três campos estão fora do
+escopo e nunca foram preenchidos (todas as UMs ativas aparecem com "—" em produção). A regra do
+projeto é migração só aditiva, porque não há backup definido (`docs/INFRA.md` §9).
+
+**Decision**
+- Decisão do Matheus: remover os três campos da tela, do Zod, do service, do MCP e **do banco**.
+- A exceção à regra vale **só** para as colunas `model`, `plate` e `base` de `mobile_units`. A regra
+  continua para todo o resto.
+- Salvaguarda: a migração confere, num bloco `DO $$ … $$`, que as três colunas estão nulas ou vazias
+  em **todas** as linhas (ativas e arquivadas). Havendo qualquer valor, `RAISE EXCEPTION`: a migração
+  falha, a transação é desfeita e o deploy não segue. Só depois vem o `DROP COLUMN`.
+
+**Alternatives considered**
+- **Só esconder na interface e manter as colunas:** descartada pelo Matheus. Coluna morta no schema
+  confunde quem lê e continuaria exposta por engano em consulta nova.
+- **`DROP` sem conferência:** descartada. Sem backup, um valor digitado entre a decisão e o deploy
+  se perderia sem aviso.
+
+**Consequences**
+- `list_mobile_units` do MCP deixa de devolver `model`, `plate` e `base` (eram opcionais).
+- Se alguém preencher um dos campos antes do deploy, a migração aborta e o deploy para; resolve-se
+  limpando o valor à mão, depois de decidir o que fazer com ele.
+- Não há caminho de volta para os dados (não havia dado).
