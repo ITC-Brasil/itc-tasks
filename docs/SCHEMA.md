@@ -175,6 +175,7 @@ export const checklistItems = pgTable('checklist_items', {          // "Subtaref
   text: text('text').notNull(),
   done: boolean('done').notNull().default(false),
   assigneeId: text('assignee_id').references(() => user.id),
+  dueDate: date('due_date'),                    // Módulo 15: prazo da subtarefa (0017); pode passar do prazo da tarefa
   position: text('position').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });

@@ -83,6 +83,7 @@ export const checklistItems = pgTable("checklist_items", {
   text: text("text").notNull(),
   done: boolean("done").notNull().default(false),
   assigneeId: text("assignee_id").references(() => user.id),
+  dueDate: date("due_date"), // Módulo 15: prazo próprio da subtarefa; pode passar do prazo da tarefa
   position: position("position").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
