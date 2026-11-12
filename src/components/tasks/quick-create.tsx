@@ -220,18 +220,21 @@ export function QuickCreate() {
             onChange={(e) => set("title", e.target.value)}
             autoComplete="off"
           />
-          <label className="flex flex-wrap items-center gap-2 text-sm">
-            <Checkbox
-              checked={personal}
-              onCheckedChange={(v) => {
-                setPersonal(v);
-                setError(null);
-              }}
-            />
-            <Lock className="size-4 text-muted" strokeWidth={1.75} aria-hidden="true" />
-            Tarefa pessoal
-            <span className="text-muted">só você vê; Projeto/Cliente opcional</span>
-          </label>
+          {/* a dica fica fora do <label>: o nome do checkbox é só "Tarefa pessoal" */}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+            <label className="flex items-center gap-2">
+              <Checkbox
+                checked={personal}
+                onCheckedChange={(v) => {
+                  setPersonal(v);
+                  setError(null);
+                }}
+              />
+              <Lock className="size-4 text-muted" strokeWidth={1.75} aria-hidden="true" />
+              Tarefa pessoal
+            </label>
+            <span className="text-muted">Só você vê; Projeto/Cliente opcional.</span>
+          </div>
           {desc.open ? (
             <div className="flex flex-col gap-1.5">
               <span className="text-sm font-medium">Descrição</span>
