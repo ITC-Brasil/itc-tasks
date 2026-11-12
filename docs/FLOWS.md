@@ -110,6 +110,9 @@ sequenceDiagram
   Note over B: em erro: rollback do cache + toast<br/>"Não foi possível mover. Tente de novo."
 ```
 
+Soltar em "Aguardando" (categoria `waiting`, ADR-067) segue o mesmo fluxo: `completedAt` fica nulo, a tarefa
+continua aberta nos contadores e nos lembretes de prazo, e as automações com condição `done` não disparam.
+
 ## 5. Automação
 
 ```mermaid

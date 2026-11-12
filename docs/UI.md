@@ -19,7 +19,9 @@
 Os 18 componentes do Design System viram arquivos em `src/components/` (os genéricos em
 `ui/`, gerados pelo shadcn com Base UI e restilizados; os de domínio em `tasks/`, `board/`,
 `layout/`). Ícones: `lucide-react` 1.58.0, `strokeWidth={1.75}`, 16 px; status e prioridade
-são componentes próprios (`StatusIcon`, `PriorityIcon`).
+são componentes próprios (`StatusIcon`, `PriorityIcon`). No `StatusIcon`, Backlog, A fazer, Em andamento e
+Concluído são círculos (`muted`, `muted`, `info`, `ok`); Aguardando é o `Hourglass` do lucide em `warn`
+(ADR-067). A cor fica só no ícone: o nome do status é sempre `text-base`.
 
 | Ícone de domínio | lucide |
 |---|---|

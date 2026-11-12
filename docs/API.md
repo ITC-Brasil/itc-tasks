@@ -46,7 +46,7 @@ Projetos, UMs, status e pessoas podem ser referenciados por **código legível**
 input: {
   query?: string;                 // busca em título/descrição; "#48213" busca por GLPI
   status?: string[];              // nomes de status
-  category?: ('backlog'|'todo'|'in_progress'|'done')[];
+  category?: ('backlog'|'todo'|'in_progress'|'waiting'|'done')[];  // waiting = Aguardando, conta como aberta (ADR-067)
   project?: string;               // código, ex. "TRL"; casa com qualquer projeto da tarefa (task_projects)
   mobileUnit?: string;            // "UM-07"; casa com qualquer UM da tarefa (task_mobile_units)
   assignee?: string | 'me' | 'none';
