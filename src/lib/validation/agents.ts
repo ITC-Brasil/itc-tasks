@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { STATUS_CATEGORIES } from "./catalog";
 import { PRIORITIES, taskNumberSchema } from "./tasks";
 
 // ── Tokens (ADR-049) ────────────────────────────────────────────────
@@ -19,7 +20,10 @@ export const mcpTaskId = { id: z.union([z.string(), z.number()]).pipe(taskNumber
 export const mcpListTasks = {
   query: z.string().max(100).optional(),
   status: z.array(code).max(20).optional(),
-  category: z.array(z.enum(["backlog", "todo", "in_progress", "done"])).optional(),
+  category: z
+    .array(z.enum(STATUS_CATEGORIES))
+    .optional()
+    .describe("waiting = aguardando terceiro; conta como aberta (ADR-067)"),
   project: code.optional(),
   mobileUnit: code.optional(),
   assignee: z.string().max(200).optional().describe("e-mail, 'me' ou 'none'"),

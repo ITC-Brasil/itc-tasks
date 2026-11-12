@@ -61,7 +61,7 @@ Arquivos planejados: `src/db/schema/enums.ts`, `catalog.ts`, `tasks.ts`, `planni
 // src/db/schema/enums.ts
 import { pgEnum } from 'drizzle-orm/pg-core';
 
-export const statusCategory = pgEnum('status_category', ['backlog', 'todo', 'in_progress', 'done']);
+export const statusCategory = pgEnum('status_category', ['backlog', 'todo', 'in_progress', 'waiting', 'done']); // waiting: ADR-067
 export const taskPriority   = pgEnum('task_priority', ['none', 'low', 'medium', 'high', 'urgent']);
 export const projectKind    = pgEnum('project_kind', ['client', 'internal', 'project']); // ADR-044
 export const actorKind      = pgEnum('actor_kind', ['user', 'agent', 'automation', 'system']);
@@ -391,7 +391,7 @@ CREATE SEQUENCE IF NOT EXISTS task_number_seq START 1;
 
 | Dado | Valores |
 |---|---|
-| Status | Backlog (`backlog`), A fazer (`todo`), Em andamento (`in_progress`), Concluído (`done`) |
+| Status | Backlog (`backlog`), A fazer (`todo`), Em andamento (`in_progress`), Aguardando (`waiting`, ADR-067), Concluído (`done`) |
 | Etiquetas | rede (`info`), hardware (`sev-medium`), segurança (`bordo`), campo (`accent`) |
 | Automações | as 6 regras da tela Automações; "Etiquetar tarefas de UM" desligada |
 | Admin | `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`, `role = 'admin'` |

@@ -1,12 +1,21 @@
-import { Folder, Ticket, Truck } from "lucide-react";
+import { Folder, Hourglass, Ticket, Truck } from "lucide-react";
 import type { Priority } from "@/lib/validation/tasks";
 import { cn } from "@/lib/utils";
 
 // Design System: StatusIcon/StatusBadge, PriorityIcon/PriorityBadge, Chip
-export type Category = "backlog" | "todo" | "in_progress" | "done";
+export type Category = "backlog" | "todo" | "in_progress" | "waiting" | "done";
 
 /** A forma diferencia a categoria mesmo sem cor. */
 export function StatusIcon({ category, className }: { category: Category; className?: string }) {
+  // ADR-067: ampulheta em `warn`, só no ícone (warn nunca é texto no tema claro)
+  if (category === "waiting")
+    return (
+      <Hourglass
+        aria-hidden="true"
+        strokeWidth={1.75}
+        className={cn("size-4 flex-none text-warn", className)}
+      />
+    );
   const color =
     category === "done" ? "text-ok" : category === "in_progress" ? "text-info" : "text-muted";
   return (

@@ -54,7 +54,7 @@ trabalho (ADR-001). Faltam também três coisas que nenhuma ferramenta pronta tr
 
 ### 4.2 Workflow
 
-- **W1** Status configuráveis pelo admin, cada um numa categoria fixa: Backlog, A fazer, Em andamento, Concluído (ADR-022).
+- **W1** Status configuráveis pelo admin, cada um numa categoria fixa: Backlog, A fazer, Em andamento, Aguardando, Concluído (ADR-022, ADR-067). Aguardando é a tarefa iniciada e parada por terceiro; conta como aberta e pode ficar atrasada.
 - **W2** Mudar para um status `done` marca a tarefa como concluída; sair dele desmarca.
 
 ### 4.3 Visões

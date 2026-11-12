@@ -49,7 +49,7 @@ export const labelSchema = z.object({
 });
 export type LabelInput = z.input<typeof labelSchema>;
 
-export const STATUS_CATEGORIES = ["backlog", "todo", "in_progress", "done"] as const;
+export const STATUS_CATEGORIES = ["backlog", "todo", "in_progress", "waiting", "done"] as const; // ADR-022, ADR-067
 
 export const statusNameSchema = z.string().trim().min(1, "Informe o nome").max(40);
 
