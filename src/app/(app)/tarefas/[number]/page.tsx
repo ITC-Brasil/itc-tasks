@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { Topbar } from "@/components/layout/topbar";
 import { TaskDetail } from "@/components/tasks/task-detail";
+import { todayISO } from "@/lib/dates";
 import { env } from "@/lib/env";
 import { taskNumberSchema } from "@/lib/validation/tasks";
 import { canDeleteTask, requireActor } from "@/server/actor";
@@ -43,6 +44,7 @@ async function Detail({ params }: { params: PageProps<"/tarefas/[number]">["para
         options={options}
         glpiBaseUrl={env.GLPI_BASE_URL}
         canDelete={canDeleteTask(actor, task)}
+        today={todayISO()}
       />
     </>
   );

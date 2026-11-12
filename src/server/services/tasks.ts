@@ -727,7 +727,7 @@ export async function addChecklistItem(actor: Actor, taskId: string, text: strin
 export async function updateChecklistItem(
   actor: Actor,
   itemId: string,
-  input: { text?: string; done?: boolean; assigneeId?: string | null },
+  input: { text?: string; done?: boolean; assigneeId?: string | null; dueDate?: string | null },
 ) {
   const data = checklistItemSchema.parse(input);
   return db.transaction(async (tx) => {
@@ -741,9 +741,20 @@ export async function updateChecklistItem(
       .where(eq(checklistItems.id, itemId))
       .returning();
     const action =
-      "done" in data && data.done !== item.done ? (data.done ? "checked" : "unchecked") : "edited";
+      "done" in data && data.done !== item.done
+        ? data.done
+          ? "checked"
+          : "unchecked"
+        : "dueDate" in data && data.dueDate !== item.dueDate
+          ? data.dueDate
+            ? "due_set"
+            : "due_cleared"
+          : "edited";
     await record(tx, actor, item.taskId, [
-      { type: "checklist_changed", payload: { action, text: row.text } },
+      {
+        type: "checklist_changed",
+        payload: { action, text: row.text, ...(action === "due_set" && { dueDate: row.dueDate }) },
+      },
     ]);
     return row;
   });

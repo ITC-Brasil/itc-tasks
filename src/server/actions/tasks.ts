@@ -111,7 +111,7 @@ export async function addChecklistItemAction(taskId: string, number: number, tex
 export async function updateChecklistItemAction(
   itemId: string,
   number: number,
-  input: { text?: string; done?: boolean; assigneeId?: string | null },
+  input: { text?: string; done?: boolean; assigneeId?: string | null; dueDate?: string | null },
 ) {
   const actor = await requireActor();
   return run(
