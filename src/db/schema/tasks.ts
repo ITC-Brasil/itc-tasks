@@ -2,6 +2,7 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   customType,
   date,
   index,
@@ -16,7 +17,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { apikey, user } from "./auth";
 import { labels, mobileUnits, projects, workflowStatuses } from "./catalog";
-import { actorKind, linkKind, taskPriority } from "./enums";
+import { actorKind, linkKind, taskPriority, taskVisibility } from "./enums";
 import { cycles, milestones } from "./planning";
 
 // índice fracionário (ADR-014/042): ordena por byte, não pela collation do banco
@@ -38,9 +39,9 @@ export const tasks = pgTable(
       .notNull()
       .references(() => workflowStatuses.id),
     priority: taskPriority("priority").notNull().default("none"),
-    projectId: uuid("project_id")
-      .notNull()
-      .references(() => projects.id), // obrigatório
+    // principal; obrigatório na tarefa da equipe (CHECK abaixo), opcional na pessoal (ADR-069)
+    projectId: uuid("project_id").references(() => projects.id),
+    visibility: taskVisibility("visibility").notNull().default("team"),
     mobileUnitId: uuid("mobile_unit_id").references(() => mobileUnits.id),
     glpiTicket: integer("glpi_ticket"), // ADR-023
     assigneeId: text("assignee_id").references(() => user.id),
@@ -71,6 +72,15 @@ export const tasks = pgTable(
     index("tasks_cycle_idx").on(t.cycleId),
     index("tasks_glpi_idx").on(t.glpiTicket),
     index("tasks_search_idx").using("gin", t.search),
+    // ADR-069
+    index("tasks_personal_creator_idx")
+      .on(t.creatorId)
+      .where(sql`${t.visibility} = 'personal'`),
+    check("tasks_team_project_ck", sql`${t.visibility} = 'personal' OR ${t.projectId} IS NOT NULL`),
+    check(
+      "tasks_personal_owner_ck",
+      sql`${t.visibility} = 'team' OR (${t.assigneeId} = ${t.creatorId} AND ${t.cycleId} IS NULL AND ${t.milestoneId} IS NULL)`,
+    ),
   ],
 );
 
