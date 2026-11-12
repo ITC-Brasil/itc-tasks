@@ -25,16 +25,17 @@ export const PROJECT_COLORS = [
   "slate",
 ] as const;
 export type ProjectColor = (typeof PROJECT_COLORS)[number];
-export const PROJECT_COLOR_NAMES: Record<ProjectColor, string> = {
-  blue: "Azul",
-  indigo: "Anil",
-  violet: "Violeta",
-  magenta: "Magenta",
-  rose: "Rosa",
-  brown: "Marrom",
-  olive: "Oliva",
-  slate: "Cinza-azulado",
-};
+// Map evita indexação dinâmica de objeto
+export const PROJECT_COLOR_NAMES = new Map<ProjectColor, string>([
+  ["blue", "Azul"],
+  ["indigo", "Anil"],
+  ["violet", "Violeta"],
+  ["magenta", "Magenta"],
+  ["rose", "Rosa"],
+  ["brown", "Marrom"],
+  ["olive", "Oliva"],
+  ["slate", "Cinza-azulado"],
+]);
 
 export const projectSchema = z.object({
   code: z

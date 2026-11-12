@@ -215,6 +215,7 @@ export async function listMilestones(projectId?: string) {
       projectId: milestones.projectId,
       projectCode: projects.code,
       projectName: projects.name,
+      projectColor: projects.color,
       dueOn: milestones.dueOn,
       closedAt: milestones.closedAt,
       total: count(tasks.id),

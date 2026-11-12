@@ -113,10 +113,10 @@ export function TaskDetail({
           <InlineTitle value={view.title} onSave={(title) => save({ title })} />
           <div className="flex flex-wrap gap-1.5">
             {task.projects.map((p) => (
-              <ProjectChip key={p.id} code={p.code} name={p.name} full />
+              <ProjectChip key={p.id} code={p.code} name={p.name} color={p.color} full />
             ))}
             {task.units.map((u) => (
-              <UnitChip key={u.id} code={u.code} />
+              <UnitChip key={u.id} code={u.code} color={u.color} />
             ))}
             {view.glpiTicket && (
               <GlpiChip ticket={view.glpiTicket} href={glpiUrl(glpiBaseUrl, view.glpiTicket)} />

@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { saveProjectAction, setProjectArchivedAction } from "@/server/actions/catalog";
 import { ArchiveButton, FieldLabel, FormDialog, FormSelect, Situation } from "../config-ui";
 import { Card } from "@/components/ui/card";
+import { ProjectChip } from "@/components/tasks/badges";
+import { PROJECT_COLORS, PROJECT_COLOR_NAMES, type ProjectColor } from "@/lib/validation/catalog";
 
 type Project = {
   id: string;
@@ -13,6 +15,7 @@ type Project = {
   name: string;
   kind: "project" | "client" | "internal";
   glpiEntity: string | null;
+  color: ProjectColor | null;
   archivedAt: Date | null;
 };
 
@@ -64,7 +67,51 @@ export function ProjectDialog({ project }: { project?: Project }) {
       <FieldLabel label="Entidade no GLPI">
         <Input name="glpiEntity" defaultValue={project?.glpiEntity ?? ""} autoComplete="off" />
       </FieldLabel>
+      <ColorPicker defaultValue={project?.color ?? null} />
     </FormDialog>
+  );
+}
+
+/** ADR-068: amostras da paleta fechada; "Padrão" (valor vazio) volta ao chip ciano. */
+function ColorPicker({ defaultValue }: { defaultValue: ProjectColor | null }) {
+  const swatch =
+    "flex h-7 min-w-9 cursor-pointer items-center justify-center rounded-sm border border-border px-2 text-xs font-medium peer-checked:ring-2 peer-checked:ring-accent peer-checked:ring-offset-2 peer-checked:ring-offset-surface peer-focus-visible:outline-2 peer-focus-visible:outline-offset-4 peer-focus-visible:outline-accent";
+  return (
+    <fieldset className="flex flex-col gap-1.5">
+      <legend className="mb-1.5 font-medium">Cor nos cards</legend>
+      <div className="flex flex-wrap gap-2">
+        <label>
+          <input
+            type="radio"
+            name="color"
+            value=""
+            defaultChecked={!defaultValue}
+            aria-label="Padrão"
+            className="peer sr-only"
+          />
+          <span className={`${swatch} bg-accent-light text-accent-text`}>Padrão</span>
+        </label>
+        {PROJECT_COLORS.map((c) => (
+          <label key={c}>
+            <input
+              type="radio"
+              name="color"
+              value={c}
+              defaultChecked={defaultValue === c}
+              aria-label={PROJECT_COLOR_NAMES.get(c)}
+              className="peer sr-only"
+            />
+            <span
+              aria-hidden="true"
+              className={swatch}
+              style={{ background: `var(--project-${c}-bg)`, color: `var(--project-${c}-fg)` }}
+            >
+              Aa
+            </span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
   );
 }
 
@@ -87,7 +134,9 @@ export function ProjectsTable({ projects }: { projects: Project[] }) {
         <tbody>
           {projects.map((p) => (
             <tr key={p.id} className="border-t border-border">
-              <td className="px-4 py-3 font-medium tabular-nums">{p.code}</td>
+              <td className="px-4 py-3">
+                <ProjectChip code={p.code} name={p.name} color={p.color} />
+              </td>
               <td className="px-4 py-3 font-medium">{p.name}</td>
               <td className="px-4 py-3">{KINDS.find((k) => k.value === p.kind)?.label}</td>
               <td className="px-4 py-3 text-muted">{p.glpiEntity ?? "—"}</td>
