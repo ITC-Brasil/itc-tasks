@@ -2044,3 +2044,53 @@ projeto é migração só aditiva, porque não há backup definido (`docs/INFRA.
 - Se alguém preencher um dos campos antes do deploy, a migração aborta e o deploy para; resolve-se
   limpando o valor à mão, depois de decidir o que fazer com ele.
 - Não há caminho de volta para os dados (não havia dado).
+
+---
+
+## ADR-067 — Quinta categoria de status: `waiting` ("Aguardando") (Módulo 15; complementa o ADR-022)
+
+**Status:** Accepted
+**Date:** 2026-11-12
+**Module:** 15 — Ajustes de produto (item 2)
+
+**Context**
+O ADR-022 fixou quatro categorias (`backlog`, `todo`, `in_progress`, `done`). Falta um lugar para a
+tarefa iniciada e parada por algo fora do alcance da equipe: compra a caminho, fornecedor que não
+enviou o equipamento, retorno de terceiro. Hoje ela fica em "Em andamento" e se confunde com o que
+está de fato sendo feito.
+
+**Decision**
+- Nova categoria fixa `waiting`, rótulo **"Aguardando"**, na ordem Backlog · A fazer · Em andamento ·
+  **Aguardando** · Concluído. No enum: `ALTER TYPE status_category ADD VALUE 'waiting' BEFORE 'done'`.
+- Novo status "Aguardando" (categoria `waiting`) no seed. Em banco já semeado, um passo idempotente
+  **depois** das migrações (`scripts/migrate.mjs`, no start do container, e `npm run db:seed`) cria
+  o status se não houver nenhum da categoria, logo antes do primeiro status `done` (os status
+  dessa posição em diante descem uma casa).
+  - O `INSERT` não fica no arquivo `.sql`: o Postgres não deixa usar um valor novo de enum na mesma
+    transação do `ADD VALUE`, e o migrator do Drizzle aplica todas as migrações pendentes numa
+    transação só.
+- `waiting` conta como **aberta** em tudo: painel, contadores, filtros, lembretes, MCP. O código já
+  trata "aberta" como "categoria diferente de `done`", então nada muda nessas consultas. Tarefa
+  aguardando com prazo vencido continua atrasada. Automações que dependem de `done` não disparam.
+- `completed_at` segue a regra do ADR-022: só `done` preenche.
+- Ícone: `Hourglass` do `lucide-react` (16 px, `strokeWidth={1.75}`) no `StatusIcon`, cor `warn`. É
+  cor funcional em estado, e só no ícone: o rótulo "Aguardando" fica em `text-base`, porque `warn`
+  nunca é texto no tema claro. A forma (ampulheta) diferencia a categoria sem depender da cor.
+- Aparece sem código próprio onde a lista de status vem do banco (colunas do Kanban, filtros,
+  seletor de status) e por lista fixa em Configurações › Workflow, Automações, MCP (`category` do
+  `list_tasks`) e ajuda.
+
+**Alternatives considered**
+- **Etiqueta "aguardando":** descartada. Não vira coluna no Kanban e some nos filtros por status.
+- **Status "Aguardando" dentro de `in_progress`:** descartada. Painel e MCP agrupam por categoria e
+  não distinguiriam o que está parado por terceiro.
+- **Cor `info` ou `muted` no ícone:** descartada. `info` já é "Em andamento" e `muted` é Backlog e
+  A fazer; `warn` comunica "parado, pede atenção".
+- **`INSERT` do status num arquivo de migração separado:** descartada. Falha pelo mesmo motivo (mesma
+  transação) quando as duas migrações chegam juntas, que é o caso do deploy.
+
+**Consequences**
+- Cada categoria precisa de um status ativo (regra existente); `waiting` passa a contar nela.
+- A importação do Windshift mapeava "Aguardando" para `in_progress`; já foi aplicada e não muda.
+- Depois do pull, em desenvolvimento: `npm run db:migrate` e `npm run db:seed` (o seed cria o
+  status). Em produção o entrypoint faz os dois passos.
