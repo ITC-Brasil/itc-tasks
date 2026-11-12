@@ -108,6 +108,7 @@ export function createMcpServer(actor: AgentActor, access: Access[]) {
       code: p.code,
       name: p.name,
       kind: p.kind,
+      color: p.color ?? undefined, // ADR-068: chave da paleta
     })),
   }));
   tool("list_mobile_units", "read", "Unidades Móveis ativas.", mcpListMobileUnits, async (i) => {

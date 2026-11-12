@@ -46,6 +46,12 @@ export const projectSchema = z.object({
   kind: z.enum(PROJECT_KINDS),
   // default_assignee_id fica no banco sem uso (ADR-045)
   glpiEntity: optionalText(80),
+  // ADR-068: "" (Padrão no formulário) limpa a cor; ausente não mexe
+  color: z
+    .enum(PROJECT_COLORS)
+    .or(z.literal(""))
+    .nullish()
+    .transform((v) => (v === undefined ? undefined : v || null)),
 });
 export type ProjectInput = z.input<typeof projectSchema>;
 

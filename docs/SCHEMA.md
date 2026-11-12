@@ -91,6 +91,7 @@ export const projects = pgTable('projects', {
   kind: projectKind('kind').notNull().default('client'),
   defaultAssigneeId: text('default_assignee_id').references(() => user.id),
   glpiEntity: text('glpi_entity'),
+  color: text('color'),                         // ADR-068: chave da paleta (blue, indigo…), nunca hex; nulo = ciano padrão
   archivedAt: timestamp('archived_at', { withTimezone: true }),
   ...timestamps,
 }, (t) => [uniqueIndex('projects_code_uq').on(t.code)]);

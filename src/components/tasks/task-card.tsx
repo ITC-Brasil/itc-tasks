@@ -44,7 +44,7 @@ export function TaskCard({
             <ProjectChip key={p.id} code={p.code} name={p.name} />
           ))}
           {task.units.map((u) => (
-            <UnitChip key={u} code={u} />
+            <UnitChip key={u.code} code={u.code} />
           ))}
           {task.labels.map((l) => (
             <LabelChip key={l.name} name={l.name} colorToken={l.colorToken} />

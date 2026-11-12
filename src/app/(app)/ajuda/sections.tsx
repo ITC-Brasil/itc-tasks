@@ -114,7 +114,7 @@ const SAMPLE = {
   number: 142,
   title: "Trocar nobreak do rack 2",
   projects: [{ id: "p", code: "TRL", name: "Transportadora Litoral" }],
-  units: ["UM-07"],
+  units: [{ code: "UM-07", color: null }],
   labels: [{ name: "Infra", colorToken: "label-teal" }],
   priority: "high",
   dueDate: "2000-01-01",

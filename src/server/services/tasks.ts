@@ -863,15 +863,21 @@ export async function getTaskByNumber(_actor: Actor, number: number) {
       .where(eq(tasks.id, task.id)),
     // ADR-045: o principal primeiro
     db
-      .select({ id: projects.id, code: projects.code, name: projects.name })
+      .select({ id: projects.id, code: projects.code, name: projects.name, color: projects.color })
       .from(taskProjects)
       .innerJoin(projects, eq(projects.id, taskProjects.projectId))
       .where(eq(taskProjects.taskId, task.id))
       .orderBy(sql`${projects.id} = ${task.projectId} DESC`, asc(projects.code)),
     db
-      .select({ id: mobileUnits.id, code: mobileUnits.code, projectId: mobileUnits.projectId })
+      .select({
+        id: mobileUnits.id,
+        code: mobileUnits.code,
+        projectId: mobileUnits.projectId,
+        color: projects.color, // ADR-068: a UM herda a cor do projeto dela
+      })
       .from(taskMobileUnits)
       .innerJoin(mobileUnits, eq(mobileUnits.id, taskMobileUnits.mobileUnitId))
+      .leftJoin(projects, eq(projects.id, mobileUnits.projectId))
       .where(eq(taskMobileUnits.taskId, task.id))
       .orderBy(asc(mobileUnits.code)),
   ]);
@@ -1045,15 +1051,17 @@ export async function listTasks(
         id: projects.id,
         code: projects.code,
         name: projects.name,
+        color: projects.color,
       })
       .from(taskProjects)
       .innerJoin(projects, eq(projects.id, taskProjects.projectId))
       .where(inArray(taskProjects.taskId, ids))
       .orderBy(asc(projects.code)),
     db
-      .select({ taskId: taskMobileUnits.taskId, code: mobileUnits.code })
+      .select({ taskId: taskMobileUnits.taskId, code: mobileUnits.code, color: projects.color })
       .from(taskMobileUnits)
       .innerJoin(mobileUnits, eq(mobileUnits.id, taskMobileUnits.mobileUnitId))
+      .leftJoin(projects, eq(projects.id, mobileUnits.projectId))
       .where(inArray(taskMobileUnits.taskId, ids))
       .orderBy(asc(mobileUnits.code)),
     db
@@ -1069,7 +1077,7 @@ export async function listTasks(
     tasks: rows.map((r) => ({
       ...r,
       projects: by(projectRows, r.id),
-      units: by(unitRows, r.id).map((u) => u.code),
+      units: by(unitRows, r.id).map(({ code, color }) => ({ code, color })),
       labels: by(labelRows, r.id),
     })),
     truncated,
