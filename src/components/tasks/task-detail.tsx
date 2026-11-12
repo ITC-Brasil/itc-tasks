@@ -113,7 +113,7 @@ export function TaskDetail({
           <InlineTitle value={view.title} onSave={(title) => save({ title })} />
           <div className="flex flex-wrap gap-1.5">
             {task.projects.map((p) => (
-              <ProjectChip key={p.id} code={p.code} name={p.name} />
+              <ProjectChip key={p.id} code={p.code} name={p.name} full />
             ))}
             {task.units.map((u) => (
               <UnitChip key={u.id} code={u.code} />

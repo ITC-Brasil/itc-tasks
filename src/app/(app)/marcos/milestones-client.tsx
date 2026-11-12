@@ -142,7 +142,7 @@ export function MilestonesView({
                 <h2 className="font-medium">{m.name}</h2>
                 {m.description && <p className="text-sm text-muted">{m.description}</p>}
               </div>
-              <ProjectChip code={m.projectCode} name={m.projectName} />
+              <ProjectChip code={m.projectCode} name={m.projectName} full />
             </div>
             <Progress done={m.done} total={m.total} label={`Progresso de ${m.name}`} />
             <div className="flex items-center gap-2 text-sm">

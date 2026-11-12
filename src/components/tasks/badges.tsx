@@ -104,12 +104,17 @@ export function PriorityIcon({ priority, className }: { priority: Priority; clas
 const chip =
   "inline-flex h-[22px] max-w-full items-center gap-1 rounded-sm px-1.5 text-xs font-medium [&>span]:truncate";
 
-export function ProjectChip({ code, name }: { code: string; name: string }) {
+/**
+ * ADR-068: compacto mostra só a sigla; o nome fica no tooltip e para o leitor de tela.
+ * `full` (detalhe da tarefa, Marcos) mostra "SIGLA · Nome".
+ */
+export function ProjectChip({ code, name, full }: { code: string; name: string; full?: boolean }) {
   return (
     <span className={cn(chip, "bg-accent-light text-accent-text")} title={name}>
       <Folder className="size-3.5 flex-none" aria-hidden="true" />
       <span>
-        <span className="tabular-nums">{code}</span> · {name}
+        <span className="tabular-nums">{code}</span>
+        <span className={full ? undefined : "sr-only"}> · {name}</span>
       </span>
     </span>
   );
