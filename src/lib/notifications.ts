@@ -57,7 +57,13 @@ export const EVENT_LABELS: Record<NotificationEvent, { name: string; hint: strin
     },
   };
 
-export type NotificationData = { quote?: string; from?: string; to?: string; rule?: string };
+export type NotificationData = {
+  quote?: string;
+  from?: string;
+  to?: string;
+  rule?: string;
+  subtask?: string; // Módulo 15: lembrete de prazo de uma subtarefa
+};
 
 /** "Ana mencionou você em" — o que vem antes de "TI-149 Título". */
 export function verb(event: NotificationEvent, data: NotificationData) {
@@ -69,9 +75,9 @@ export function verb(event: NotificationEvent, data: NotificationData) {
     case "commented":
       return "comentou em";
     case "due_today":
-      return "vence hoje:";
+      return data.subtask ? `subtarefa “${data.subtask}” vence hoje em` : "vence hoje:";
     case "overdue":
-      return "venceu:";
+      return data.subtask ? `subtarefa “${data.subtask}” venceu em` : "venceu:";
     case "status_changed":
       return data.to ? `mudou para ${data.to}` : "mudou o status de";
     case "agent_action":

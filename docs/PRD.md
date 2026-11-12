@@ -41,7 +41,7 @@ trabalho (ADR-001). Faltam também três coisas que nenhuma ferramenta pronta tr
 
 - **T1** Criar tarefa com título, descrição rica, responsável, prioridade (Sem / Baixa / Média / Alta / Urgente), prazo, etiquetas, anexos.
 - **T2** Campos ITC: **um ou mais Projetos/Clientes (pelo menos um obrigatório)**, nenhuma ou várias Unidades Móveis (cada UM de um dos projetos da tarefa), Chamado GLPI opcional (número; link automático) (ADR-045).
-- **T3** Subtarefas como checklist com responsável opcional e progresso (ADR-019).
+- **T3** Subtarefas como checklist com responsável opcional, progresso (ADR-019) e prazo próprio opcional (Módulo 15): pode passar do prazo da tarefa, concluída não fica atrasada, e entra no lembrete das 08:00 do responsável pela tarefa.
 - **T4** Vínculos "bloqueia / bloqueada por" e "relacionada".
 - **T5** Comentários com @menção; histórico de alterações mostrando pessoa, agente ou automação.
 - **T6** ID visível `TI-<número>` (ADR-021).

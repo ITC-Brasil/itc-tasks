@@ -215,6 +215,18 @@ it("checklist e vínculos (bloqueia ↔ bloqueada por)", async () => {
     "checklist_changed",
     "link_added",
   ]);
+
+  // Módulo 15: prazo da subtarefa, com evento; pode passar do prazo da tarefa; data inválida recusa
+  await updateTask(actor, a.id, { dueDate: "2031-01-10" });
+  const late = await updateChecklistItem(actor, item.id, { dueDate: "2031-02-01" });
+  expect(late.dueDate).toBe("2031-02-01");
+  await expect(updateChecklistItem(actor, item.id, { dueDate: "amanhã" })).rejects.toThrow();
+  const none = await updateChecklistItem(actor, item.id, { dueDate: null });
+  expect(none.dueDate).toBeNull();
+  const actions = (await events(a.id))
+    .filter((e) => e.type === "checklist_changed")
+    .map((e) => (e.payload as { action: string; dueDate?: string }).action);
+  expect(actions.slice(-2)).toEqual(["due_set", "due_cleared"]);
 });
 
 it("tarefa criada pelo sistema: ator system, criador = primeiro admin ativo (ADR-045)", async () => {

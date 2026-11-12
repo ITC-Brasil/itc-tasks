@@ -69,6 +69,11 @@ export const mcpUpdateTask = {
     .array(z.object({ index: z.number().int().min(0), done: z.boolean() }))
     .max(50)
     .optional(),
+  checklistDue: z
+    .array(z.object({ index: z.number().int().min(0), dueDate: date.nullable() }))
+    .max(50)
+    .optional()
+    .describe("prazo da subtarefa pelo índice; null limpa"),
 };
 export const mcpCompleteTask = { ...mcpTaskId, comment: z.string().max(10_000).optional() };
 export const mcpAddComment = { ...mcpTaskId, body: z.string().min(1).max(10_000) };

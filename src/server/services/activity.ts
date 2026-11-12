@@ -22,6 +22,7 @@ type Payload = {
   to?: unknown;
   action?: string;
   text?: string;
+  dueDate?: string;
   kind?: string;
   target?: number;
   fileName?: string;
@@ -41,6 +42,7 @@ const CHECK = new Map([
   ["unchecked", "reabriu a subtarefa"],
   ["edited", "editou a subtarefa"],
   ["removed", "removeu a subtarefa"],
+  ["due_cleared", "removeu o prazo da subtarefa"],
 ]);
 
 const ids = (v: unknown) => (Array.isArray(v) ? (v as string[]) : []);
@@ -100,6 +102,8 @@ export function describe(type: string, p: Payload, names: Names): string | null 
     case "mobile_units_changed":
       return listChange("Unidades Móveis", p, names);
     case "checklist_changed":
+      if (p.action === "due_set" && p.dueDate)
+        return `definiu o prazo da subtarefa “${p.text ?? ""}” para ${brDate(p.dueDate)}`;
       return `${CHECK.get(p.action ?? "") ?? "alterou a subtarefa"} “${p.text ?? ""}”`;
     case "link_added":
       return `vinculou: ${LINK.get(p.kind ?? "") ?? p.kind} TI-${p.target}`;

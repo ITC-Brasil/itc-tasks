@@ -4,6 +4,7 @@ import webpush from "web-push";
 import { db } from "@/db";
 import {
   apikey,
+  checklistItems,
   comments,
   notificationPreferences,
   notifications,
@@ -294,7 +295,10 @@ export async function unsubscribePush(actor: UserActor, endpoint: string) {
 
 // ── 08:00: lembretes de prazo e resumo por e-mail ──────────────────
 
-/** Abertas com prazo hoje (due_today) ou que venceram ontem (overdue), sem repetir no dia. */
+/**
+ * Abertas com prazo hoje (due_today) ou que venceram ontem (overdue), sem repetir no dia.
+ * Vale para a tarefa e para cada subtarefa aberta com prazo.
+ */
 async function reminders(now: Date) {
   const today = todayISO(now);
   const since = new Date(now.getTime() - 20 * 3600_000);
@@ -309,7 +313,26 @@ async function reminders(now: Date) {
         inArray(tasks.dueDate, [today, addDays(today, -1)]),
       ),
     );
-  for (const t of due) {
+  // Módulo 15: subtarefa aberta com prazo avisa o responsável pela tarefa, pelas mesmas preferências
+  const subtasks = await db
+    .select({
+      id: tasks.id,
+      assigneeId: tasks.assigneeId,
+      dueDate: checklistItems.dueDate,
+      subtask: checklistItems.text,
+    })
+    .from(checklistItems)
+    .innerJoin(tasks, eq(tasks.id, checklistItems.taskId))
+    .innerJoin(workflowStatuses, eq(workflowStatuses.id, tasks.statusId))
+    .where(
+      and(
+        eq(checklistItems.done, false),
+        ne(workflowStatuses.category, "done"),
+        isNull(tasks.archivedAt),
+        inArray(checklistItems.dueDate, [today, addDays(today, -1)]),
+      ),
+    );
+  for (const t of [...due.map((d) => ({ ...d, subtask: null })), ...subtasks]) {
     if (!t.assigneeId) continue;
     const event = t.dueDate === today ? "due_today" : "overdue";
     await db.transaction(async (tx) => {
@@ -322,9 +345,16 @@ async function reminders(now: Date) {
             eq(notifications.taskId, t.id),
             eq(notifications.event, event),
             gte(notifications.createdAt, since),
+            // o aviso da tarefa e o de cada subtarefa não se anulam
+            t.subtask === null
+              ? sql`${notifications.data}->>'subtask' IS NULL`
+              : sql`${notifications.data}->>'subtask' = ${t.subtask}`,
           ),
         );
-      if (!dup) await deliver(tx, t.id, "Prazo", [{ userId: t.assigneeId!, event, data: {} }]);
+      if (!dup)
+        await deliver(tx, t.id, "Prazo", [
+          { userId: t.assigneeId!, event, data: t.subtask === null ? {} : { subtask: t.subtask } },
+        ]);
     });
   }
 }

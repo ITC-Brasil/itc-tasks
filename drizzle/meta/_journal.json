@@ -120,6 +120,13 @@
       "when": 1794468321050,
       "tag": "0016_project_color",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1794469180175,
+      "tag": "0017_checklist_due_date",
+      "breakpoints": true
     }
   ]
 }

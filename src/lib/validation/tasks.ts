@@ -136,7 +136,12 @@ export const taskNumberSchema = z
 
 export const checklistTextSchema = z.string().trim().min(1, "Informe o texto").max(200);
 export const checklistItemSchema = z
-  .object({ text: checklistTextSchema, done: z.boolean(), assigneeId: optional(z.string()) })
+  .object({
+    text: checklistTextSchema,
+    done: z.boolean(),
+    assigneeId: optional(z.string()),
+    dueDate: optional(dueDate), // null limpa
+  })
   .partial();
 
 export const LINK_KINDS = ["blocks", "blocked_by", "relates"] as const;

@@ -1,6 +1,6 @@
 "use client";
 
-import { ListChecks, MessageSquare, Paperclip, Trash2, Upload, X } from "lucide-react";
+import { Calendar, ListChecks, MessageSquare, Paperclip, Trash2, Upload, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useOptimistic, useRef, useState, useTransition } from "react";
@@ -10,6 +10,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { relativeTime } from "@/lib/dates";
+import { cn } from "@/lib/utils";
 import type { Priority, UpdateTaskInput } from "@/lib/validation/tasks";
 import {
   type TaskFormOptions,
@@ -64,6 +65,7 @@ export function TaskDetail({
   options,
   glpiBaseUrl,
   canDelete,
+  today,
 }: {
   task: Task;
   comments: Comment[];
@@ -72,6 +74,7 @@ export function TaskDetail({
   options: TaskFormOptions;
   glpiBaseUrl: string;
   canDelete: boolean;
+  today: string;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -160,11 +163,35 @@ export function TaskDetail({
                     )
                   }
                 />
-                <span className={c.done ? "text-muted line-through" : undefined}>{c.text}</span>
+                <span className={cn("min-w-0 flex-1", c.done && "text-muted line-through")}>
+                  {c.text}
+                </span>
+                {/* mesmo padrão do prazo da tarefa: ícone em err, texto normal; concluída não atrasa */}
+                {!c.done && c.dueDate && c.dueDate < today && (
+                  <>
+                    <Calendar
+                      className="size-3.5 flex-none text-err"
+                      strokeWidth={1.75}
+                      aria-hidden="true"
+                    />
+                    <span className="sr-only">(vencida)</span>
+                  </>
+                )}
+                <Input
+                  key={c.dueDate}
+                  type="date"
+                  aria-label={`Prazo de ${c.text}`}
+                  className="h-7 w-auto flex-none px-1.5 text-xs tabular-nums"
+                  defaultValue={c.dueDate ?? ""}
+                  onChange={(e) => {
+                    const dueDate = e.currentTarget.value || null;
+                    act({}, () => updateChecklistItemAction(c.id, task.number, { dueDate }));
+                  }}
+                />
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  className="ml-auto group-hover:opacity-100 focus-visible:opacity-100 md:opacity-0"
+                  className="group-hover:opacity-100 focus-visible:opacity-100 md:opacity-0"
                   aria-label={`Remover ${c.text}`}
                   onClick={() => act({}, () => removeChecklistItemAction(c.id, task.number))}
                 >

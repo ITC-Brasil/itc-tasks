@@ -277,7 +277,7 @@ export async function toCreateInput(actor: AgentActor, input: McpCreateTask) {
 
 export async function toUpdateInput(
   actor: AgentActor,
-  input: Omit<McpUpdateTask, "id" | "checklist" | "checklistToggle">,
+  input: Omit<McpUpdateTask, "id" | "checklist" | "checklistToggle" | "checklistDue">,
 ) {
   const { title, ...rest } = input;
   const fields = await serviceFields(actor, rest);
@@ -333,6 +333,7 @@ export async function getTaskDetail(actor: Actor, number: number) {
     checklist: task.checklist.map((c) => ({
       text: c.text,
       done: c.done,
+      dueDate: c.dueDate ?? undefined,
       assignee: (c.assigneeId && mail.get(c.assigneeId)) || undefined,
     })),
     links: task.links.map((l) => ({ kind: l.kind, id: `TI-${l.number}` })),

@@ -146,7 +146,7 @@ flowchart TD
   QH -->|sim| P[web-push para cada push_subscription<br/>410 Gone → remove assinatura]
   QH -->|não| H[fica só no app]
   PREF -->|email| D[entra no resumo diário 08:00]
-  CRON[pg-boss schedule 08:00] --> DUE[prazo hoje · vencidas] --> FO
+  CRON[pg-boss schedule 08:00] --> DUE[prazo hoje · vencidas<br/>tarefas e subtarefas abertas] --> FO
 ```
 
 ## 7. Ciclo de vida de um ciclo

@@ -65,7 +65,7 @@ TaskSummary = { id: "TI-142", title, status, category, priority, projects: ["TRL
 #### `get_task`
 ```ts
 input:  { id: string | number }
-output: TaskSummary & { description: string /* markdown */, checklist: { text, done, assignee? }[],
+output: TaskSummary & { description: string /* markdown */, checklist: { text, done, dueDate?, assignee? }[],
          links: { kind: 'blocks'|'blocked_by'|'relates', id }[], labels: string[],
          comments: { author, viaAgent: boolean, body, createdAt }[] /* últimos 20 */,
          glpiUrl?: string, createdAt, updatedAt, completedAt? }
@@ -106,6 +106,7 @@ Erro esperado sem `projectIds` (ou lista vazia): `VALIDATION` — "Escolha um Pr
 ```ts
 input: { id: string | number } & Partial<Omit<CreateTaskInput, never>> & {
   checklistToggle?: { index: number; done: boolean }[];
+  checklistDue?: { index: number; dueDate: string | null }[];   // Módulo 15: prazo da subtarefa (YYYY-MM-DD); null limpa
 }
 output: TaskSummary
 ```
