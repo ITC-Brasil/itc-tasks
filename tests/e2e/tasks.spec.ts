@@ -132,6 +132,38 @@ test("criação rápida com descrição; Criar outra limpa a descrição", async
   );
 });
 
+test("criação seguida abre sem Projeto/Cliente nem UM da anterior", async ({ page }) => {
+  test.slow();
+  await login(page);
+  const dialog = page.getByRole("dialog", { name: "Criar tarefa" });
+  const open = () =>
+    expect(async () => {
+      await page.keyboard.press("c");
+      await expect(dialog).toBeVisible({ timeout: 1000 });
+    }).toPass();
+
+  await open();
+  await dialog.getByLabel("Título").fill(`E2E vazia ${Date.now()}`);
+  await dialog.getByLabel("Projeto/Cliente").click();
+  await page.getByRole("option", { name: "BSBIA · BSBIA" }).click();
+  await page.keyboard.press("Escape");
+  await dialog.getByLabel("Unidade Móvel").click();
+  await page.getByRole("option", { name: "BSBIA01" }).click();
+  await page.keyboard.press("Escape");
+  await dialog.getByLabel("Título").press("Control+Enter");
+  await expect(dialog).toBeHidden();
+  await expect(page.getByText(/^TI-\d+ criada$/)).toBeVisible();
+
+  // M16 item 1: a segunda abre vazia
+  await open();
+  await expect(dialog.getByRole("combobox", { name: "Projeto/Cliente" })).not.toContainText(
+    "BSBIA",
+  );
+  await expect(dialog.getByRole("combobox", { name: "Unidade Móvel" })).not.toContainText(
+    "BSBIA01",
+  );
+});
+
 test("tarefa inexistente mostra a página de não encontrado", async ({ page }) => {
   await login(page);
   await page.goto("/tarefas/999999999");
