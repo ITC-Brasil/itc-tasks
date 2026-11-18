@@ -206,3 +206,10 @@ flowchart LR
   B --> E[Criar/editar tarefa apontando para ele → ARCHIVED_REFERENCE]
   B --> F[Reativar: archivedAt = null]
 ```
+
+## 11. Módulo 16 (ajustes de uso)
+
+- **Encerrar ciclo sem próximo:** `/ciclos` → Encerrar ciclo → sem ciclo planejado, todas as pendências ficam sem ciclo (evento "tirou do ciclo" em cada uma) → ciclo `closed`.
+- **Excluir ciclo ou marco (admin, ADR-071):** lixeira → diálogo com o número de tarefas → cada tarefa perde o vínculo e grava "removeu do Ciclo N, que foi excluído" → linha apagada, log `[planning]`.
+- **Revogar todos os tokens (admin, ADR-074):** Membros → menu da linha → "Revogar todos os tokens" → confirmação → tokens ativos do membro desativados; toast só com a contagem.
+- **Início › Hoje:** entrar no app → aba Hoje → tarefas e subtarefas da pessoa com prazo até hoje (a hora conta) → arrastar no Kanban muda o status.

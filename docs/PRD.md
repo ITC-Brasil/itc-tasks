@@ -144,3 +144,7 @@ identificável vão para um Projeto/Cliente "A classificar". Histórico antigo n
 - Design System: https://claude.ai/artifact/YP2eURsV28zVRjGcxAL495
 - Marca: https://claude.ai/artifact/RqMzGQZjWNoxSUmRkpMqfs
 - Fluxos: `docs/FLOWS.md` · Guia de UI: `docs/UI.md` · Schema: `docs/SCHEMA.md` · MCP: `docs/API.md`
+
+## Módulo 16 — ajustes de uso (17/11/2026)
+
+Encerrar ciclo sem criar outro; admin exclui ciclos e marcos (ADR-071); horário opcional no prazo de tarefa e subtarefa (ADR-072); Comentários separados da Atividade no detalhe; "Concluídas por técnico" no painel; cadastro de Envolvidos, pessoas de fora do app ligadas às tarefas, com filtro (ADR-073); "Minhas tarefas" vira **Início**, com a aba **Hoje** e o modo Kanban; progresso das subtarefas no card; tokens de MCP privados, inclusive para o admin (ADR-074); paleta de projetos com 12 cores (ADR-075). Detalhes: `docs/modules/16-ajustes-uso.md`.
