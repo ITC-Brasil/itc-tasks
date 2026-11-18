@@ -119,3 +119,33 @@ test("Início em Kanban: colunas por status, arrastar muda o status e V L/V K tr
     await expect(page).toHaveURL(/\?aba=minhas$/, { timeout: 1000 });
   }).toPass();
 });
+
+test("card mostra o progresso das subtarefas, em ok quando todas concluídas (Módulo 16)", async ({
+  page,
+}) => {
+  test.slow();
+  const title = `E2E progresso ${Date.now()}`;
+  await login(page);
+  await personal(page, title, "2099-05-01");
+  const number = (await page
+    .getByText(/^TI-\d+ criada$/)
+    .last()
+    .textContent())!.match(/\d+/)![0];
+  await page.goto(`/tarefas/${number}`);
+  for (const text of ["Primeira", "Segunda"]) {
+    await page.getByLabel("Nova subtarefa").fill(text);
+    await page.getByLabel("Nova subtarefa").press("Enter");
+    await expect(page.getByRole("checkbox", { name: text })).toBeVisible();
+  }
+  await page.waitForLoadState("networkidle");
+  const checked = page.waitForResponse((r) => r.request().method() === "POST");
+  await page.getByRole("checkbox", { name: "Primeira" }).click();
+  await checked; // a navegação abaixo cancelaria a action
+  await expect(page.getByRole("heading", { name: /Subtarefas\s*1\/2/ })).toBeVisible();
+
+  await page.goto("/?aba=minhas");
+  const card = page.getByRole("listitem").filter({ has: page.getByRole("link", { name: title }) });
+  await expect(card.getByRole("img", { name: "1 de 2 subtarefas concluídas" })).toBeVisible();
+  await expect(card).toContainText("1/2");
+  await axeBothThemes(page);
+});
