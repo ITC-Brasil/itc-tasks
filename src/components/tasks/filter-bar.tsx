@@ -153,6 +153,7 @@ export function FilterBar({
       {/* ADR-079 */}
       <label className="flex items-center gap-1.5 text-sm">
         <Checkbox
+          aria-label="Bloqueadas"
           checked={filters.blocked.length > 0}
           onCheckedChange={(on) => apply({ blocked: on ? ["1"] : [] })}
         />
