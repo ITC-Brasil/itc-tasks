@@ -1,6 +1,6 @@
 "use client";
 
-import { KeyRound, MoreHorizontal, Pencil, Plus, Power } from "lucide-react";
+import { Bot, KeyRound, MoreHorizontal, Pencil, Plus, Power } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useActionState, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -37,6 +37,7 @@ import {
   setMemberNameAction,
   setMemberRoleAction,
 } from "@/server/actions/members";
+import { revokeAllApiKeysAction } from "@/server/actions/agents";
 import { Card } from "@/components/ui/card";
 
 type Member = {
@@ -213,6 +214,54 @@ function ResetPasswordDialog({
   );
 }
 
+/** ADR-074: o admin revoga todos os tokens do membro sem ver nenhum deles. */
+function RevokeTokensDialog({
+  member,
+  open,
+  onOpenChange,
+}: {
+  member: Member;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const [pending, startTransition] = useTransition();
+
+  function confirm() {
+    startTransition(async () => {
+      const result = await revokeAllApiKeysAction(member.id);
+      if (!result.ok) return void toast.error(result.error);
+      onOpenChange(false);
+      toast.success(
+        result.count === 0
+          ? `${member.name} não tinha tokens ativos`
+          : `${result.count} ${result.count === 1 ? "token revogado" : "tokens revogados"}`,
+      );
+    });
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Revogar todos os tokens de {member.name}?</DialogTitle>
+          <DialogDescription>
+            Os agentes conectados com tokens dessa pessoa perdem o acesso na hora. Os tokens não
+            aparecem para você; ela pode criar outros em Agentes e MCP.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="secondary" onClick={() => onOpenChange(false)} disabled={pending}>
+            Cancelar
+          </Button>
+          <Button variant="destructive" onClick={confirm} disabled={pending}>
+            {pending ? "Revogando…" : "Revogar todos"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /** M-087: o admin troca o nome de qualquer membro, inclusive o próprio. */
 function RenameDialog({
   member,
@@ -288,7 +337,7 @@ function MemberActions({
   onToggleActive: () => void;
 }) {
   const router = useRouter();
-  const [dialog, setDialog] = useState<"rename" | "password" | null>(null);
+  const [dialog, setDialog] = useState<"rename" | "password" | "tokens" | null>(null);
   const onOpenChange = (open: boolean) => !open && setDialog(null);
 
   return (
@@ -315,6 +364,10 @@ function MemberActions({
                 <KeyRound strokeWidth={1.75} />
                 Redefinir senha
               </DropdownMenuItem>
+              <DropdownMenuItem variant="destructive" onClick={() => setDialog("tokens")}>
+                <Bot strokeWidth={1.75} />
+                Revogar todos os tokens
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 variant={member.banned ? "default" : "destructive"}
@@ -333,6 +386,13 @@ function MemberActions({
         <ResetPasswordDialog
           member={member}
           open={dialog === "password"}
+          onOpenChange={onOpenChange}
+        />
+      )}
+      {!self && (
+        <RevokeTokensDialog
+          member={member}
+          open={dialog === "tokens"}
           onOpenChange={onOpenChange}
         />
       )}

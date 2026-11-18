@@ -128,6 +128,23 @@ export async function revokeAgentKey(actor: Actor, keyId: string) {
     .where(eq(apikey.id, keyId));
 }
 
+/**
+ * ADR-074: o admin corta todos os tokens ativos de um membro sem ver nenhum deles; devolve só a
+ * quantidade. Rastro no log do processo.
+ */
+export async function revokeAllAgentKeys(actor: Actor, userId: string) {
+  if (actor.kind !== "user" || actor.role !== "admin") throw new ForbiddenError();
+  const rows = await db
+    .update(apikey)
+    .set({ enabled: false, updatedAt: new Date() })
+    .where(and(eq(apikey.referenceId, userId), eq(apikey.enabled, true)))
+    .returning({ id: apikey.id });
+  console.info(
+    `[agents] tokens revogados userId=${userId} count=${rows.length} by=${actor.userId}`,
+  );
+  return { count: rows.length };
+}
+
 /** Últimas escritas feitas pelos tokens da própria pessoa (ADR-074). */
 export async function listAgentActivity(actor: Actor, limit = 20) {
   const self = ownerOf(actor);

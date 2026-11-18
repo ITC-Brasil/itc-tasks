@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { ForbiddenError, requireActor } from "@/server/actor";
-import { createAgentKey, revokeAgentKey } from "@/server/services/agents";
+import { createAgentKey, revokeAgentKey, revokeAllAgentKeys } from "@/server/services/agents";
 import { TaskError } from "@/server/services/tasks";
 
 type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string };
@@ -39,4 +39,10 @@ export async function revokeApiKeyAction(keyId: string) {
     await revokeAgentKey(actor, z.string().min(1).parse(keyId));
     return {};
   });
+}
+
+/** ADR-074: Configurações › Membros, só admin (o service confere). */
+export async function revokeAllApiKeysAction(userId: string) {
+  const actor = await requireActor();
+  return run(() => revokeAllAgentKeys(actor, z.string().min(1).parse(userId)));
 }
