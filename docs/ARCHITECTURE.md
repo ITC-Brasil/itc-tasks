@@ -94,6 +94,12 @@ Ligada só em `127.0.0.1`: o túnel acessa por `localhost`, então não há regr
 item no Homepage (`dash.itcbr.xyz`). **Sem label do Watchtower** nos três containers: `app` e
 `worker` são construídos localmente (não há imagem para puxar) e o Postgres é atualizado à mão.
 
+### Jobs do worker (Módulo 17)
+
+`recurrence.daily` às 06:00 de `APP_TIMEZONE` (ADR-077), antes do `daily.morning` das 08:00, que
+passou a incluir o lembrete da previsão do Aguardando (ADR-078). Escrita de dependência serializa
+num `pg_advisory_xact_lock` (ADR-079).
+
 ## Restrições de infraestrutura
 
 Estas não são limites operacionais: elas moldaram decisões.
