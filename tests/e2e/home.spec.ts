@@ -71,3 +71,51 @@ test("Início: nome, aba Hoje com Atrasadas e Hoje, subtarefa e atalhos", async 
     await expect(page).toHaveURL(/\/$/, { timeout: 1000 });
   }).toPass();
 });
+
+test("Início em Kanban: colunas por status, arrastar muda o status e V L/V K trocam o modo", async ({
+  page,
+}) => {
+  test.slow();
+  const title = `E2E kanban início ${Date.now()}`;
+  await login(page);
+  await personal(page, title, "2099-04-01");
+  await page.goto("/?aba=minhas");
+  await page.waitForLoadState("networkidle");
+  const views = page.getByRole("navigation", { name: "Visões" });
+  await expect(views.getByRole("link", { name: "Kanban" })).toHaveAttribute("aria-current", "page");
+  const todo = page.getByRole("region", { name: "A fazer" });
+  await expect(todo.getByRole("link", { name: title })).toBeVisible();
+
+  const grip = page
+    .getByRole("listitem")
+    .filter({ has: page.getByRole("link", { name: title }) })
+    .getByRole("button", { name: /^Mover TI-/ });
+  await grip.focus();
+  await page.keyboard.press("Space");
+  await expect(grip).toHaveAttribute("aria-pressed", "true");
+  const live = page.getByRole("status").filter({ hasText: "Draggable item" });
+  const before = await live.textContent();
+  await page.keyboard.press("ArrowRight");
+  await expect(live).not.toHaveText(before ?? "");
+  const moved = page.waitForResponse((r) => r.request().method() === "POST");
+  await page.keyboard.press("Space");
+  await moved;
+  await page.reload();
+  await expect(
+    page.getByRole("region", { name: "Em andamento" }).getByRole("link", { name: title }),
+  ).toBeVisible();
+  await axeBothThemes(page);
+
+  await expect(async () => {
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.keyboard.press("v");
+    await page.keyboard.press("l");
+    await expect(page).toHaveURL(/\?aba=minhas&visao=lista$/, { timeout: 1000 });
+  }).toPass();
+  await expect(async () => {
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.keyboard.press("v");
+    await page.keyboard.press("k");
+    await expect(page).toHaveURL(/\?aba=minhas$/, { timeout: 1000 });
+  }).toPass();
+});

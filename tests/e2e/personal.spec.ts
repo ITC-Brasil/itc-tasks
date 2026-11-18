@@ -54,7 +54,7 @@ test("tarefa pessoal: criar, ver só em Minhas tarefas, trocar de visão e mover
   await page.getByRole("checkbox").first().waitFor();
   await expect(link).toHaveCount(0);
 
-  // Cards | Lista | Calendário, com a aba mantida na URL; V K volta para Cards
+  // Kanban | Lista | Calendário, com a aba mantida na URL; V K volta para o Kanban
   await page.goto("/?aba=pessoais");
   const views = page.getByRole("navigation", { name: "Visões" });
   await views.getByRole("link", { name: "Lista" }).click();
