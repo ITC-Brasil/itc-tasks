@@ -34,6 +34,7 @@ type Payload = {
   sourceId?: string;
   deleted?: string;
   recurrence?: string;
+  by?: number;
   waiting?: WaitingPayload;
 };
 type WaitingPayload = {
@@ -140,6 +141,13 @@ export function describe(type: string, p: Payload, names: Names): string | null 
       return `vinculou: ${LINK.get(p.kind ?? "") ?? p.kind} TI-${p.target}`;
     case "link_removed":
       return `desfez o vínculo: ${LINK.get(p.kind ?? "") ?? p.kind} TI-${p.target}`;
+    case "dependency_added": // ADR-079
+      return `${p.kind === "blocks" ? "passou a bloquear" : "ficou bloqueada por"} TI-${p.target}`;
+    case "dependency_removed":
+      if (p.deleted) return `deixou de depender de TI-${p.target}, que foi excluída`;
+      return `${p.kind === "blocks" ? "deixou de bloquear" : "deixou de ser bloqueada por"} TI-${p.target}`;
+    case "unblocked":
+      return `foi desbloqueada: TI-${p.by} concluída`;
     case "attachment_added":
       return `anexou ${p.fileName ?? "um arquivo"}`;
     case "imported":

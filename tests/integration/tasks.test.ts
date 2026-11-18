@@ -213,7 +213,7 @@ it("checklist e vínculos (bloqueia ↔ bloqueada por)", async () => {
     "created",
     "checklist_changed",
     "checklist_changed",
-    "link_added",
+    "dependency_added",
   ]);
 
   // Módulo 15: prazo da subtarefa, com evento; pode passar do prazo da tarefa; data inválida recusa
