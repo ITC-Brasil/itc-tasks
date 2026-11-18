@@ -5,7 +5,7 @@ import { addDays, todayISO } from "@/lib/dates";
 import { describeRule, latestOccurrence, nextOccurrence } from "@/lib/recurrence";
 import { type RecurrenceInput, recurrenceSchema } from "@/lib/validation/recurrences";
 import { PERSONAL_OWNER, createTaskSchema, recurrencePayloadSchema } from "@/lib/validation/tasks";
-import { type Actor, ForbiddenError } from "@/server/permissions";
+import { type Actor, ForbiddenError, isAdmin } from "@/server/permissions";
 import { TaskError, assertTaskRefs, insertTask } from "./tasks";
 
 // ADR-077: regras de recorrência. Regra pessoal só o dono vê e mexe (mesma regra do ADR-069).
@@ -106,6 +106,14 @@ export async function saveRecurrence(actor: Actor, id: string | null, input: Rec
 export async function setRecurrencePaused(actor: Actor, id: string, paused: boolean) {
   personOf(actor);
   const rule = await findRule(actor, id);
+  if (!paused && !isAdmin(actor)) {
+    // regra de pessoa desativada: só o admin retoma (A1, M-158)
+    const [owner] = await db
+      .select({ banned: user.banned })
+      .from(user)
+      .where(eq(user.id, rule.ownerId));
+    if (owner?.banned) throw new ForbiddenError();
+  }
   await db
     .update(taskRecurrences)
     .set({ pausedAt: paused ? new Date() : null })

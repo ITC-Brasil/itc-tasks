@@ -1,6 +1,6 @@
 import { and, asc, eq, gt, isNull, ne, or } from "drizzle-orm";
 import { db } from "@/db";
-import { account, session, user } from "@/db/schema";
+import { account, session, taskRecurrences, user } from "@/db/schema";
 import {
   type ChangePasswordInput,
   type CreateMemberInput,
@@ -98,7 +98,19 @@ export async function setMemberActive(actor: Actor, userId: string, active: bool
       .where(eq(user.id, userId))
       .returning({ id: user.id });
     assertFound(rows);
-    if (!active) await tx.delete(session).where(eq(session.userId, userId));
+    if (!active) {
+      await tx.delete(session).where(eq(session.userId, userId));
+      // A1 (M-158): as recorrências da pessoa param de criar tarefas; o admin retoma as da equipe
+      const paused = await tx
+        .update(taskRecurrences)
+        .set({ pausedAt: new Date() })
+        .where(and(eq(taskRecurrences.ownerId, userId), isNull(taskRecurrences.pausedAt)))
+        .returning({ id: taskRecurrences.id });
+      if (paused.length)
+        console.info(
+          `[members] recorrências pausadas userId=${userId} count=${paused.length} by=${actor.kind === "user" ? actor.userId : actor.kind}`,
+        );
+    }
   });
 }
 
