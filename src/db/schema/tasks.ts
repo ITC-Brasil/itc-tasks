@@ -21,6 +21,11 @@ import { actorKind, linkKind, taskPriority, taskVisibility } from "./enums";
 import { cycles, milestones } from "./planning";
 
 // índice fracionário (ADR-014/042): ordena por byte, não pela collation do banco
+// ADR-072: `time` lido como "HH:MM" (o driver devolve "HH:MM:SS"); hora de Brasília
+const time = customType<{ data: string; driverData: string }>({
+  dataType: () => "time",
+  fromDriver: (v) => v.slice(0, 5),
+});
 const position = customType<{ data: string }>({ dataType: () => 'text COLLATE "C"' });
 const tsvector = customType<{ data: string }>({ dataType: () => "tsvector" });
 
@@ -51,6 +56,7 @@ export const tasks = pgTable(
     cycleId: uuid("cycle_id").references(() => cycles.id),
     milestoneId: uuid("milestone_id").references(() => milestones.id),
     dueDate: date("due_date"),
+    dueTime: time("due_time"), // ADR-072: hora opcional de Brasília; só com due_date
     position: position("position").notNull(),
     createdVia: actorKind("created_via").notNull().default("user"),
     completedAt: timestamp("completed_at", { withTimezone: true }),
@@ -93,6 +99,7 @@ export const checklistItems = pgTable("checklist_items", {
   text: text("text").notNull(),
   done: boolean("done").notNull().default(false),
   assigneeId: text("assignee_id").references(() => user.id),
+  dueTime: time("due_time"), // ADR-072
   dueDate: date("due_date"), // Módulo 15: prazo próprio da subtarefa; pode passar do prazo da tarefa
   position: position("position").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

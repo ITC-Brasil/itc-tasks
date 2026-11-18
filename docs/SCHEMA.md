@@ -152,6 +152,7 @@ export const tasks = pgTable('tasks', {
   cycleId: uuid('cycle_id').references(() => cycles.id),
   milestoneId: uuid('milestone_id').references(() => milestones.id),
   dueDate: date('due_date'),
+  dueTime: time('due_time'),                    // ADR-072 (0019): hora opcional de Brasília; só com due_date
   position: text('position').notNull(),                           // índice fracionário (ADR-014)
   createdVia: actorKind('created_via').notNull().default('user'),
   completedAt: timestamp('completed_at', { withTimezone: true }),
@@ -181,6 +182,7 @@ export const checklistItems = pgTable('checklist_items', {          // "Subtaref
   done: boolean('done').notNull().default(false),
   assigneeId: text('assignee_id').references(() => user.id),
   dueDate: date('due_date'),                    // Módulo 15: prazo da subtarefa (0017); pode passar do prazo da tarefa
+  dueTime: time('due_time'),                    // ADR-072 (0019): hora opcional, só com due_date
   position: text('position').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
