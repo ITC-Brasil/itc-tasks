@@ -2541,3 +2541,49 @@ O Matheus aprovou (12/11/2026) que passem a se recriar sozinhas.
 **Consequences**
 - Migração `0021_task_recurrences` (só aditiva).
 - Sem feriados: "dias úteis" é segunda a sexta, como o `dueInDays` dos templates.
+
+---
+
+## ADR-078 — Motivo e previsão no Aguardando
+
+**Status:** Accepted
+**Date:** 2026-11-18
+**Module:** 17 — Recorrência, Aguardando com motivo e dependências (item 2)
+
+**Context**
+"Aguardando" (ADR-067) não diz o quê nem até quando. O Matheus aprovou (12/11/2026) pedir motivo
+e data prevista ao entrar no Aguardando.
+
+**Decision**
+- Colunas aditivas em `tasks`: `waiting_reason` (enum `waiting_reason`: `purchase` Compra,
+  `supplier` Fornecedor, `third_party` Terceiro, `client` Cliente, `other` Outro),
+  `waiting_note` (texto até 120, obrigatório só com "Outro") e `waiting_until` (data prevista).
+- **Toda entrada** numa categoria `waiting` passa pelo `tasksService` (`insertTask`/`applyUpdate`)
+  e exige motivo e data prevista, hoje ou futura no fuso de Brasília. Vale para o detalhe, o
+  Kanban (`moveTask`), a ação em massa, `complete_task` (não entra), o MCP (`update_task` →
+  `VALIDATION`) e as automações (a ação "mudar status" para um status `waiting` falha e fica no
+  registro da regra, como qualquer erro de ação).
+- **Sair** do Aguardando limpa as três colunas; o evento `status_changed` leva
+  `waitingCleared` com os valores de antes. Entrar leva `waiting` com os novos.
+- Em Aguardando, os campos podem ser editados (inclusive para completar as tarefas **legadas**,
+  que ficam sem motivo e sem previsão: não há preenchimento retroativo). A edição exige o par
+  completo e grava `field_changed` `{ field: "waiting" }`. Mandar os campos para tarefa fora do
+  Aguardando é `VALIDATION`.
+- **Lembrete** no job das 08:00, no dia da previsão, para o responsável: tipo `due_today` com
+  `data.waiting` (rótulo do motivo), como o `data.subtask` do Módulo 15; não repete no dia.
+- **Previsão vencida** (data < hoje e ainda em Aguardando): ícone `CalendarClock` em `warn` no card
+  e no detalhe, com texto para leitor de tela. Não conta como "atrasada", que continua sendo do
+  prazo.
+- **Filtro** `?motivo=` (vários = qualquer um) nas visões e nos filtros salvos.
+- UI: o arrasto para a coluna Aguardando, a troca de status no detalhe e a ação em massa abrem um
+  diálogo com os dois campos; cancelar não muda nada (o card volta).
+
+**Alternatives considered**
+- *Motivo livre:* rejeitado no prompt (lista fechada filtra melhor).
+- *Exigir também nas legadas:* rejeitado no prompt.
+- *Tipo de aviso novo:* mais uma linha nas preferências por um caso que o `due_today` cobre.
+
+**Consequences**
+- Migração `0022_waiting_fields` (enum novo + três colunas, sem reescrita).
+- Uma automação que move para Aguardando passa a falhar até ter motivo e data (não tem como
+  informar); fica registrado em "Decisões a confirmar" do módulo.
