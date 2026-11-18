@@ -247,6 +247,7 @@ export const FILTER_PARAMS = {
   ciclo: "cycleIds",
   envolvido: "involvedIds", // ADR-073
   motivo: "waitingReasons", // ADR-078
+  bloqueada: "blocked", // ADR-079: "1" = só as com bloqueadora aberta
 } as const;
 const many = <T extends z.ZodType>(item: T) =>
   z
@@ -262,6 +263,7 @@ export const taskFiltersSchema = z.object({
   cycleIds: many(uuid),
   involvedIds: many(uuid),
   waitingReasons: many(z.enum(WAITING_REASONS)),
+  blocked: many(z.literal("1")),
 });
 export type TaskFilters = z.output<typeof taskFiltersSchema>;
 

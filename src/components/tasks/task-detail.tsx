@@ -19,6 +19,14 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { isOverdue, relativeTime } from "@/lib/dates";
 import { cn } from "@/lib/utils";
@@ -50,6 +58,7 @@ import {
 import { CommentBody, CommentEditor } from "./comment-editor";
 import { DeleteTasksDialog } from "./delete-tasks-dialog";
 import { RecurringMark } from "./task-card";
+import { Dependencies, openBlockers } from "./dependencies";
 import { WaitingInfo, useWaitingPrompt } from "./waiting";
 import { DescriptionEditor } from "./description-editor";
 import { type PickItem, Pick, PickMany, optionItems } from "./fields";
@@ -72,11 +81,8 @@ type Patch = Partial<
   check?: { id: string; done: boolean };
 };
 
-const LINK_GROUPS = [
-  { kind: "blocks", label: "Bloqueia" },
-  { kind: "blocked_by", label: "Bloqueada por" },
-  { kind: "relates", label: "Relacionada" },
-] as const;
+// ADR-079: bloqueio fica na seção Dependências; aqui só "relacionada a"
+const LINK_GROUPS = [{ kind: "relates", label: "Relacionada" }] as const;
 
 /** Item atual mesmo se arquivado (fora da lista de ativos). */
 const withCurrent = (items: PickItem[], value: string | null, label: string | null) =>
@@ -132,6 +138,7 @@ export function TaskDetail({
     act(patch, () => updateTaskAction(task.id, task.number, patch));
 
   const [askWaiting, waitingDialog] = useWaitingPrompt();
+  const [confirmDone, setConfirmDone] = useState<string | null>(null);
   const categoryOf = (id: string) => options.statuses.find((x) => x.id === id)?.category;
   const waitingNow = categoryOf(view.statusId) === "waiting" || task.category === "waiting";
   /** ADR-078: entrar no Aguardando (ou editar) pede motivo e previsão; cancelar não muda nada. */
@@ -286,6 +293,8 @@ export function TaskDetail({
           />
         </section>
 
+        <Dependencies task={task} />
+
         <Links task={task} />
 
         <Attachments task={task} attachments={attachments} />
@@ -311,7 +320,9 @@ export function TaskDetail({
             onChange={(statusId) =>
               categoryOf(statusId) === "waiting" && task.category !== "waiting"
                 ? void setWaiting(statusId)
-                : save({ statusId })
+                : categoryOf(statusId) === "done" && openBlockers(task.links).length
+                  ? setConfirmDone(statusId)
+                  : save({ statusId })
             }
           />
           {waitingNow && task.category === "waiting" && (
@@ -325,6 +336,33 @@ export function TaskDetail({
             </div>
           )}
           {waitingDialog}
+          {/* ADR-079: dependência só avisa; concluir continua permitido */}
+          <Dialog open={!!confirmDone} onOpenChange={(o) => !o && setConfirmDone(null)}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Concluir com bloqueadora aberta?</DialogTitle>
+                <DialogDescription>
+                  {openBlockers(task.links)
+                    .map((l) => `TI-${l.number}`)
+                    .join(", ")}{" "}
+                  ainda não foi concluída. A dependência não impede concluir esta tarefa.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="secondary" onClick={() => setConfirmDone(null)}>
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={() => {
+                    save({ statusId: confirmDone! });
+                    setConfirmDone(null);
+                  }}
+                >
+                  Concluir mesmo assim
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </Prop>
         <Prop label="Prioridade">
           <Pick
@@ -583,7 +621,6 @@ function AddForm({
 }
 
 function Links({ task }: { task: Task }) {
-  const [kind, setKind] = useState<(typeof LINK_GROUPS)[number]["kind"]>("relates");
   const [pending, startTransition] = useTransition();
   return (
     <section aria-labelledby="links" className="flex flex-col gap-2">
@@ -637,18 +674,10 @@ function Links({ task }: { task: Task }) {
         );
       })}
       <AddForm
-        label="Número da tarefa"
+        label="Número da tarefa relacionada"
         placeholder="TI-123"
-        onAdd={(target) => setLinkAction(task.id, task.number, { kind, target }, true)}
-      >
-        <Pick
-          label="Tipo de vínculo"
-          items={LINK_GROUPS.map((g) => ({ value: g.kind, label: g.label }))}
-          value={kind}
-          onChange={(v) => setKind(v as typeof kind)}
-          className="w-44 flex-none"
-        />
-      </AddForm>
+        onAdd={(target) => setLinkAction(task.id, task.number, { kind: "relates", target }, true)}
+      />
     </section>
   );
 }

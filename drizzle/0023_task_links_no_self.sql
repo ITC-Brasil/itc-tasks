@@ -1,0 +1,2 @@
+CREATE INDEX "task_links_to_idx" ON "task_links" USING btree ("to_task_id");--> statement-breakpoint
+ALTER TABLE "task_links" ADD CONSTRAINT "task_links_no_self_ck" CHECK ("task_links"."from_task_id" <> "task_links"."to_task_id");

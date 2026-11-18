@@ -192,6 +192,7 @@ export function RecurrenceDialog({
             {WEEKDAYS.map((d, i) => (
               <label key={d} className="flex items-center gap-1.5">
                 <Checkbox
+                  aria-label={d}
                   checked={weekdays.includes(i)}
                   onCheckedChange={(on) =>
                     setWeekdays((w) => (on ? [...w, i] : w.filter((x) => x !== i)))

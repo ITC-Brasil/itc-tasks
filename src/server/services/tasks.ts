@@ -95,6 +95,9 @@ type EventType =
   | "checklist_changed"
   | "link_added"
   | "link_removed"
+  | "dependency_added" // ADR-079
+  | "dependency_removed"
+  | "unblocked"
   | "projects_changed"
   | "mobile_units_changed"
   | "commented"
@@ -673,6 +676,19 @@ async function applyUpdate(
   const set: Partial<typeof tasks.$inferInsert> = {};
   const events: Parameters<typeof record>[3] = [];
   if (toTeam) {
+    // ADR-079: dependência pessoal não vira dependência da equipe em silêncio
+    const [dep] = await tx
+      .select({ k: taskLinks.kind })
+      .from(taskLinks)
+      .where(
+        and(
+          eq(taskLinks.kind, "blocks"),
+          or(eq(taskLinks.fromTaskId, current.id), eq(taskLinks.toTaskId, current.id)),
+        ),
+      )
+      .limit(1);
+    if (dep)
+      throw new TaskError("VALIDATION", "Remova as dependências antes de mover para a equipe");
     // antes do record(): o evento da conversão já sai como tarefa da equipe (SSE e notificações)
     // o projeto principal vai junto: o CHECK do banco não aceita tarefa da equipe sem projeto
     await tx
@@ -790,6 +806,8 @@ async function applyUpdate(
       statusExtra.waitingCleared = before;
     }
   }
+  if (statusChanged && toStatus.category === "done" && fromStatus?.category !== "done")
+    await releaseBlocked(tx, actor, current);
   if (statusChanged) {
     set.statusId = toStatus.id;
     set.position = await lastPosition(tx, toStatus.id, current.id);
@@ -952,6 +970,28 @@ export async function deleteTasks(actor: Actor, input: { taskIds: string[] }) {
         deletedBy: actor.userId,
       })),
     );
+    // ADR-079: a tarefa do outro lado de uma dependência registra que ela sumiu
+    const deps = await tx
+      .select()
+      .from(taskLinks)
+      .where(
+        and(
+          eq(taskLinks.kind, "blocks"),
+          or(inArray(taskLinks.fromTaskId, taskIds), inArray(taskLinks.toTaskId, taskIds)),
+        ),
+      );
+    for (const d of deps) {
+      const fromGone = taskIds.includes(d.fromTaskId);
+      const [gone, other] = fromGone ? [d.fromTaskId, d.toTaskId] : [d.toTaskId, d.fromTaskId];
+      if (taskIds.includes(other)) continue;
+      const number = rows.find((r) => r.id === gone)!.number;
+      await record(tx, actor, other, [
+        {
+          type: "dependency_removed",
+          payload: { kind: fromGone ? "blocked_by" : "blocks", target: number, deleted: true },
+        },
+      ]);
+    }
     // ADR-048: a aba com a tarefa aberta recarrega e cai no 404
     for (const t of rows)
       await tx.execute(
@@ -1046,29 +1086,73 @@ export async function removeChecklistItem(actor: Actor, itemId: string) {
   });
 }
 
-// ── Vínculos ────────────────────────────────────────────────────────
+// ── Vínculos e dependências (ADR-079) ───────────────────────────────
+
+const DEPENDENCY_SCOPE = "Dependência só entre tarefas da equipe, ou entre tarefas pessoais suas";
+const INVERSE = { blocks: "blocked_by", blocked_by: "blocks" } as const;
 
 async function linkRow(
   tx: Tx,
   actor: Actor,
-  taskId: string,
+  current: Task,
   input: { kind: string; target: unknown },
 ) {
   const { kind, target } = linkSchema.parse(input);
-  // ADR-069: só se vincula ao que o ator vê
+  // ADR-069: só se vincula ao que o ator vê; pessoal de outra pessoa = não existe
   const [other] = await tx
-    .select({ id: tasks.id })
+    .select({ id: tasks.id, number: tasks.number, visibility: tasks.visibility })
     .from(tasks)
     .where(and(eq(tasks.number, target), visibleTo(actor)));
   if (!other) throw new TaskError("NOT_FOUND", `TI-${target} não encontrada`);
-  if (other.id === taskId)
+  if (other.id === current.id)
     throw new TaskError("VALIDATION", "Uma tarefa não se vincula a ela mesma");
+  const dependency = kind !== "relates";
+  // ADR-079: equipe com equipe; pessoal com pessoal (as duas visíveis = do mesmo dono)
+  if (dependency && other.visibility !== current.visibility)
+    throw new TaskError("VALIDATION", DEPENDENCY_SCOPE);
   // "bloqueada por" é o mesmo vínculo `blocks` visto do outro lado
   const row =
     kind === "blocked_by"
-      ? { fromTaskId: other.id, toTaskId: taskId, kind: "blocks" as const }
-      : { fromTaskId: taskId, toTaskId: other.id, kind: kind as "blocks" | "relates" };
-  return { row, payload: { kind, target } };
+      ? { fromTaskId: other.id, toTaskId: current.id, kind: "blocks" as const }
+      : { fromTaskId: current.id, toTaskId: other.id, kind: kind as "blocks" | "relates" };
+  return { row, kind, other, dependency };
+}
+
+/** A partir de `start`, seguindo "bloqueia", chega em `target`? */
+async function reaches(tx: Tx, start: string, target: string) {
+  const { rows } = await tx.execute(sql`
+    WITH RECURSIVE reach(id) AS (
+      SELECT to_task_id FROM task_links WHERE from_task_id = ${start} AND kind = 'blocks'
+      UNION
+      SELECT l.to_task_id FROM task_links l JOIN reach r ON l.from_task_id = r.id
+      WHERE l.kind = 'blocks'
+    )
+    SELECT 1 FROM reach WHERE id = ${target} LIMIT 1`);
+  return rows.length > 0;
+}
+
+/** Eventos nos dois lados: `dependency_*` para bloqueio, `link_*` para "relacionada a". */
+async function recordLink(
+  tx: Tx,
+  actor: Actor,
+  current: Task,
+  link: Awaited<ReturnType<typeof linkRow>>,
+  action: "added" | "removed",
+) {
+  if (!link.dependency)
+    return record(tx, actor, current.id, [
+      {
+        type: action === "added" ? "link_added" : "link_removed",
+        payload: { kind: link.kind, target: link.other.number },
+      },
+    ]);
+  const type = action === "added" ? "dependency_added" : "dependency_removed";
+  const kind = link.kind as keyof typeof INVERSE;
+  await record(tx, actor, current.id, [{ type, payload: { kind, target: link.other.number } }]);
+  const inverse = kind === "blocks" ? INVERSE.blocks : INVERSE.blocked_by;
+  await record(tx, actor, link.other.id, [
+    { type, payload: { kind: inverse, target: current.number } },
+  ]);
 }
 
 export async function addLink(
@@ -1077,10 +1161,19 @@ export async function addLink(
   input: { kind: string; target: unknown },
 ) {
   return db.transaction(async (tx) => {
-    await lockTask(tx, taskId, actor);
-    const { row, payload } = await linkRow(tx, actor, taskId, input);
-    const inserted = await tx.insert(taskLinks).values(row).onConflictDoNothing().returning();
-    if (inserted.length) await record(tx, actor, taskId, [{ type: "link_added", payload }]);
+    const current = await lockTask(tx, taskId, actor);
+    const link = await linkRow(tx, actor, current, input);
+    if (link.dependency) {
+      // ponytail: um lock para toda escrita de dependência (time de 4); por par se crescer
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('task_dependencies'))`);
+      if (await reaches(tx, link.row.toTaskId, link.row.fromTaskId))
+        throw new TaskError(
+          "VALIDATION",
+          `TI-${link.other.number} e TI-${current.number} já dependem uma da outra: criaria um ciclo`,
+        );
+    }
+    const inserted = await tx.insert(taskLinks).values(link.row).onConflictDoNothing().returning();
+    if (inserted.length) await recordLink(tx, actor, current, link, "added");
   });
 }
 
@@ -1090,8 +1183,9 @@ export async function removeLink(
   input: { kind: string; target: unknown },
 ) {
   return db.transaction(async (tx) => {
-    await lockTask(tx, taskId, actor);
-    const { row, payload } = await linkRow(tx, actor, taskId, input);
+    const current = await lockTask(tx, taskId, actor);
+    const link = await linkRow(tx, actor, current, input);
+    const { row } = link;
     const removed = await tx
       .delete(taskLinks)
       .where(
@@ -1102,8 +1196,35 @@ export async function removeLink(
         ),
       )
       .returning();
-    if (removed.length) await record(tx, actor, taskId, [{ type: "link_removed", payload }]);
+    if (removed.length) await recordLink(tx, actor, current, link, "removed");
   });
+}
+
+/** Há bloqueadora aberta (não concluída) da tarefa, fora `except`? */
+const openBlocker = (taskId: SQL, except?: string) => sql`EXISTS (
+  SELECT 1 FROM task_links bl
+  JOIN tasks b ON b.id = bl.from_task_id
+  JOIN workflow_statuses bs ON bs.id = b.status_id
+  WHERE bl.to_task_id = ${taskId} AND bl.kind = 'blocks' AND bs.category <> 'done'
+  ${except ? sql`AND bl.from_task_id <> ${except}` : sql``})`;
+
+/** Ao concluir: avisa as tarefas que ficaram sem bloqueadora aberta (ADR-079). */
+async function releaseBlocked(tx: Tx, actor: Actor, current: Task) {
+  const freed = await tx
+    .select({ id: tasks.id })
+    .from(taskLinks)
+    .innerJoin(tasks, eq(tasks.id, taskLinks.toTaskId))
+    .innerJoin(workflowStatuses, eq(workflowStatuses.id, tasks.statusId))
+    .where(
+      and(
+        eq(taskLinks.fromTaskId, current.id),
+        eq(taskLinks.kind, "blocks"),
+        ne(workflowStatuses.category, "done"),
+        sql`NOT ${openBlocker(sql`${tasks.id}`, current.id)}`,
+      ),
+    );
+  for (const t of freed)
+    await record(tx, actor, t.id, [{ type: "unblocked", payload: { by: current.number } }]);
 }
 
 // ── Leitura ─────────────────────────────────────────────────────────
@@ -1290,6 +1411,7 @@ export async function listTasks(
         dueDate: tasks.dueDate,
         dueTime: tasks.dueTime,
         recurrenceId: tasks.recurrenceId, // ADR-077: selo no card
+        blocked: sql<boolean>`${openBlocker(sql`${tasks.id}`)}`, // ADR-079
         waitingReason: tasks.waitingReason, // ADR-078
         waitingNote: tasks.waitingNote,
         waitingUntil: tasks.waitingUntil,
@@ -1319,6 +1441,7 @@ export async function listTasks(
           any(f.priorities, (ids) => inArray(tasks.priority, ids)),
           any(f.cycleIds, (ids) => inArray(tasks.cycleId, ids)),
           any(f.waitingReasons, (ids) => inArray(tasks.waitingReason, ids)),
+          f.blocked.length ? openBlocker(sql`${tasks.id}`) : undefined,
           // ADR-045: qualquer vínculo, não só o principal
           any(f.projectIds, (ids) =>
             inArray(

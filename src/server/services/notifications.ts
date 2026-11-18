@@ -146,6 +146,10 @@ export async function fanout(eventIds: string[]) {
             if (id && !mentioned.includes(id)) add(id, "commented", { quote: quote(c.bodyText) });
           break;
         }
+        // ADR-079: a última bloqueadora foi concluída; avisa o responsável da desbloqueada
+        case "unblocked":
+          add(task.assigneeId, "status_changed", { unblockedBy: `TI-${String(payload.by)}` });
+          break;
         case "status_changed": {
           const names = await tx
             .select({ id: workflowStatuses.id, name: workflowStatuses.name })
