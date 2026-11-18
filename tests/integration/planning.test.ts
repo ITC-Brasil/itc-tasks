@@ -194,7 +194,11 @@ it("Aguardando conta como aberta e vencida no painel e não preenche completedAt
   const p = await createProject(system, { code: `W${run}`, name: `Espera ${run}`, kind: "client" });
   const waiting = await db.transaction((tx) => firstStatus(tx, "waiting"));
   const t = await createTask(ana, { title: "Parada", projectIds: [p.id], dueDate: "2020-01-01" });
-  const moved = await updateTask(ana, t.id, { statusId: waiting.id });
+  const moved = await updateTask(ana, t.id, {
+    statusId: waiting.id,
+    waitingReason: "supplier",
+    waitingUntil: "2099-01-01",
+  });
   expect(moved.completedAt).toBeNull();
   const d = await projectDashboard(ana, { projectId: p.id });
   expect(d).toMatchObject({ open: 1, overdue: 1, done: 0 });

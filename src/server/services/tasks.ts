@@ -14,6 +14,7 @@ import {
   sql,
 } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
+import type { z } from "zod";
 import { generateKeyBetween } from "fractional-indexing";
 import { db } from "@/db";
 import {
@@ -58,7 +59,12 @@ import {
   taskTemplatePayloadSchema,
   taskFiltersSchema,
   updateTaskSchema,
+  WAITING_NEEDED,
+  WAITING_NOTE_NEEDED,
+  WAITING_ONLY,
+  WAITING_PAST,
 } from "@/lib/validation/tasks";
+import { todayISO } from "@/lib/dates";
 import { type Actor, ForbiddenError, canDeleteTask } from "@/server/permissions";
 import { type EvaluateJob, triggerOf } from "@/lib/validation/automations";
 import { type FanoutJob, QUEUES, enqueue } from "@/server/jobs";
@@ -434,6 +440,39 @@ export async function unitTitle(tx: Tx, title: string, unitIds: string[]) {
   return out;
 }
 
+// ── Aguardando (ADR-078) ────────────────────────────────────────────
+
+type Waiting = {
+  waitingReason: Task["waitingReason"];
+  waitingNote: string | null;
+  waitingUntil: string | null;
+};
+const NO_WAITING: Waiting = { waitingReason: null, waitingNote: null, waitingUntil: null };
+type WaitingInput = Partial<{
+  waitingReason: Task["waitingReason"] | null;
+  waitingNote: string | null;
+  waitingUntil: string | null;
+}>;
+const touchesWaiting = (d: WaitingInput) =>
+  d.waitingReason != null || !!d.waitingNote || d.waitingUntil != null;
+
+/** Motivo e data prevista completos; data nova não pode ser passada; nota só com "Outro". */
+function checkWaiting(w: Waiting, before: Waiting | null): Waiting {
+  if (!w.waitingReason || !w.waitingUntil) throw new TaskError("VALIDATION", WAITING_NEEDED);
+  const note = w.waitingReason === "other" ? w.waitingNote?.trim() || null : null;
+  if (w.waitingReason === "other" && !note) throw new TaskError("VALIDATION", WAITING_NOTE_NEEDED);
+  if (w.waitingUntil !== before?.waitingUntil && w.waitingUntil < todayISO())
+    throw new TaskError("VALIDATION", WAITING_PAST);
+  return { waitingReason: w.waitingReason, waitingNote: note, waitingUntil: w.waitingUntil };
+}
+
+const waitingOf = (t: Waiting): Waiting => ({
+  waitingReason: t.waitingReason,
+  waitingNote: t.waitingNote,
+  waitingUntil: t.waitingUntil,
+});
+const hasWaiting = (t: Waiting) => !!(t.waitingReason || t.waitingUntil || t.waitingNote);
+
 /** ADR-077: confere as referências de uma tarefa a criar sem criá-la (regra de recorrência). */
 export async function assertTaskRefs(
   tx: Tx,
@@ -503,6 +542,15 @@ export async function insertTask(
   const status = data.statusId
     ? await assertStatus(tx, data.statusId)
     : await firstStatus(tx, "todo");
+  // ADR-078: criar já em Aguardando exige motivo e previsão
+  const waiting =
+    status.category === "waiting"
+      ? checkWaiting({ ...NO_WAITING, ...data } as Waiting, null)
+      : touchesWaiting(data)
+        ? (() => {
+            throw new TaskError("VALIDATION", WAITING_ONLY);
+          })()
+        : NO_WAITING;
 
   const [task] = await tx
     .insert(tasks)
@@ -526,6 +574,7 @@ export async function insertTask(
       recurrenceId: opts.recurrence?.id ?? null,
       position: await lastPosition(tx, status.id),
       completedAt: status.category === "done" ? new Date() : null,
+      ...waiting,
     })
     .returning();
 
@@ -704,15 +753,51 @@ async function applyUpdate(
         },
       });
   }
-  if (data.statusId && data.statusId !== current.statusId) {
-    const [status, from] = await Promise.all([
-      assertStatus(tx, data.statusId),
-      tx.select().from(workflowStatuses).where(eq(workflowStatuses.id, current.statusId)),
-    ]);
-    set.statusId = status.id;
-    set.position = await lastPosition(tx, status.id, current.id);
-    Object.assign(set, completion(from[0]?.category, status.category, current.completedAt));
-    events.push({ type: "status_changed", payload: { from: current.statusId, to: status.id } });
+  const statusChanged = !!data.statusId && data.statusId !== current.statusId;
+  const [fromStatus] = await tx
+    .select()
+    .from(workflowStatuses)
+    .where(eq(workflowStatuses.id, current.statusId));
+  const toStatus = statusChanged ? await assertStatus(tx, data.statusId!) : fromStatus;
+  // ADR-078: entrar no Aguardando exige motivo e previsão; sair limpa; dentro dele, edita
+  const wasWaiting = fromStatus?.category === "waiting";
+  const before = waitingOf(current);
+  const statusExtra: Record<string, unknown> = {};
+  if (toStatus.category === "waiting") {
+    const touched = "waitingReason" in data || "waitingNote" in data || "waitingUntil" in data;
+    if (!wasWaiting || touched) {
+      const after = checkWaiting(
+        {
+          waitingReason:
+            "waitingReason" in data ? (data.waitingReason ?? null) : before.waitingReason,
+          waitingNote: "waitingNote" in data ? (data.waitingNote ?? null) : before.waitingNote,
+          waitingUntil: "waitingUntil" in data ? (data.waitingUntil ?? null) : before.waitingUntil,
+        },
+        wasWaiting ? before : null,
+      );
+      Object.assign(set, after);
+      if (!wasWaiting) statusExtra.waiting = after;
+      else if (stable(after) !== stable(before))
+        events.push({
+          type: "field_changed",
+          payload: { field: "waiting", from: before, to: after },
+        });
+    }
+  } else {
+    if (touchesWaiting(data)) throw new TaskError("VALIDATION", WAITING_ONLY);
+    if (hasWaiting(before)) {
+      Object.assign(set, NO_WAITING);
+      statusExtra.waitingCleared = before;
+    }
+  }
+  if (statusChanged) {
+    set.statusId = toStatus.id;
+    set.position = await lastPosition(tx, toStatus.id, current.id);
+    Object.assign(set, completion(fromStatus?.category, toStatus.category, current.completedAt));
+    events.push({
+      type: "status_changed",
+      payload: { from: current.statusId, to: toStatus.id, ...statusExtra },
+    });
   }
   if (data.labelIds) {
     const before = (
@@ -783,12 +868,12 @@ export async function updateTask(actor: Actor, taskId: string, input: UpdateTask
 export async function moveTask(
   actor: Actor,
   taskId: string,
-  input: { statusId: string; afterTaskId: string | null },
+  input: z.input<typeof moveTaskSchema>,
 ) {
-  const { statusId, afterTaskId } = moveTaskSchema.parse(input);
+  const { statusId, afterTaskId, ...waiting } = moveTaskSchema.parse(input);
   return db.transaction(async (tx) => {
     const current = await lockTask(tx, taskId, actor);
-    let task = await applyUpdate(tx, actor, current, { statusId });
+    let task = await applyUpdate(tx, actor, current, { statusId, ...waiting });
     const [prev] = afterTaskId
       ? await tx
           .select({ p: tasks.position })
@@ -1205,6 +1290,9 @@ export async function listTasks(
         dueDate: tasks.dueDate,
         dueTime: tasks.dueTime,
         recurrenceId: tasks.recurrenceId, // ADR-077: selo no card
+        waitingReason: tasks.waitingReason, // ADR-078
+        waitingNote: tasks.waitingNote,
+        waitingUntil: tasks.waitingUntil,
         // Módulo 16: progresso das subtarefas no card, na mesma consulta (sem N+1)
         checklistTotal: sql<number>`(SELECT count(*)::int FROM ${checklistItems} WHERE ${checklistItems.taskId} = ${tasks.id})`,
         checklistDone: sql<number>`(SELECT count(*)::int FROM ${checklistItems} WHERE ${checklistItems.taskId} = ${tasks.id} AND ${checklistItems.done})`,
@@ -1230,6 +1318,7 @@ export async function listTasks(
           any(f.assigneeIds, (ids) => inArray(tasks.assigneeId, ids)),
           any(f.priorities, (ids) => inArray(tasks.priority, ids)),
           any(f.cycleIds, (ids) => inArray(tasks.cycleId, ids)),
+          any(f.waitingReasons, (ids) => inArray(tasks.waitingReason, ids)),
           // ADR-045: qualquer vínculo, não só o principal
           any(f.projectIds, (ids) =>
             inArray(
