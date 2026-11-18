@@ -162,6 +162,13 @@
       "when": 1795015541390,
       "tag": "0022_waiting_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1795017669081,
+      "tag": "0023_task_links_no_self",
+      "breakpoints": true
     }
   ]
 }

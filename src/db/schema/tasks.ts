@@ -124,9 +124,13 @@ export const taskLinks = pgTable(
     toTaskId: uuid("to_task_id")
       .notNull()
       .references(() => tasks.id, { onDelete: "cascade" }),
-    kind: linkKind("kind").notNull(), // 'blocks' = from bloqueia to
+    kind: linkKind("kind").notNull(), // 'blocks' = from bloqueia to (ADR-079: dependência)
   },
-  (t) => [primaryKey({ columns: [t.fromTaskId, t.toTaskId, t.kind] })],
+  (t) => [
+    primaryKey({ columns: [t.fromTaskId, t.toTaskId, t.kind] }),
+    check("task_links_no_self_ck", sql`${t.fromTaskId} <> ${t.toTaskId}`),
+    index("task_links_to_idx").on(t.toTaskId),
+  ],
 );
 
 // ADR-045: todos os Projetos/Clientes e UMs da tarefa; tasks.project_id é o principal
