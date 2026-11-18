@@ -15,6 +15,7 @@ import {
   workflowStatuses,
 } from "@/db/schema";
 import { addDays, todayISO } from "@/lib/dates";
+import { waitingReasonLabel } from "@/lib/validation/tasks";
 import { env } from "@/lib/env";
 import {
   type Channels,
@@ -349,6 +350,43 @@ async function reminders(now: Date) {
         inArray(checklistItems.dueDate, [today, addDays(today, -1)]),
       ),
     );
+  // ADR-078: previsão do Aguardando chegou; avisa o responsável no dia, sem repetir
+  const waiting = await db
+    .select({ id: tasks.id, assigneeId: tasks.assigneeId, reason: tasks.waitingReason })
+    .from(tasks)
+    .innerJoin(workflowStatuses, eq(workflowStatuses.id, tasks.statusId))
+    .where(
+      and(
+        eq(workflowStatuses.category, "waiting"),
+        isNull(tasks.archivedAt),
+        eq(tasks.waitingUntil, today),
+      ),
+    );
+  for (const t of waiting) {
+    if (!t.assigneeId) continue;
+    await db.transaction(async (tx) => {
+      const [dup] = await tx
+        .select({ id: notifications.id })
+        .from(notifications)
+        .where(
+          and(
+            eq(notifications.userId, t.assigneeId!),
+            eq(notifications.taskId, t.id),
+            eq(notifications.event, "due_today"),
+            gte(notifications.createdAt, since),
+            sql`${notifications.data}->>'waiting' IS NOT NULL`,
+          ),
+        );
+      if (!dup)
+        await deliver(tx, t.id, "Prazo", [
+          {
+            userId: t.assigneeId!,
+            event: "due_today",
+            data: { waiting: waitingReasonLabel(t.reason) ?? "sem motivo" },
+          },
+        ]);
+    });
+  }
   for (const t of [...due.map((d) => ({ ...d, subtask: null })), ...subtasks]) {
     if (!t.assigneeId) continue;
     const event = t.dueDate === today ? "due_today" : "overdue";
@@ -364,7 +402,7 @@ async function reminders(now: Date) {
             gte(notifications.createdAt, since),
             // o aviso da tarefa e o de cada subtarefa não se anulam
             t.subtask === null
-              ? sql`${notifications.data}->>'subtask' IS NULL`
+              ? sql`${notifications.data}->>'subtask' IS NULL AND ${notifications.data}->>'waiting' IS NULL`
               : sql`${notifications.data}->>'subtask' = ${t.subtask}`,
           ),
         );
