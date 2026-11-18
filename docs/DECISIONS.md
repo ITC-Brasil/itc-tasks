@@ -2587,3 +2587,57 @@ e data prevista ao entrar no Aguardando.
 - Migração `0022_waiting_fields` (enum novo + três colunas, sem reescrita).
 - Uma automação que move para Aguardando passa a falhar até ter motivo e data (não tem como
   informar); fica registrado em "Decisões a confirmar" do módulo.
+
+---
+
+## ADR-079 — Dependências entre tarefas ("bloqueada por")
+
+**Status:** Accepted
+**Date:** 2026-11-18
+**Module:** 17 — Recorrência, Aguardando com motivo e dependências (item 3)
+
+**Context**
+O Matheus aprovou (12/11/2026) registrar que uma tarefa está bloqueada por outra. O schema já tem
+`task_links` (Módulo 04, ADR-042) com `kind = 'blocks'` (`from` bloqueia `to`), chave
+`(from, to, kind)` e cascade nas duas pontas, usado pela seção "Vínculos" do detalhe.
+
+**Decision**
+- **Reaproveitar `task_links`** em vez de criar `task_dependencies`: a tabela já é a relação
+  "bloqueia" com a chave e o cascade pedidos, e os vínculos `blocks` existentes passam a valer
+  como dependência sem cópia de dados. "Bloqueada por" é o mesmo registro visto do outro lado.
+  Migração aditiva `0023_task_links_no_self`: `CHECK (from_task_id <> to_task_id)` e índice em
+  `to_task_id` (as bloqueadoras de uma tarefa).
+- **Sem ciclo** (A→B→A, ou mais longo): conferido no service, numa consulta recursiva dentro da
+  transação, sob um `pg_advisory_xact_lock` único para escrita de dependência (duas inclusões
+  cruzadas ao mesmo tempo não fecham um ciclo). Sem auto-dependência (service e `CHECK`).
+- **Visibilidade (ADR-069):** só entre tarefas da equipe, ou entre tarefas pessoais do mesmo
+  dono. A outra ponta é procurada com `visibleTo(actor)`: pessoal de outra pessoa dá o mesmo
+  `NOT_FOUND` de tarefa inexistente ("TI-n não encontrada"), sem dizer que existe. Equipe × pessoal
+  do próprio ator é recusada com mensagem que só fala de tarefas que ele vê.
+- **Mover pessoal → equipe** com dependência é **recusado** ("Remova as dependências antes de
+  mover para a equipe"): conservador, não apaga nada em silêncio.
+- **Não bloqueia o fluxo:** mover e concluir continuam livres. O card mostra "Bloqueada" (ícone
+  `Link2Off`, `warn` só no ícone) enquanto houver bloqueadora aberta; concluir no detalhe com
+  bloqueadora aberta pede confirmação.
+- **Eventos nos dois lados:** `dependency_added`/`dependency_removed` com `{ kind: "blocked_by" |
+  "blocks", target }`. O vínculo `relates` continua com `link_added`/`link_removed`.
+- **Desbloqueio:** ao concluir uma tarefa, cada tarefa que ela bloqueava e ficou sem bloqueadora
+  aberta ganha o evento `unblocked` `{ by }`; o fanout avisa o responsável com o tipo
+  `status_changed` e `data.unblockedBy` ("Ana concluiu TI-12 e desbloqueou TI-15"), pelas
+  preferências desse tipo. Sem tipo de aviso novo.
+- **Exclusão (ADR-063):** o cascade leva os vínculos; antes, cada tarefa do outro lado ganha
+  `dependency_removed` com `deleted: true` (o número fica; o título de pessoal não aparece).
+- **MCP:** `get_task` devolve `blockedBy` e `blocks` (`[{ id: "TI-n", title, done }]`);
+  `update_task` aceita `blockedByAdd`/`blockedByRemove` (números ou `TI-n`).
+- **Filtro** `?bloqueada=1` nas visões e nos filtros salvos.
+
+**Alternatives considered**
+- *Tabela nova `task_dependencies`:* duplicaria `task_links.blocks` e exigiria migrar ou conviver
+  com os vínculos já gravados.
+- *Impedir concluir com bloqueadora aberta:* rejeitado no prompt (só avisa).
+- *Converter pessoal → equipe removendo as dependências com evento:* possível, mas some com
+  informação sem a pessoa pedir.
+
+**Consequences**
+- O tipo de vínculo "bloqueia/bloqueada por" da seção Vínculos vira a seção "Dependências";
+  "Vínculos" fica só com "relacionada a".
