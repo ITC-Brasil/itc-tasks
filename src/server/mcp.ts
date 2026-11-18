@@ -182,13 +182,15 @@ export function createMcpServer(actor: AgentActor, access: Access[]) {
       for (const [n, itemId] of itemIds.entries())
         // eslint-disable-next-line security/detect-object-injection -- n é o índice do próprio array
         await updateChecklistItem(actor, itemId, { done: toggles[n].done });
-      for (const [n, itemId] of dueIds.entries())
+      for (const [n, itemId] of dueIds.entries()) {
         // eslint-disable-next-line security/detect-object-injection -- n é o índice do próprio array
+        const { dueDate, dueTime } = dues[n];
+        // ADR-072: sem dueTime no item, a hora atual fica (limpar a data limpa a hora)
         await updateChecklistItem(actor, itemId, {
-          dueDate: dues[n].dueDate,
-          // eslint-disable-next-line security/detect-object-injection -- idem
-          ...(dues[n].dueTime !== undefined && { dueTime: dues[n].dueTime }),
+          dueDate,
+          ...(dueTime !== undefined && { dueTime }),
         });
+      }
       return (await getTaskSummary(actor, id)).summary;
     },
   );
