@@ -79,6 +79,12 @@ export const labelSchema = z.object({
 });
 export type LabelInput = z.input<typeof labelSchema>;
 
+// ADR-073: pessoa de fora do app; só o nome
+export const involvedSchema = z.object({
+  name: z.string().trim().min(1, "Informe o nome").max(80, "Até 80 caracteres"),
+});
+export type InvolvedInput = z.input<typeof involvedSchema>;
+
 export const STATUS_CATEGORIES = ["backlog", "todo", "in_progress", "waiting", "done"] as const; // ADR-022, ADR-067
 
 export const statusNameSchema = z.string().trim().min(1, "Informe o nome").max(40);
