@@ -316,11 +316,8 @@ export function TaskDetail({
           />
           {waitingNow && task.category === "waiting" && (
             <div className="mt-1.5 flex flex-wrap items-center gap-2">
-              <WaitingInfo
-                reason={task.waitingReason}
-                note={task.waitingNote}
-                until={task.waitingUntil}
-              />
+              {/* a nota aparece ao lado, visível; no card ela vai só para o leitor de tela */}
+              <WaitingInfo reason={task.waitingReason} until={task.waitingUntil} />
               {task.waitingNote && <span className="text-xs text-muted">{task.waitingNote}</span>}
               <Button variant="ghost" size="sm" onClick={() => void setWaiting(task.statusId)}>
                 {task.waitingUntil ? "Editar" : "Completar"}
