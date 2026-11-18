@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { relativeTime } from "@/lib/dates";
+import { isOverdue, relativeTime } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import type { Priority, UpdateTaskInput } from "@/lib/validation/tasks";
 import {
@@ -56,7 +56,10 @@ type Comment = Awaited<ReturnType<typeof listComments>>[number];
 type Event = Awaited<ReturnType<typeof listActivity>>[number];
 type Attachment = Awaited<ReturnType<typeof listAttachments>>[number];
 type Patch = Partial<
-  Pick<Task, "title" | "statusId" | "priority" | "assigneeId" | "glpiTicket" | "dueDate">
+  Pick<
+    Task,
+    "title" | "statusId" | "priority" | "assigneeId" | "glpiTicket" | "dueDate" | "dueTime"
+  >
 > & {
   labelIds?: string[];
   projectIds?: string[];
@@ -82,7 +85,6 @@ export function TaskDetail({
   options,
   glpiBaseUrl,
   canDelete,
-  today,
 }: {
   task: Task;
   comments: Comment[];
@@ -91,7 +93,8 @@ export function TaskDetail({
   options: TaskFormOptions;
   glpiBaseUrl: string;
   canDelete: boolean;
-  today: string;
+  /** ponytail: não usado desde o ADR-072 (o atraso vem do isOverdue); quem chama ainda passa */
+  today?: string;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -214,7 +217,7 @@ export function TaskDetail({
                   {c.text}
                 </span>
                 {/* mesmo padrão do prazo da tarefa: ícone em err, texto normal; concluída não atrasa */}
-                {!c.done && c.dueDate && c.dueDate < today && (
+                {!c.done && isOverdue(c.dueDate, c.dueTime) && (
                   <>
                     <Calendar
                       className="size-3.5 flex-none text-err"
@@ -233,6 +236,20 @@ export function TaskDetail({
                   onChange={(e) => {
                     const dueDate = e.currentTarget.value || null;
                     act({}, () => updateChecklistItemAction(c.id, task.number, { dueDate }));
+                  }}
+                />
+                {/* ADR-072: hora opcional, só com data */}
+                <Input
+                  key={`${c.dueDate}-${c.dueTime}`}
+                  type="time"
+                  aria-label={`Hora do prazo de ${c.text}`}
+                  className="h-7 w-auto flex-none px-1.5 text-xs tabular-nums"
+                  disabled={!c.dueDate}
+                  defaultValue={c.dueTime ?? ""}
+                  onBlur={(e) => {
+                    const dueTime = e.currentTarget.value || null;
+                    if (dueTime !== c.dueTime)
+                      act({}, () => updateChecklistItemAction(c.id, task.number, { dueTime }));
                   }}
                 />
                 <Button
@@ -340,6 +357,19 @@ export function TaskDetail({
             className="tabular-nums"
             defaultValue={task.dueDate ?? ""}
             onChange={(e) => save({ dueDate: e.currentTarget.value || null })}
+          />
+          {/* ADR-072: hora opcional; sem data fica desabilitada */}
+          <Input
+            key={`${task.dueDate}-${task.dueTime}`}
+            type="time"
+            aria-label="Hora do prazo"
+            className="mt-1.5 tabular-nums"
+            disabled={!task.dueDate}
+            defaultValue={task.dueTime ?? ""}
+            onBlur={(e) => {
+              const dueTime = e.currentTarget.value || null;
+              if (dueTime !== task.dueTime) save({ dueTime });
+            }}
           />
         </Prop>
         {!personal && (

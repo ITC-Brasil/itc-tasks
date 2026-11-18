@@ -1,7 +1,7 @@
 import { ChevronLeft, ChevronRight, Flag, ListChecks } from "lucide-react";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
-import { monthGrid, shiftMonth } from "@/lib/dates";
+import { dueKey, isOverdue, monthGrid, shiftMonth } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import type { TaskRow } from "@/server/services/tasks";
 import { PriorityIcon } from "./badges";
@@ -25,17 +25,31 @@ export function MonthCalendar({
   query: string; // filtros atuais, mantidos ao trocar de mês
   path?: string; // Minhas tarefas usa o mesmo calendário em "/"
   // Módulo 15: subtarefas abertas com prazo, com ícone e rótulo próprios
-  subtasks?: { id: string; text: string; dueDate: string; number: number }[];
+  subtasks?: {
+    id: string;
+    text: string;
+    dueDate: string;
+    dueTime: string | null;
+    number: number;
+  }[];
 }) {
   const href = (m: string) => `${path}?${[query, `mes=${m}`].filter(Boolean).join("&")}`;
-  const subs = Map.groupBy(subtasks, (s) => s.dueDate);
+  // ADR-072: no dia, as com hora primeiro, em ordem; sem hora no fim
+  const subs = Map.groupBy(
+    subtasks.toSorted((a, b) =>
+      dueKey(a.dueDate, a.dueTime).localeCompare(dueKey(b.dueDate, b.dueTime)),
+    ),
+    (s) => s.dueDate,
+  );
   const title = new Date(`${month}-01T12:00:00Z`).toLocaleDateString("pt-BR", {
     month: "long",
     year: "numeric",
     timeZone: "UTC",
   });
   const byDay = Map.groupBy(
-    tasks.filter((t) => t.dueDate),
+    tasks
+      .filter((t) => t.dueDate)
+      .sort((a, b) => dueKey(a.dueDate, a.dueTime).localeCompare(dueKey(b.dueDate, b.dueTime))),
     (t) => t.dueDate!,
   );
   const marks = Map.groupBy(milestones, (m) => m.dueOn!);
@@ -118,7 +132,7 @@ export function MonthCalendar({
                         href={`/tarefas/${s.number}`}
                         className={cn(
                           "flex items-center gap-1 rounded-sm px-1 py-0.5 text-xs hover:bg-muted",
-                          day < today && "border-l-2 border-err",
+                          isOverdue(s.dueDate, s.dueTime) && "border-l-2 border-err",
                         )}
                         title={`Subtarefa de TI-${s.number}: ${s.text}`}
                       >
@@ -128,6 +142,7 @@ export function MonthCalendar({
                           aria-hidden="true"
                         />
                         <span className="sr-only">Subtarefa de TI-{s.number}:</span>
+                        {s.dueTime && <span className="tabular-nums text-muted">{s.dueTime}</span>}
                         <span className="truncate">{s.text}</span>
                       </Link>
                     </li>
@@ -139,11 +154,14 @@ export function MonthCalendar({
                         className={cn(
                           "flex items-center gap-1 rounded-sm px-1 py-0.5 text-xs hover:bg-muted",
                           t.category === "done" && "text-muted line-through",
-                          t.category !== "done" && day < today && "border-l-2 border-err",
+                          t.category !== "done" &&
+                            isOverdue(t.dueDate, t.dueTime) &&
+                            "border-l-2 border-err",
                         )}
                         title={`TI-${t.number} ${t.title}`}
                       >
                         <PriorityIcon priority={t.priority} className="size-3" />
+                        {t.dueTime && <span className="tabular-nums text-muted">{t.dueTime}</span>}
                         <span className="truncate">{t.title}</span>
                       </Link>
                     </li>

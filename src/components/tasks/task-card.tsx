@@ -1,13 +1,21 @@
 import { Calendar } from "lucide-react";
 import Link from "next/link";
 import { Avatar } from "@/components/ui/avatar";
-import { shortDate } from "@/lib/dates";
+import { isOverdue, shortDate } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import type { TaskRow } from "@/server/services/tasks";
 import { LabelChip, PersonalMark, PriorityIcon, ProjectChip, UnitChip } from "./badges";
 
 /** Prazo com ícone; vencido em `err` (ícone) e texto normal (contraste). */
-export function DueDate({ due, overdue }: { due: string; overdue: boolean }) {
+export function DueDate({
+  due,
+  time,
+  overdue,
+}: {
+  due: string;
+  time?: string | null;
+  overdue: boolean;
+}) {
   return (
     <span className="inline-flex items-center gap-1 text-xs tabular-nums text-muted">
       <Calendar
@@ -16,6 +24,7 @@ export function DueDate({ due, overdue }: { due: string; overdue: boolean }) {
         aria-hidden="true"
       />
       {shortDate(due)}
+      {time && ` ${time}`}
       {overdue && <span className="sr-only">(vencida)</span>}
     </span>
   );
@@ -24,14 +33,14 @@ export function DueDate({ due, overdue }: { due: string; overdue: boolean }) {
 /** TaskCard do Design System: ID, título, chips e rodapé com prazo, prioridade e responsável. */
 export function TaskCard({
   task,
-  today,
   className,
 }: {
   task: TaskRow;
-  today: string;
+  /** ponytail: não usado desde o ADR-072 (o atraso vem do isOverdue); quem chama ainda passa */
+  today?: string;
   className?: string;
 }) {
-  const overdue = !!task.dueDate && task.dueDate < today && task.category !== "done";
+  const overdue = task.category !== "done" && isOverdue(task.dueDate, task.dueTime);
   return (
     <article className={cn("rounded-md border bg-surface p-3 shadow-1", className)}>
       <Link href={`/tarefas/${task.number}`} className="text-sm font-medium hover:underline">
@@ -54,7 +63,7 @@ export function TaskCard({
       )}
       <div className="mt-2 flex items-center gap-2">
         <PriorityIcon priority={task.priority} />
-        {task.dueDate && <DueDate due={task.dueDate} overdue={overdue} />}
+        {task.dueDate && <DueDate due={task.dueDate} time={task.dueTime} overdue={overdue} />}
         <span className="flex-1" />
         {task.assigneeInitials && (
           <span title={task.assigneeName ?? undefined}>

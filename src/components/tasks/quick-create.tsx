@@ -51,6 +51,7 @@ const EMPTY = {
   assigneeId: "",
   glpiTicket: "",
   dueDate: "",
+  dueTime: "",
   labelIds: [] as string[],
   checklist: [] as string[],
   descriptionJson: null as { type: "doc" } | null,
@@ -315,7 +316,19 @@ export function QuickCreate() {
                   aria-label="Prazo"
                   className="tabular-nums"
                   value={form.dueDate}
-                  onChange={(e) => set("dueDate", e.target.value)}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setForm((f) => ({ ...f, dueDate: v, dueTime: v ? f.dueTime : "" }));
+                  }}
+                />
+                {/* ADR-072: hora opcional, só com data */}
+                <Input
+                  type="time"
+                  aria-label="Hora do prazo"
+                  className="tabular-nums"
+                  disabled={!form.dueDate}
+                  value={form.dueTime}
+                  onChange={(e) => set("dueTime", e.target.value)}
                 />
               </div>
               {!!items.labels.length && (

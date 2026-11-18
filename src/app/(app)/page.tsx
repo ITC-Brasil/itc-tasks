@@ -7,7 +7,7 @@ import { MonthCalendar } from "@/components/tasks/calendar";
 import { TaskCard } from "@/components/tasks/task-card";
 import { TaskTable } from "@/components/tasks/task-table";
 import { EmptyState } from "@/components/ui/empty-state";
-import { type DueBucket, dueBucket, todayISO } from "@/lib/dates";
+import { type DueBucket, dueBucket, dueKey, todayISO } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import { requireUser } from "@/server/actor";
 import { getTaskFormOptionsAction } from "@/server/actions/tasks";
@@ -70,7 +70,7 @@ async function Mine({ searchParams }: PageProps<"/">) {
     {},
     { ...scopeOf(aba, actor.userId), openOnly: visao !== "calendario" },
   );
-  tasks.sort((a, b) => (a.dueDate ?? "9999").localeCompare(b.dueDate ?? "9999"));
+  tasks.sort((a, b) => dueKey(a.dueDate, a.dueTime).localeCompare(dueKey(b.dueDate, b.dueTime)));
 
   const nav = (
     <div className="mb-4 flex flex-wrap items-end gap-x-4 gap-y-2 border-b">
