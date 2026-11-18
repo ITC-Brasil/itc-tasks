@@ -229,6 +229,50 @@ it("checklist e vínculos (bloqueia ↔ bloqueada por)", async () => {
   expect(actions.slice(-2)).toEqual(["due_set", "due_cleared"]);
 });
 
+it("ADR-072: hora do prazo só com data; limpar a data limpa a hora", async () => {
+  await expect(
+    createTask(actor, { title: "Hora sem data", projectIds: [projectId], dueTime: "10:00" }),
+  ).rejects.toThrow("Defina a data antes da hora");
+  await expect(
+    createTask(actor, {
+      title: "Hora inválida",
+      projectIds: [projectId],
+      dueDate: "2031-01-10",
+      dueTime: "25:00",
+    }),
+  ).rejects.toThrow();
+  const t = await createTask(actor, {
+    title: "Com hora",
+    projectIds: [projectId],
+    dueDate: "2031-01-10",
+    dueTime: "14:30",
+  });
+  expect(t.dueTime).toBe("14:30");
+  const moved = await updateTask(actor, t.id, { dueTime: "09:05" });
+  expect(moved.dueTime).toBe("09:05");
+  const cleared = await updateTask(actor, t.id, { dueDate: null });
+  expect([cleared.dueDate, cleared.dueTime]).toEqual([null, null]);
+  await expect(updateTask(actor, t.id, { dueTime: "08:00" })).rejects.toThrow(
+    "Defina a data antes da hora",
+  );
+  const fields = (await events(t.id))
+    .filter((e) => e.type === "field_changed")
+    .map((e) => (e.payload as { field: string }).field);
+  expect(fields).toEqual(["dueTime", "dueDate", "dueTime"]);
+
+  const item = await addChecklistItem(actor, t.id, "Ligar");
+  await expect(updateChecklistItem(actor, item.id, { dueTime: "10:00" })).rejects.toThrow(
+    "Defina a data antes da hora",
+  );
+  const sub = await updateChecklistItem(actor, item.id, {
+    dueDate: "2031-01-09",
+    dueTime: "07:45",
+  });
+  expect([sub.dueDate, sub.dueTime]).toEqual(["2031-01-09", "07:45"]);
+  const subCleared = await updateChecklistItem(actor, item.id, { dueDate: null });
+  expect(subCleared.dueTime).toBeNull();
+});
+
 it("tarefa criada pelo sistema: ator system, criador = primeiro admin ativo (ADR-045)", async () => {
   await createMember(system, {
     name: "Admin teste",

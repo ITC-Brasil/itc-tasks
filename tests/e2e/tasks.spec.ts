@@ -164,6 +164,32 @@ test("criação seguida abre sem Projeto/Cliente nem UM da anterior", async ({ p
   );
 });
 
+test("prazo com hora: criação rápida e detalhe (ADR-072)", async ({ page }) => {
+  test.slow();
+  const title = `E2E hora ${Date.now()}`;
+  await login(page);
+  const dialog = page.getByRole("dialog", { name: "Criar tarefa" });
+  await expect(async () => {
+    await page.keyboard.press("c");
+    await expect(dialog).toBeVisible({ timeout: 1000 });
+  }).toPass();
+  await dialog.getByLabel("Título").fill(title);
+  await dialog.getByLabel("Projeto/Cliente").click();
+  await page.getByRole("option", { name: "BSBIA · BSBIA" }).click();
+  await page.keyboard.press("Escape");
+  await expect(dialog.getByLabel("Hora do prazo")).toBeDisabled(); // sem data
+  await dialog.getByLabel("Prazo").fill("2020-01-02");
+  await dialog.getByLabel("Hora do prazo").fill("14:30");
+  await dialog.getByLabel("Título").press("Control+Enter");
+  const toast = page.getByText(/^TI-\d+ criada$/);
+  await expect(toast).toBeVisible();
+  const number = (await toast.textContent())!.match(/\d+/)![0];
+
+  await page.goto(`/tarefas/${number}`);
+  await expect(page.getByLabel("Hora do prazo")).toHaveValue("14:30");
+  await expect(page.getByLabel("Prazo", { exact: true })).toHaveValue("2020-01-02");
+});
+
 test("tarefa inexistente mostra a página de não encontrado", async ({ page }) => {
   await login(page);
   await page.goto("/tarefas/999999999");
