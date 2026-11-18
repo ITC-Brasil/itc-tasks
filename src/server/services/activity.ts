@@ -33,6 +33,7 @@ type Payload = {
   key?: string;
   sourceId?: string;
   deleted?: string;
+  recurrence?: string;
 };
 type Names = Map<string, string>;
 
@@ -101,8 +102,8 @@ function fieldChange(p: Payload, names: Names) {
 
 export function describe(type: string, p: Payload, names: Names): string | null {
   switch (type) {
-    case "created":
-      return "criou a tarefa";
+    case "created": // ADR-077: o nome da regra fica no evento, mesmo se ela for excluída
+      return p.recurrence ? `criou a tarefa pela recorrência “${p.recurrence}”` : "criou a tarefa";
     case "status_changed":
       return `mudou o status de ${name(names, p.from)} para ${name(names, p.to)}`;
     case "assigned":

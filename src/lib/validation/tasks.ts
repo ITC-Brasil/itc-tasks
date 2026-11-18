@@ -116,6 +116,21 @@ export const createTaskSchema = z
   });
 export type CreateTaskInput = z.input<typeof createTaskSchema>;
 
+// ADR-077: o que a regra de recorrência copia para cada tarefa criada
+export const recurrencePayloadSchema = z.object({
+  title,
+  descriptionJson: fields.descriptionJson,
+  priority: fields.priority,
+  assigneeId: fields.assigneeId,
+  projectIds,
+  mobileUnitIds: fields.mobileUnitIds,
+  labelIds: fields.labelIds,
+  involvedIds: fields.involvedIds,
+  checklist: z.array(z.string().trim().min(1).max(200)).max(50).default([]),
+});
+export type RecurrencePayload = z.output<typeof recurrencePayloadSchema>;
+export { dueDate as dueDateSchema, dueTime as dueTimeSchema, optional as optionalField };
+
 // só os campos enviados mudam; na tarefa da equipe, projectIds presente tem ao menos um (o service
 // confere, porque depende da visibilidade). `visibility: "team"` converte a pessoal (ADR-069).
 export const updateTaskSchema = z

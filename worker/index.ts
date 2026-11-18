@@ -3,6 +3,7 @@ import { env } from "@/lib/env";
 import { type FanoutJob, type PushJob, QUEUES } from "@/server/jobs";
 import type { EvaluateJob } from "@/lib/validation/automations";
 import { evaluate, overdue } from "@/server/services/automations";
+import { dailyRecurrences } from "@/server/services/recurrences";
 import { daily, fanout, pushNotification } from "@/server/services/notifications";
 
 // ADR-010/050/052: processo separado; cria/migra o schema pgboss e consome as filas
@@ -36,6 +37,9 @@ async function main() {
   await boss.work<EvaluateJob>(QUEUES.evaluate, async ([job]) => evaluate(job.data));
   await boss.work(QUEUES.overdue, async () => overdue());
   await boss.schedule(QUEUES.overdue, "5 0 * * *", null, { tz: env.APP_TIMEZONE, retryLimit: 0 });
+  // ADR-077: antes do lembrete das 08:00; idempotente (uma execução por regra e data)
+  await boss.work(QUEUES.recurrence, async () => dailyRecurrences());
+  await boss.schedule(QUEUES.recurrence, "0 6 * * *", null, { tz: env.APP_TIMEZONE });
   console.log("worker: pronto");
 
   for (const sig of ["SIGTERM", "SIGINT"] as const)
