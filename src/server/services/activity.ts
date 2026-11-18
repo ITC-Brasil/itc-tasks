@@ -147,7 +147,7 @@ export function describe(type: string, p: Payload, names: Names): string | null 
       if (p.deleted) return `deixou de depender de TI-${p.target}, que foi excluída`;
       return `${p.kind === "blocks" ? "deixou de bloquear" : "deixou de ser bloqueada por"} TI-${p.target}`;
     case "unblocked":
-      return `foi desbloqueada: TI-${p.by} concluída`;
+      return `foi desbloqueada: TI-${p.by} ${p.deleted ? "excluída" : "concluída"}`;
     case "attachment_added":
       return `anexou ${p.fileName ?? "um arquivo"}`;
     case "imported":

@@ -6,7 +6,7 @@ import { todayISO } from "@/lib/dates";
 import type { Actor } from "@/server/actor";
 import { listActivity } from "@/server/services/activity";
 import { createProject } from "@/server/services/catalog";
-import { createMember } from "@/server/services/members";
+import { createMember, setMemberActive } from "@/server/services/members";
 import { fanout } from "@/server/services/notifications";
 import {
   dailyRecurrences,
@@ -210,4 +210,36 @@ it("excluir a regra não apaga as tarefas; o job segue se uma regra falhar", asy
   await deleteRecurrence(owner, rule.id);
   const [kept] = await db.select().from(tasks).where(eq(tasks.id, task!.id));
   expect(kept.recurrenceId).toBeNull();
+});
+
+it("A1: desativar a pessoa pausa as regras dela; só o admin retoma as da equipe", async () => {
+  const leaving = await person("Saindo");
+  const admin: Actor = { kind: "user", userId: other.userId, role: "admin" };
+  const team = await saveRecurrence(
+    leaving,
+    null,
+    base({ name: `Saida ${run}`, payload: { title: `S ${run}`, projectIds: [projectId] } }),
+  );
+  const mine = await saveRecurrence(
+    leaving,
+    null,
+    base({
+      name: `Saida p ${run}`,
+      visibility: "personal",
+      payload: { title: `P ${run}`, projectIds: [] },
+    }),
+  );
+  await setMemberActive(admin, leaving.userId, false);
+  const rows = await db
+    .select({ id: taskRecurrences.id, pausedAt: taskRecurrences.pausedAt })
+    .from(taskRecurrences)
+    .where(eq(taskRecurrences.ownerId, leaving.userId));
+  expect(rows).toHaveLength(2);
+  expect(rows.every((r) => r.pausedAt)).toBe(true);
+  expect(mine.id).toBeTruthy();
+
+  await expect(setRecurrencePaused(owner, team.id, false)).rejects.toThrow();
+  await setRecurrencePaused(admin, team.id, false);
+  const [after] = await db.select().from(taskRecurrences).where(eq(taskRecurrences.id, team.id));
+  expect(after.pausedAt).toBeNull();
 });

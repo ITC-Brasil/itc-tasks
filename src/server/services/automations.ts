@@ -25,6 +25,7 @@ import {
   automationRuleSchema,
   triggerOf,
 } from "@/lib/validation/automations";
+import { WAITING_NEEDED } from "@/lib/validation/tasks";
 import { type Actor, assertAdmin } from "@/server/permissions";
 import { addComment } from "./comments";
 import { notifyFromAutomation } from "./notifications";
@@ -80,10 +81,19 @@ async function act(action: AutomationAction, rule: Rule, actor: Actor, taskId: s
             );
       return notifyFromAutomation(taskId, ids, rule.name);
     }
-    case "setStatus":
-      if (task.statusId !== action.statusId)
-        await updateTask(actor, taskId, { statusId: action.statusId });
+    case "setStatus": {
+      if (task.statusId === action.statusId) return;
+      const w = action.waiting; // ADR-080; regra antiga sem `waiting` falha no checkWaiting
+      await updateTask(actor, taskId, {
+        statusId: action.statusId,
+        ...(w && {
+          waitingReason: w.reason,
+          waitingNote: w.reason === "other" ? w.note : undefined,
+          waitingUntil: addDays(todayISO(), w.inDays),
+        }),
+      });
       return;
+    }
     case "addLabel": {
       const current = (
         await db
@@ -211,10 +221,13 @@ async function assertRefs(actions: AutomationAction[]) {
   for (const a of actions) {
     if (a.type === "setStatus") {
       const [s] = await db
-        .select({ id: workflowStatuses.id })
+        .select({ id: workflowStatuses.id, category: workflowStatuses.category })
         .from(workflowStatuses)
         .where(and(eq(workflowStatuses.id, a.statusId), isNull(workflowStatuses.archivedAt)));
       if (!s) throw new AutomationError("Status não encontrado ou arquivado");
+      // ADR-080
+      if (s.category === "waiting" && !a.waiting) throw new AutomationError(WAITING_NEEDED);
+      if (s.category !== "waiting") delete a.waiting;
     }
     if (a.type === "addLabel") {
       const [l] = await db

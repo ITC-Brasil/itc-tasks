@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { beforeAll, expect, it } from "vitest";
 import { db } from "@/db";
-import { notifications, taskEvents } from "@/db/schema";
+import { notifications, taskEvents, taskLinks } from "@/db/schema";
 import type { Actor } from "@/server/actor";
 import { listActivity } from "@/server/services/activity";
 import { getTaskDetail } from "@/server/services/agents";
@@ -153,6 +153,56 @@ it("excluir leva a dependência e registra no outro lado", async () => {
   const detail = await getTaskByNumber(ana, stays.number);
   expect(detail!.links).toEqual([]);
   expect((await listActivity(ana, stays.id)).at(-1)!.text).toBe(
-    `deixou de depender de TI-${gone.number}, que foi excluída`,
+    `foi desbloqueada: TI-${gone.number} excluída`,
   );
+  expect(
+    (await listActivity(ana, stays.id)).some(
+      (x) => x.text === `deixou de depender de TI-${gone.number}, que foi excluída`,
+    ),
+  ).toBe(true);
+});
+
+const eventsOf = (taskId: string, type: string) =>
+  db
+    .select()
+    .from(taskEvents)
+    .where(and(eq(taskEvents.taskId, taskId), eq(taskEvents.type, type)));
+
+it("M-158: excluir a última bloqueadora aberta gera unblocked; com outra aberta, não", async () => {
+  const blocked = await team("Presa", bia.userId);
+  const [x, y] = [await team("Ex"), await team("Ey")];
+  await addLink(ana, blocked.id, { kind: "blocked_by", target: x.number });
+  await addLink(ana, blocked.id, { kind: "blocked_by", target: y.number });
+  await deleteTasks(ana, { taskIds: [x.id] });
+  expect(await eventsOf(blocked.id, "unblocked")).toHaveLength(0);
+  await deleteTasks(ana, { taskIds: [y.id] });
+  const [ev] = await eventsOf(blocked.id, "unblocked");
+  expect(ev.payload).toEqual({ by: y.number, deleted: true });
+  await fanout([ev.id]);
+  const [n] = await db
+    .select()
+    .from(notifications)
+    .where(and(eq(notifications.taskId, blocked.id), eq(notifications.userId, bia.userId)));
+  expect(n.data).toEqual({ unblockedBy: `TI-${y.number}`, unblockedDeleted: true });
+});
+
+it("M-158: vínculo antigo pessoal × equipe não vaza na exclusão nem conta no ciclo", async () => {
+  const mine = await createTask(ana, {
+    title: `Legada ${run}`,
+    visibility: "personal",
+    projectIds: [],
+  });
+  const [t1, t2] = [await team("L1"), await team("L2")];
+  // vínculos de antes do ADR-079: pessoal bloqueia equipe e equipe bloqueia pessoal
+  await db.insert(taskLinks).values([
+    { fromTaskId: mine.id, toTaskId: t1.id, kind: "blocks" },
+    { fromTaskId: t2.id, toTaskId: mine.id, kind: "blocks" },
+  ]);
+  // T1 → T2 não fecha ciclo por T2 → pessoal → T1
+  await addLink(ana, t2.id, { kind: "blocked_by", target: t1.number });
+
+  await deleteTasks(ana, { taskIds: [mine.id] });
+  expect(await eventsOf(t1.id, "dependency_removed")).toHaveLength(0);
+  expect(await eventsOf(t1.id, "unblocked")).toHaveLength(0);
+  expect(await eventsOf(t2.id, "dependency_removed")).toHaveLength(0);
 });

@@ -148,7 +148,10 @@ export async function fanout(eventIds: string[]) {
         }
         // ADR-079: a última bloqueadora foi concluída; avisa o responsável da desbloqueada
         case "unblocked":
-          add(task.assigneeId, "status_changed", { unblockedBy: `TI-${String(payload.by)}` });
+          add(task.assigneeId, "status_changed", {
+            unblockedBy: `TI-${String(payload.by)}`,
+            ...(payload.deleted ? { unblockedDeleted: true } : {}),
+          });
           break;
         case "status_changed": {
           const names = await tx
