@@ -19,7 +19,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { apikey, user } from "./auth";
 import { involvedPeople, labels, mobileUnits, projects, workflowStatuses } from "./catalog";
-import { actorKind, linkKind, taskPriority, taskVisibility } from "./enums";
+import { actorKind, linkKind, taskPriority, taskVisibility, waitingReason } from "./enums";
 import { cycles, milestones } from "./planning";
 
 // índice fracionário (ADR-014/042): ordena por byte, não pela collation do banco
@@ -59,6 +59,10 @@ export const tasks = pgTable(
     milestoneId: uuid("milestone_id").references(() => milestones.id),
     dueDate: date("due_date"),
     dueTime: time("due_time"), // ADR-072: hora opcional de Brasília; só com due_date
+    // ADR-078: só em Aguardando; sair limpa (o evento guarda os valores)
+    waitingReason: waitingReason("waiting_reason"),
+    waitingNote: text("waiting_note"),
+    waitingUntil: date("waiting_until"),
     // ADR-077: regra que criou a tarefa (o selo); excluir a regra só solta o vínculo
     recurrenceId: uuid("recurrence_id").references((): AnyPgColumn => taskRecurrences.id, {
       onDelete: "set null",
