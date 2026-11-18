@@ -148,3 +148,13 @@ identificável vão para um Projeto/Cliente "A classificar". Histórico antigo n
 ## Módulo 16 — ajustes de uso (17/11/2026)
 
 Encerrar ciclo sem criar outro; admin exclui ciclos e marcos (ADR-071); horário opcional no prazo de tarefa e subtarefa (ADR-072); Comentários separados da Atividade no detalhe; "Concluídas por técnico" no painel; cadastro de Envolvidos, pessoas de fora do app ligadas às tarefas, com filtro (ADR-073); "Minhas tarefas" vira **Início**, com a aba **Hoje** e o modo Kanban; progresso das subtarefas no card; tokens de MCP privados, inclusive para o admin (ADR-074); paleta de projetos com 12 cores (ADR-075). Detalhes: `docs/modules/16-ajustes-uso.md`.
+
+## Módulo 17 — recorrência, Aguardando com motivo e dependências (18/11/2026)
+
+- **Recorrências** (ADR-077): regra que cria uma tarefa nova por ocorrência (dias úteis, semanal,
+  mensal ou a cada N meses, com "último dia"), às 06:00, prazo relativo; pausar, editar e excluir
+  sem mexer nas já criadas; pessoal só do dono. Tela `/recorrencias`, "Repetir esta tarefa".
+- **Aguardando com motivo** (ADR-078): Compra, Fornecedor, Terceiro, Cliente ou Outro, mais a data
+  prevista; lembrete no dia; "previsão vencida" no card; filtro por motivo.
+- **Dependências** (ADR-079): "bloqueada por"/"bloqueia" entre tarefas da equipe (ou pessoais do
+  mesmo dono), sem ciclo; avisa, não impede; aviso de desbloqueio; filtro "Bloqueadas".

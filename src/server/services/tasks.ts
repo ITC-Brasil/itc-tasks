@@ -1200,12 +1200,14 @@ export async function removeLink(
   });
 }
 
-/** Há bloqueadora aberta (não concluída) da tarefa, fora `except`? */
+/** Há bloqueadora aberta (não concluída) da tarefa, fora `except`? Só da mesma visibilidade (ADR-069). */
 const openBlocker = (taskId: SQL, except?: string) => sql`EXISTS (
   SELECT 1 FROM task_links bl
   JOIN tasks b ON b.id = bl.from_task_id
   JOIN workflow_statuses bs ON bs.id = b.status_id
+  JOIN tasks bt ON bt.id = bl.to_task_id
   WHERE bl.to_task_id = ${taskId} AND bl.kind = 'blocks' AND bs.category <> 'done'
+    AND b.visibility = bt.visibility
   ${except ? sql`AND bl.from_task_id <> ${except}` : sql``})`;
 
 /** Ao concluir: avisa as tarefas que ficaram sem bloqueadora aberta (ADR-079). */
@@ -1219,6 +1221,8 @@ async function releaseBlocked(tx: Tx, actor: Actor, current: Task) {
       and(
         eq(taskLinks.fromTaskId, current.id),
         eq(taskLinks.kind, "blocks"),
+        // vínculo antigo entre pessoal e equipe (antes do ADR-079) não avisa nem vaza o número
+        eq(tasks.visibility, current.visibility),
         ne(workflowStatuses.category, "done"),
         sql`NOT ${openBlocker(sql`${tasks.id}`, current.id)}`,
       ),

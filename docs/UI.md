@@ -172,3 +172,11 @@ A navegação pela lista por teclado (`J`/`K`, `Enter`, `X`) ficou fora por deci
 - **Paleta de projetos:** 12 cores (ADR-075).
 - **Envolvidos:** Configurações › Envolvidos; campo "Envolvidos" no detalhe e na criação; filtro "Envolvido" nas visões. Não aparece no card.
 - Detalhes: `docs/modules/16-ajustes-uso.md`.
+
+## 13. Módulo 17
+
+Tela **Recorrências** (`/recorrencias`, ícone `Repeat` no menu) com um card por regra. Selo
+`Repeat` no card da tarefa recorrente. Diálogo "Aguardando o quê?" ao entrar no Aguardando (detalhe,
+Kanban, massa); `WaitingInfo` (`CalendarClock`, `warn` só no ícone quando a previsão venceu). Seção
+**Dependências** no detalhe e `BlockedMark` (`Link2Off` em `warn`) no card; checkbox "Bloqueadas" e
+filtro "Motivo do Aguardando" na barra. Detalhes e tokens: `docs/modules/17-recorrencia-dependencias.md`.
