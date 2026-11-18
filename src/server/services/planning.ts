@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, inArray, isNotNull, isNull, max, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNotNull, isNull, max, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   cycles,
@@ -371,7 +371,7 @@ export async function projectDashboard(
   const since = sql`now() - make_interval(days => ${days})`;
   const doneInPeriod = and(base, sql`${tasks.completedAt} >= ${since}`);
 
-  const [[totals], [period], weekly, byStatus, byUnit, byProject] = await Promise.all([
+  const [[totals], [period], weekly, byStatus, byUnit, byProject, byAssignee] = await Promise.all([
     db
       .select({
         open: count(),
@@ -428,6 +428,19 @@ export async function projectDashboard(
           .where(and(open, inScope))
           .groupBy(projects.code)
           .orderBy(desc(count()), asc(projects.code)),
+    // Módulo 16: concluídas no período por membro ativo; quem não concluiu nada aparece com zero
+    db
+      .select({
+        id: user.id,
+        name: user.name,
+        initials: user.initials,
+        n: count(tasks.id),
+      })
+      .from(user)
+      .leftJoin(tasks, and(eq(tasks.assigneeId, user.id), doneInPeriod))
+      .where(or(isNull(user.banned), eq(user.banned, false)))
+      .groupBy(user.id)
+      .orderBy(desc(count(tasks.id)), asc(user.name)),
   ]);
 
   // semanas sem conclusão aparecem com zero (segunda-feira de cada semana)
@@ -451,6 +464,7 @@ export async function projectDashboard(
     byStatus,
     byUnit,
     byProject,
+    byAssignee,
   };
 }
 export type Dashboard = Awaited<ReturnType<typeof projectDashboard>>;
