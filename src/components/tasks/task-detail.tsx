@@ -50,6 +50,7 @@ import {
 import { CommentBody, CommentEditor } from "./comment-editor";
 import { DeleteTasksDialog } from "./delete-tasks-dialog";
 import { RecurringMark } from "./task-card";
+import { WaitingInfo, useWaitingPrompt } from "./waiting";
 import { DescriptionEditor } from "./description-editor";
 import { type PickItem, Pick, PickMany, optionItems } from "./fields";
 import { Card } from "@/components/ui/card";
@@ -129,6 +130,15 @@ export function TaskDetail({
   }
   const save = (patch: UpdateTaskInput & Patch) =>
     act(patch, () => updateTaskAction(task.id, task.number, patch));
+
+  const [askWaiting, waitingDialog] = useWaitingPrompt();
+  const categoryOf = (id: string) => options.statuses.find((x) => x.id === id)?.category;
+  const waitingNow = categoryOf(view.statusId) === "waiting" || task.category === "waiting";
+  /** ADR-078: entrar no Aguardando (ou editar) pede motivo e previsão; cancelar não muda nada. */
+  async function setWaiting(statusId: string) {
+    const w = await askWaiting(task.category === "waiting" ? task : undefined);
+    if (w) save({ statusId, ...w });
+  }
 
   const items = optionItems(options);
   const labelsById = new Map([...task.labels, ...options.labels].map((l) => [l.id, l] as const));
@@ -298,8 +308,26 @@ export function TaskDetail({
                 : i,
             )}
             value={view.statusId}
-            onChange={(statusId) => save({ statusId })}
+            onChange={(statusId) =>
+              categoryOf(statusId) === "waiting" && task.category !== "waiting"
+                ? void setWaiting(statusId)
+                : save({ statusId })
+            }
           />
+          {waitingNow && task.category === "waiting" && (
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+              <WaitingInfo
+                reason={task.waitingReason}
+                note={task.waitingNote}
+                until={task.waitingUntil}
+              />
+              {task.waitingNote && <span className="text-xs text-muted">{task.waitingNote}</span>}
+              <Button variant="ghost" size="sm" onClick={() => void setWaiting(task.statusId)}>
+                {task.waitingUntil ? "Editar" : "Completar"}
+              </Button>
+            </div>
+          )}
+          {waitingDialog}
         </Prop>
         <Prop label="Prioridade">
           <Pick

@@ -5,6 +5,7 @@ import { isOverdue, shortDate } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import type { TaskRow } from "@/server/services/tasks";
 import { LabelChip, PersonalMark, PriorityIcon, ProjectChip, UnitChip } from "./badges";
+import { WaitingInfo } from "./waiting";
 
 /** Prazo com ícone; vencido em `err` (ícone) e texto normal (contraste). */
 export function DueDate({
@@ -94,6 +95,14 @@ export function TaskCard({
             <LabelChip key={l.name} name={l.name} colorToken={l.colorToken} />
           ))}
         </div>
+      )}
+      {task.category === "waiting" && (
+        <WaitingInfo
+          className="mt-2"
+          reason={task.waitingReason}
+          note={task.waitingNote}
+          until={task.waitingUntil}
+        />
       )}
       <div className="mt-2 flex items-center gap-2">
         <PriorityIcon priority={task.priority} />
