@@ -287,6 +287,10 @@ async function serviceFields(actor: AgentActor, input: Fields) {
   if (input.glpiTicket !== undefined) out.glpiTicket = input.glpiTicket;
   if (input.dueDate !== undefined) out.dueDate = input.dueDate;
   if (input.dueTime !== undefined) out.dueTime = input.dueTime; // ADR-072
+  // ADR-078: o service confere (VALIDATION sem os dois ao entrar no Aguardando)
+  if (input.waitingReason !== undefined) out.waitingReason = input.waitingReason;
+  if (input.waitingNote !== undefined) out.waitingNote = input.waitingNote;
+  if (input.waitingUntil !== undefined) out.waitingUntil = input.waitingUntil;
   return out;
 }
 
@@ -346,6 +350,9 @@ export async function getTaskSummary(actor: Actor, number: number) {
       assignee: (task.assigneeId && mail.get(task.assigneeId)) || undefined,
       dueDate: task.dueDate ?? undefined,
       dueTime: task.dueTime ?? undefined,
+      waitingReason: task.waitingReason ?? undefined, // ADR-078
+      waitingNote: task.waitingNote ?? undefined,
+      waitingUntil: task.waitingUntil ?? undefined,
       url: taskUrl(task.number),
     },
   };

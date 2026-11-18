@@ -13,7 +13,7 @@ import {
   workflowStatuses,
 } from "@/db/schema";
 import { priorityLabel } from "@/components/tasks/badges";
-import type { Priority } from "@/lib/validation/tasks";
+import { type Priority, waitingReasonLabel } from "@/lib/validation/tasks";
 import type { Actor } from "@/server/permissions";
 import { assertVisible } from "./tasks";
 
@@ -34,6 +34,12 @@ type Payload = {
   sourceId?: string;
   deleted?: string;
   recurrence?: string;
+  waiting?: WaitingPayload;
+};
+type WaitingPayload = {
+  waitingReason?: string;
+  waitingNote?: string | null;
+  waitingUntil?: string;
 };
 type Names = Map<string, string>;
 
@@ -54,6 +60,12 @@ const CHECK = new Map([
 const ids = (v: unknown) => (Array.isArray(v) ? (v as string[]) : []);
 const name = (names: Names, id: unknown) => names.get(String(id)) ?? "(removido)";
 const brDate = (iso: string) => iso.split("-").reverse().join("/");
+
+/** ADR-078: "Compra (nota), previsão 20/11" */
+const waitingText = (w: WaitingPayload | undefined) =>
+  w
+    ? `${waitingReasonLabel(w.waitingReason) ?? "sem motivo"}${w.waitingNote ? ` — ${w.waitingNote}` : ""}, previsão ${w.waitingUntil ? brDate(w.waitingUntil) : "não informada"}`
+    : "";
 
 /** "etiquetas: adicionou A, B; removeu C" */
 function listChange(what: string, p: Payload, names: Names) {
@@ -95,6 +107,8 @@ function fieldChange(p: Payload, names: Names) {
       return "moveu para o topo da coluna";
     case "visibility":
       return "moveu a tarefa pessoal para a equipe"; // ADR-069
+    case "waiting":
+      return `mudou o Aguardando para ${waitingText(p.to as WaitingPayload)}`;
     default:
       return `alterou ${p.field ?? "um campo"}`;
   }
@@ -105,7 +119,7 @@ export function describe(type: string, p: Payload, names: Names): string | null 
     case "created": // ADR-077: o nome da regra fica no evento, mesmo se ela for excluída
       return p.recurrence ? `criou a tarefa pela recorrência “${p.recurrence}”` : "criou a tarefa";
     case "status_changed":
-      return `mudou o status de ${name(names, p.from)} para ${name(names, p.to)}`;
+      return `mudou o status de ${name(names, p.from)} para ${name(names, p.to)}${p.waiting ? ` (${waitingText(p.waiting)})` : ""}`;
     case "assigned":
       return p.to ? `atribuiu a ${name(names, p.to)}` : "removeu o responsável";
     case "field_changed":

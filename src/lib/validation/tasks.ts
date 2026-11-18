@@ -14,6 +14,23 @@ export const TEAM_NEEDS_PROJECT =
   "Escolha um Projeto/Cliente antes de mover a tarefa para a equipe.";
 export const TASK_NEEDS_PROJECT = "A tarefa precisa de pelo menos um Projeto/Cliente";
 
+// ADR-078: motivo do Aguardando (mesma lista do enum `waiting_reason` do banco)
+export const WAITING_REASONS = ["purchase", "supplier", "third_party", "client", "other"] as const;
+export type WaitingReason = (typeof WAITING_REASONS)[number];
+export const WAITING_REASON_LABELS: Record<WaitingReason, string> = {
+  purchase: "Compra",
+  supplier: "Fornecedor",
+  third_party: "Terceiro",
+  client: "Cliente",
+  other: "Outro",
+};
+export const waitingReasonLabel = (r: string | null | undefined) =>
+  (r && WAITING_REASON_LABELS[r as WaitingReason]) || null;
+export const WAITING_NEEDED = "Para Aguardando, informe o motivo e a data prevista";
+export const WAITING_NOTE_NEEDED = "Com o motivo “Outro”, descreva em até 120 caracteres";
+export const WAITING_PAST = "A data prevista é hoje ou uma data futura";
+export const WAITING_ONLY = "Motivo e previsão só valem para tarefa em Aguardando";
+
 const uuid = z.uuid();
 // campo opcional de formulário: vazio vira null
 const optional = <T extends z.ZodType>(schema: T) =>
@@ -98,6 +115,10 @@ const fields = {
   // ADR-053: ciclo não encerrado; marco aberto de um dos Projetos/Clientes da tarefa
   cycleId: optional(uuid),
   milestoneId: optional(uuid),
+  // ADR-078: exigidos pelo service ao entrar no Aguardando
+  waitingReason: optional(z.enum(WAITING_REASONS)),
+  waitingNote: optional(z.string().trim().max(120, "Até 120 caracteres")),
+  waitingUntil: optional(dueDate),
 };
 
 export const createTaskSchema = z
@@ -151,7 +172,15 @@ export type UpdateTaskInput = z.input<typeof updateTaskSchema>;
 
 export const bulkUpdateSchema = z.object({
   taskIds: z.array(uuid).min(1).max(200),
-  patch: updateTaskSchema.pick({ statusId: true, assigneeId: true, priority: true, cycleId: true }),
+  patch: updateTaskSchema.pick({
+    statusId: true,
+    assigneeId: true,
+    priority: true,
+    cycleId: true,
+    waitingReason: true,
+    waitingNote: true,
+    waitingUntil: true,
+  }),
 });
 
 export const deleteTasksSchema = z.object({ taskIds: z.array(uuid).min(1).max(200) });
@@ -159,6 +188,9 @@ export const deleteTasksSchema = z.object({ taskIds: z.array(uuid).min(1).max(20
 export const moveTaskSchema = z.object({
   statusId: uuid,
   afterTaskId: uuid.nullable(), // null = topo da coluna
+  waitingReason: fields.waitingReason,
+  waitingNote: fields.waitingNote,
+  waitingUntil: fields.waitingUntil,
 });
 
 export const taskIdSchema = uuid;
@@ -214,6 +246,7 @@ export const FILTER_PARAMS = {
   etiqueta: "labelIds",
   ciclo: "cycleIds",
   envolvido: "involvedIds", // ADR-073
+  motivo: "waitingReasons", // ADR-078
 } as const;
 const many = <T extends z.ZodType>(item: T) =>
   z
@@ -228,6 +261,7 @@ export const taskFiltersSchema = z.object({
   labelIds: many(uuid),
   cycleIds: many(uuid),
   involvedIds: many(uuid),
+  waitingReasons: many(z.enum(WAITING_REASONS)),
 });
 export type TaskFilters = z.output<typeof taskFiltersSchema>;
 

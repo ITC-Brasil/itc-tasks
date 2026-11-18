@@ -129,17 +129,29 @@ test("Kanban: mover para Aguardando pelo teclado (ADR-067)", async ({ page }) =>
     .getByRole("listitem")
     .filter({ has: page.getByRole("link", { name: title }) })
     .getByRole("button", { name: /^Mover TI-/ });
-  await grip.focus();
-  await page.keyboard.press("Space");
-  await expect(grip).toHaveAttribute("aria-pressed", "true");
   const live = page.getByRole("status").filter({ hasText: "Draggable item" });
-  const before = await live.textContent();
-  await page.keyboard.press("ArrowRight");
-  await expect(live).not.toHaveText(before ?? "");
+  const drag = async () => {
+    await grip.focus();
+    await page.keyboard.press("Space");
+    await expect(grip).toHaveAttribute("aria-pressed", "true");
+    const before = await live.textContent();
+    await page.keyboard.press("ArrowRight");
+    await expect(live).not.toHaveText(before ?? "");
+    await page.keyboard.press("Space");
+  };
+  // ADR-078: o diálogo pede motivo e previsão (o cancelar está no waiting.spec, no detalhe)
+  const dialog = page.getByRole("dialog", { name: "Aguardando o quê?" });
+  await drag();
+  await dialog.getByRole("combobox", { name: "Motivo" }).click();
+  await page.getByRole("option", { name: "Fornecedor" }).click();
+  await dialog.getByLabel("Data prevista").fill("2099-12-31");
   const moved = page.waitForResponse((r) => r.request().method() === "POST");
-  await page.keyboard.press("Space");
+  await dialog.getByRole("button", { name: "Confirmar" }).click();
   await expect(target.getByRole("link", { name: title })).toBeVisible();
   await moved;
+  await expect(target.getByRole("listitem").filter({ hasText: title })).toContainText(
+    /Fornecedor · 31 (de )?dez/,
+  );
   await page.reload();
   await expect(target.getByRole("link", { name: title })).toBeVisible();
   await axeBothThemes(page);
