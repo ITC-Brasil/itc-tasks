@@ -2484,3 +2484,60 @@ teste). O CI da `develop` ficou vermelho só por isso (`f4988cf`).
 **Consequences**
 - Um advisory novo no mesmo pacote, com outro id, não é ignorado.
 - Backlog (M-151): nome do envolvido único sem tratar acento (`unaccent`).
+
+---
+
+## ADR-077 — Tarefas recorrentes (regra própria, job diário, uma ocorrência por data)
+
+**Status:** Accepted
+**Date:** 2026-11-18
+**Module:** 17 — Recorrência, Aguardando com motivo e dependências (item 1)
+
+**Context**
+Rotinas da TI (backup semanal, conferência mensal, troca de senha trimestral) são recriadas à mão.
+O Matheus aprovou (12/11/2026) que passem a se recriar sozinhas.
+
+**Decision**
+- **Regra, não tarefa.** Tabela `task_recurrences` com nome, visibilidade (`team`/`personal`),
+  dono (`owner_id`, quem criou), frequência, `due_in_days` (0–60, dias corridos a partir da data
+  da ocorrência), `due_time` opcional (ADR-072), `paused_at` e um `payload` com os campos da
+  tarefa a criar (título, descrição, prioridade, responsável, Projetos/Clientes, UMs, etiquetas,
+  envolvidos, subtarefas). O payload é uma **cópia**: criar a partir de um template (Módulo 09)
+  ou de uma tarefa ("Repetir esta tarefa") só preenche o formulário; mudar o template ou a tarefa
+  depois não muda a regra, e editar a regra só afeta as próximas criações.
+- **Frequências:** `weekdays` (segunda a sexta), `weekly` (dias da semana marcados) e `monthly`
+  (dia fixo 1–31 ou "último dia", a cada N meses, 1–12, contados a partir do mês da `start_date`).
+  Dia 31 num mês de 30 dias (ou 29/30/31 em fevereiro) cai no último dia do mês. Sem cron livre.
+- **Job `recurrence.daily`** às 06:00 de `APP_TIMEZONE`, antes do lembrete das 08:00. Para cada
+  regra ativa, acha a ocorrência mais recente com data ≤ hoje, ≥ `start_date` e depois da última
+  já criada. **Worker parado:** ao voltar, cria **só a mais recente** pendente, não todas as
+  perdidas (criar 10 backups atrasados de uma vez só polui a lista).
+- **Idempotência:** `task_recurrence_runs (recurrence_id, run_on)` com chave primária nas duas
+  colunas; a tarefa e a linha da execução entram na mesma transação, com `ON CONFLICT DO NOTHING`
+  antes de criar. Dois workers ou um retry não criam duas.
+- A ocorrência anterior aberta não impede a nova; a anterior fica aberta e atrasada.
+- **Ator automação** (`automationId` = id da regra, profundidade 0), como no ADR-052; o evento
+  `created` leva `{ recurrenceId, recurrence: nome }`, que fica no histórico mesmo se a regra for
+  excluída. `tasks.recurrence_id` (FK `ON DELETE SET NULL`) liga a tarefa à regra para o selo no
+  card e o "Criada pela recorrência X" no detalhe.
+- **Criador** da tarefa = dono da regra (não o primeiro admin do `creatorFor`). Regra pessoal gera
+  tarefa pessoal do dono (`insertTask` aceita o criador vindo da regra só para esse caso).
+- **Permissões:** pessoas (membros e admin) criam, editam, pausam e excluem regras da equipe;
+  regra pessoal só o dono vê e mexe (mesma regra do `visibleTo`, ADR-069). Agente só lista
+  (`list_recurrences`, `tasks:read`); sem ferramenta de escrita neste módulo.
+- **Excluir** a regra é definitivo (é planejamento, como ciclos, não cadastro) e não apaga as
+  tarefas criadas; elas perdem o selo e o histórico continua dizendo de onde vieram.
+- Fanout normal para o responsável da tarefa criada (`created` → `assigned`), sem aviso extra.
+- Erro numa regra (responsável desativado, projeto arquivado) é registrado no log do worker e não
+  impede as outras; a regra tenta de novo no dia seguinte.
+
+**Alternatives considered**
+- *Tarefa modelo que se clona:* editar a tarefa mudaria as próximas e misturaria regra com
+  execução; rejeitada pelo prompt.
+- *Criar todas as ocorrências perdidas:* rejeitada (lista poluída depois de uma parada).
+- *Expressão cron na UI:* rejeitada pelo prompt.
+- *Ligar a regra ao template por id:* arquivar ou editar o template mudaria a regra em silêncio.
+
+**Consequences**
+- Migração `0021_task_recurrences` (só aditiva).
+- Sem feriados: "dias úteis" é segunda a sexta, como o `dueInDays` dos templates.
