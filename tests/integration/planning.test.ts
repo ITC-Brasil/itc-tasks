@@ -9,6 +9,8 @@ import { createMember } from "@/server/services/members";
 import {
   closeCycle,
   createCycle,
+  deleteCycle,
+  deleteMilestone,
   listMilestones,
   onUnique,
   projectDashboard,
@@ -209,4 +211,32 @@ it("violação de unique numa corrida vira TaskError (M-061)", async () => {
   });
   const other = new Error("outro");
   await expect(onUnique(() => Promise.reject(other), "x")).rejects.toBe(other);
+});
+
+it("excluir ciclo e marco: só admin; tarefas ficam sem vínculo e com evento (ADR-071)", async () => {
+  const admin: Actor = { kind: "user", userId: ana.userId, role: "admin" };
+  const c = await createCycle(ana, { startsOn: "2098-01-05", endsOn: "2098-01-16" });
+  const m = await saveMilestone(ana, null, { name: `Apagar ${run}`, projectId });
+  const t = await createTask(ana, {
+    title: "Fica",
+    projectIds: [projectId],
+    cycleId: c.id,
+    milestoneId: m.id,
+  });
+
+  await expect(deleteCycle(ana, c.id)).rejects.toThrow(); // membro
+  await expect(
+    deleteMilestone({ kind: "agent", userId: ana.userId, role: "admin" } as Actor, m.id),
+  ).rejects.toThrow(); // agente, mesmo de admin
+  expect(await deleteCycle(admin, c.id)).toEqual({ name: `Ciclo ${c.number}`, tasks: 1 });
+  expect(await deleteMilestone(admin, m.id)).toEqual({ name: `Apagar ${run}`, tasks: 1 });
+
+  const [row] = await db.select().from(tasks).where(eq(tasks.id, t.id));
+  expect(row.cycleId).toBeNull();
+  expect(row.milestoneId).toBeNull();
+  expect((await db.select().from(cycles).where(eq(cycles.id, c.id))).length).toBe(0);
+  const texts = (await listActivity({ kind: "system" }, t.id)).map((a) => a.text);
+  expect(texts).toContain(`removeu do Ciclo ${c.number}, que foi excluído`);
+  expect(texts).toContain(`removeu do marco Apagar ${run}, que foi excluído`);
+  await expect(deleteCycle(admin, c.id)).rejects.toThrow("Ciclo não encontrado");
 });

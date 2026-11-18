@@ -65,3 +65,24 @@ test("encerra o ciclo ativo mesmo sem próximo ciclo (Módulo 16)", async ({ pag
   await expect(page.getByText(/^Ciclo \d+ encerrado/)).toBeVisible();
   await expect(page.getByText("Nenhum ciclo ativo. Inicie um ciclo planejado.")).toBeVisible();
 });
+
+test("admin exclui um ciclo planejado com confirmação (ADR-071)", async ({ page }) => {
+  await login(page);
+  await page.goto("/ciclos");
+  await page.getByRole("button", { name: "Novo ciclo" }).first().click();
+  const form = page.getByRole("dialog", { name: "Novo ciclo" });
+  await form.getByLabel("Início").fill("2096-06-01");
+  await form.getByLabel("Fim").fill("2096-06-12");
+  await form.getByRole("button", { name: "Criar ciclo" }).click();
+  await expect(form).toBeHidden();
+  const card = page.getByText("1 de jun – 12 de jun").first().locator("..");
+  const trigger = card.getByRole("button", { name: /^Excluir Ciclo \d+$/ });
+  await expect(trigger).toBeVisible();
+  const name = (await trigger.getAttribute("aria-label"))!.replace("Excluir ", "");
+  await trigger.click();
+  const dialog = page.getByRole("dialog", { name: `Excluir ${name}?` });
+  await expect(dialog).toContainText("Nenhuma tarefa está neste ciclo.");
+  await dialog.getByRole("button", { name: "Excluir" }).click();
+  await expect(page.getByText(`${name} excluído`)).toBeVisible();
+  await expect(page.getByRole("button", { name: `Excluir ${name}` })).toHaveCount(0);
+});
