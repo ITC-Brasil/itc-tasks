@@ -10,6 +10,9 @@ item. ADR-077 a ADR-079; migrações `0021_task_recurrences`, `0022_waiting_fiel
 
 Escolhas feitas sem o Matheus, sempre a mais conservadora. Cada uma diz onde mudar.
 
+**Revisão (M-158, 18/11/2026):** o Matheus aceitou 1 a 7 e 9 a 11 como estão; a 8 foi substituída
+pelo ADR-080 (ajuste 1). A parte final de "Ajustes da revisão" diz o que mudou.
+
 1. **Dependência reaproveita `task_links`** (ADR-079), em vez da tabela nova sugerida
    (`task_dependencies`). A tabela já era "bloqueia" com chave e cascade; os vínculos `blocks`
    antigos viram dependência sem cópia. A seção "Vínculos" do detalhe ficou só com "relacionada a".
@@ -21,15 +24,16 @@ Escolhas feitas sem o Matheus, sempre a mais conservadora. Cada uma diz onde mud
    mesmo dia), 0 a 60. O `dueInDays` dos templates é em dias úteis; ao preencher a regra com um
    template, o número é copiado como está.
 4. **Criador da tarefa recorrente = dono da regra**; responsável vem da regra (pode ficar sem). Se o
-   dono for desativado, a regra continua criando (ver Auditoria, A1).
+   dono for desativado, as regras dele são pausadas (A1, corrigida na revisão).
 5. **Excluir regra é definitivo** (é planejamento, como ciclos); as tarefas criadas ficam, sem o selo,
    e o histórico guarda o nome ("criou a tarefa pela recorrência “X”").
 6. **Aviso de desbloqueio usa o tipo `status_changed`** com `data.unblockedBy` (sem tipo novo nas
    preferências): quem desligou "Status mudou" não recebe o desbloqueio.
 7. **Lembrete da previsão do Aguardando usa `due_today`** com `data.waiting`, como pedido no prompt
    (mesma preferência do "Prazo hoje").
-8. **Automação que move para Aguardando falha** (não tem como informar motivo e data); fica no
-   registro da regra. Nenhuma regra do seed faz isso.
+8. ~~Automação que move para Aguardando falha~~ — **substituída pelo ADR-080**: a ação guarda
+   motivo, texto e previsão "daqui a N dias"; regra antiga sem os campos continua falhando com
+   registro.
 9. **Criação já em Aguardando**: o service exige os campos (`insertTask`), mas a criação rápida não
    tem o diálogo; por isso a coluna Aguardando do Kanban não mostra "Nova tarefa". A tarefa entra no
    Aguardando arrastando ou pelo detalhe.
@@ -122,12 +126,25 @@ com 2 workers passa.
 
 | # | Área | Achado | Situação |
 |---|---|---|---|
-| A1 | Recorrência | Regra de pessoa desativada continua criando tarefas em nome dela (o `assertAssignee` só olha o responsável) | Baixo, aberto; a confirmar com o Matheus (pausar regras ao desativar) |
+| A1 | Recorrência | Regra de pessoa desativada continua criando tarefas em nome dela (o `assertAssignee` só olha o responsável) | Corrigido na revisão: `setMemberActive` pausa as regras (equipe e pessoais) com log `[members] recorrências pausadas`; só o admin retoma a regra de pessoa desativada |
+| A3 | Dependências | `deleteTasks` registrava `dependency_removed {deleted}` no outro lado sem olhar a visibilidade (vínculo antigo pessoal × equipe vazaria o TI-n); a CTE `reaches` atravessava esses vínculos | Corrigido na revisão (M-158): os dois só seguem vínculos de mesma visibilidade |
 | A2 | Dependências | Vínculo `blocks` antigo (antes do ADR-079) entre pessoal e equipe faria o card da equipe mostrar "Bloqueada" e o desbloqueio citar o TI-n da pessoal | Corrigido em `openBlocker`/`releaseBlocked` (mesma visibilidade) |
 | — | Job de recorrência | Idempotência por PK; ator `automation`; regra pessoal só cria tarefa pessoal do dono; `visibleRules` igual ao `visibleTo` | Sem achado |
 | — | Dependências | Outra ponta por `visibleTo`: pessoal de outra pessoa dá o mesmo `NOT_FOUND` de inexistente, no app e no MCP; a mensagem de ciclo só cita as duas tarefas visíveis; leitura dos vínculos filtra a outra ponta | Sem achado |
 | — | Aguardando | Todas as entradas passam por `insertTask`/`applyUpdate`; Zod no servidor; data comparada no fuso de Brasília | Sem achado |
 | — | SQL | SQL cru só no service (`reaches`, `openBlocker`, advisory lock), com parâmetros | Sem achado |
+
+## Ajustes da revisão (M-158)
+
+| # | Ajuste | Onde | Verificação |
+|---|---|---|---|
+| 1 | Automação "Mover para o status" com destino Aguardando guarda `waiting: { reason, note?, inDays }` (ADR-080); a previsão é `addDays(todayISO(), inDays)` no dia em que roda; `saveRule` recusa destino `waiting` sem os campos e descarta os campos em outro destino | `src/lib/validation/automations.ts`, `src/server/services/automations.ts`, `src/app/(app)/config/automacoes/automations-client.tsx` | `automations.test.ts` (salvar, rodar, regra antiga falha com registro, outro destino); E2E `automations.spec.ts` ✅ |
+| 2 | Desativar membro pausa as recorrências dele | `src/server/services/members.ts`, `src/server/services/recurrences.ts` | `recurrences.test.ts` "A1" ✅ |
+| 3 | Excluir a última bloqueadora aberta gera `unblocked` com `deleted: true`; histórico "foi desbloqueada: TI-n excluída"; aviso "excluiu TI-n e desbloqueou" | `deleteTasks` em `src/server/services/tasks.ts`, `activity.ts`, `src/lib/notifications.ts` | `dependencies.test.ts` ✅ |
+| 4 | `dependency_removed` na exclusão e `reaches` só pela mesma visibilidade | `src/server/services/tasks.ts` | `dependencies.test.ts` (vínculos antigos inseridos direto) ✅ |
+| 5 | `0023` e auto-vínculo em produção | — | Consulta em produção não feita (sem acesso nesta sessão). Pelo código: `task_links` nasceu na `0005` (17/10/2026) e o único escritor, `linkRow` em `src/server/services/tasks.ts`, recusa "Uma tarefa não se vincula a ela mesma" desde `e8cce78` (mesmo dia, antes do go-live de 18/10). Conferir antes do merge: `SELECT count(*) FROM task_links WHERE from_task_id = to_task_id;` deve dar 0; se não der, a `0023` aborta e o deploy não segue (como a `0014`) |
+
+Os ajustes 3 e 4 mexem na mesma função e no mesmo teste: um commit.
 
 ## Commits
 
@@ -156,7 +173,13 @@ f0ebf69 fix(ui): name the blocked filter and weekday checkboxes
 b185105 test(tasks): dependencies cycle, personal scope, cascade, unblock and MCP
 ```
 
-Mais o `security(tasks)` da A2 e o commit de docs/ajuda do fechamento.
+Mais o `security(tasks)` da A2 e o commit de docs/ajuda do fechamento. Revisão:
+
+```
+5d68f48 feat(automations): waiting reason and forecast on setStatus to Aguardando (ADR-080)
+cd2ddd2 security(recurrences): pause a deactivated member's rules; only admin resumes
+f826510 security(tasks): unblock on delete; keep legacy personal-team links out of delete events and cycle check
+```
 
 ## Pontos de atenção
 

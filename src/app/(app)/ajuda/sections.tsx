@@ -424,7 +424,9 @@ function TemplatesAutomacoes() {
       <p>
         <b>Automações</b> são regras do tipo “quando acontecer isto, faça aquilo”, como avisar quem
         criou quando a tarefa for concluída ou lembrar de atualizar o GLPI. Elas valem para tarefas
-        criadas pela tela e por agentes. Só o administrador cria e liga as regras.
+        criadas pela tela e por agentes. Só o administrador cria e liga as regras. Uma regra que
+        move a tarefa para Aguardando também guarda o motivo e a previsão, contada em dias a partir
+        do dia em que ela roda.
       </p>
     </Section>
   );
