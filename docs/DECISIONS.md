@@ -2295,3 +2295,39 @@ e marco **não são cadastros**: são planejamento, com vida curta, e o único v
 - Números de ciclo não são reaproveitados enquanto houver um maior (`max + 1`); excluir o último
   libera o número dele.
 - As tarefas perdem a referência; o histórico conta o que aconteceu.
+
+## ADR-072 — Horário opcional no prazo (`due_time`, America/Sao_Paulo)
+
+**Status:** Accepted
+**Date:** 2026-11-17
+**Module:** 16 — Ajustes de uso (item 4)
+
+**Context**
+O prazo é só data (`due_date date`, vence no fim do dia). O time combina entregas com hora marcada
+(visita, janela de manutenção) e quer ver a tarefa atrasada a partir daquele horário.
+
+**Decision**
+- Colunas aditivas `due_time time` (nula) em `tasks` e `checklist_items` (`0019_due_time`). A data
+  continua sendo o prazo; a hora é complemento e só existe com data: limpar a data limpa a hora, e
+  hora sem data é recusada (`VALIDATION`).
+- Fuso fixo **America/Sao_Paulo**, o mesmo do `todayISO()`. A hora é "de parede" de Brasília;
+  sem conversão.
+- Sem hora: comportamento atual (vence no fim do dia). Com hora: atrasada quando
+  `due_date < hoje` ou `due_date = hoje e due_time <= agora` (helper `isOverdue` em
+  `src/lib/dates.ts`, usado no card, na lista, no detalhe e no MCP `overdue`).
+- Ordenação por prazo: `due_date`, depois `due_time` (sem hora = fim do dia, vai por último no dia).
+- MCP: `dueTime` (`HH:MM`, `null` limpa) em `create_task`/`update_task` e por subtarefa em
+  `checklistDue`; `get_task`/`list_tasks` devolvem `dueTime`.
+- Exibição: `17 nov 14:30` com `tabular-nums`; seletor `<input type="time">` ao lado do de data.
+- Lembretes: o worker só tem jobs diários (08:00 e 00:05), sem granularidade de minutos. Fica o
+  mínimo: o lembrete das 08:00 e o resumo mostram a hora; a automação `task.overdue` continua no
+  dia seguinte. Aviso perto do horário vai para "Decisões a confirmar" do Módulo 16.
+
+**Alternatives considered**
+- *Converter `due_date` em `timestamptz`:* rejeitado; reescreveria dados (migrações só aditivas,
+  INFRA §9) e mudaria toda comparação de "hoje".
+- *Hora em UTC:* rejeitado; o time inteiro está em Brasília e o horário de verão não existe mais.
+
+**Consequences**
+- Toda comparação de atraso no código passa pelo helper; consulta SQL que só olha `due_date`
+  continua certa para "venceu ontem".
