@@ -114,6 +114,16 @@ export const mcpUpdateTask = {
     .max(50)
     .optional()
     .describe("prazo da subtarefa pelo índice; null limpa"),
+  // ADR-079: dependências por número (TI-n); só entre tarefas da equipe ou pessoais do dono
+  blockedByAdd: z
+    .array(z.union([z.string(), z.number()]).pipe(taskNumberSchema))
+    .max(20)
+    .optional()
+    .describe("tarefas que bloqueiam esta (TI-12 ou 12); recusa ciclo"),
+  blockedByRemove: z
+    .array(z.union([z.string(), z.number()]).pipe(taskNumberSchema))
+    .max(20)
+    .optional(),
 };
 export const mcpCompleteTask = { ...mcpTaskId, comment: z.string().max(10_000).optional() };
 export const mcpAddComment = { ...mcpTaskId, body: z.string().min(1).max(10_000) };
