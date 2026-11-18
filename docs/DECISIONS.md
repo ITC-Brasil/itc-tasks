@@ -2442,3 +2442,32 @@ fundo, e todas são dessaturadas em relação às funcionais.
 
 **Consequences**
 - O artefato do Design System precisa das 4 cores (Cowork).
+
+## ADR-076 — Exceção do advisory GHSA-fc5q-39xc-vjpf (`picomatch`) no gate do `npm audit`
+
+**Status:** Accepted
+**Date:** 2026-11-18
+**Module:** 16 — Ajustes de uso (ajuste da M-151)
+
+**Context**
+O Quality Check roda `npm audit --omit=dev --audit-level=high`. Em 17/11/2026 saiu o advisory
+alto GHSA-fc5q-39xc-vjpf (ReDoS no `picomatch` ≤ 4.0.7). A 4.0.7 é a última versão publicada:
+não há correção. O `picomatch` conta como dependência de produção só pelo caminho
+`better-auth@1.7.10 → vitest@5.0.5 → picomatch`, que não roda no app (vitest é ferramenta de
+teste). O CI da `develop` ficou vermelho só por isso (`f4988cf`).
+
+**Decision**
+- O passo do CI passa a ser `node scripts/audit.mjs`: roda `npm audit --omit=dev --json`, junta os
+  advisories `high` e `critical` e falha se sobrar algum fora da lista `IGNORED` do próprio script.
+- A lista tem só este advisory, com o motivo. O nível do gate continua `high`; qualquer outro
+  advisory high/critical derruba o CI (conferido trocando o id na lista: sai com 1).
+- **Remover a exceção** quando o `picomatch` corrigido for publicado (o Dependabot abre o PR).
+
+**Alternatives considered**
+- *`--audit-level=critical`:* rejeitado pelo Matheus (M-151); afrouxaria o gate para tudo.
+- *`overrides` do `picomatch`:* não há versão corrigida para apontar.
+- *Tirar o `vitest` da árvore do `better-auth`:* exigiria mudar versões fixas do stack.
+
+**Consequences**
+- Um advisory novo no mesmo pacote, com outro id, não é ignorado.
+- Backlog (M-151): nome do envolvido único sem tratar acento (`unaccent`).
