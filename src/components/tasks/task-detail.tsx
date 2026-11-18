@@ -64,6 +64,7 @@ type Patch = Partial<
   >
 > & {
   labelIds?: string[];
+  involvedIds?: string[];
   projectIds?: string[];
   mobileUnitIds?: string[];
   check?: { id: string; done: boolean };
@@ -105,6 +106,7 @@ export function TaskDetail({
     {
       ...task,
       labelIds: task.labels.map((l) => l.id),
+      involvedIds: task.involved.map((p) => p.id),
       projectIds: task.projects.map((p) => p.id),
       mobileUnitIds: task.units.map((u) => u.id),
     },
@@ -408,6 +410,15 @@ export function TaskDetail({
             items={withLabels(items.labels, task.labels)}
             value={view.labelIds}
             onChange={(labelIds) => save({ labelIds })}
+          />
+        </Prop>
+        {/* ADR-073: pessoas de fora do app; arquivado continua visível só na tarefa que já o tem */}
+        <Prop label="Envolvidos">
+          <PickMany
+            label="Envolvidos"
+            items={task.involved.reduce((acc, p) => withCurrent(acc, p.id, p.name), items.involved)}
+            value={view.involvedIds}
+            onChange={(involvedIds) => save({ involvedIds })}
           />
         </Prop>
         <p className="border-t pt-3 text-xs text-muted">

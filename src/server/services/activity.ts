@@ -3,6 +3,7 @@ import { db } from "@/db";
 import {
   apikey,
   cycles,
+  involvedPeople,
   labels,
   milestones,
   mobileUnits,
@@ -110,6 +111,8 @@ export function describe(type: string, p: Payload, names: Names): string | null 
       return fieldChange(p, names);
     case "labels_changed":
       return listChange("etiquetas", p, names);
+    case "involved_changed": // ADR-073
+      return listChange("Envolvidos", p, names);
     case "projects_changed":
       return listChange("Projetos/Clientes", p, names);
     case "mobile_units_changed":
@@ -139,6 +142,7 @@ async function allNames(): Promise<Names> {
     db.select({ id: projects.id, name: projects.code }).from(projects),
     db.select({ id: mobileUnits.id, name: mobileUnits.code }).from(mobileUnits),
     db.select({ id: labels.id, name: labels.name }).from(labels),
+    db.select({ id: involvedPeople.id, name: involvedPeople.name }).from(involvedPeople),
     db.select({ id: cycles.id, name: sql<string>`'Ciclo ' || ${cycles.number}` }).from(cycles),
     db.select({ id: milestones.id, name: milestones.name }).from(milestones),
   ]);

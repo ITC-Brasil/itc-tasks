@@ -272,6 +272,7 @@ it("token só-leitura não lista ferramentas de escrita (M-044)", async () => {
   expect(await list(readKey)).toEqual([
     "get_task",
     "list_cycles",
+    "list_involved",
     "list_mobile_units",
     "list_projects",
     "list_tasks",

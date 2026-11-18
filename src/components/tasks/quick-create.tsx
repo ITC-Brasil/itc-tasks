@@ -53,6 +53,7 @@ const EMPTY = {
   dueDate: "",
   dueTime: "",
   labelIds: [] as string[],
+  involvedIds: [] as string[],
   checklist: [] as string[],
   descriptionJson: null as { type: "doc" } | null,
   templateId: undefined as string | undefined,
@@ -337,6 +338,14 @@ export function QuickCreate() {
                   items={items.labels}
                   value={form.labelIds}
                   onChange={(v) => set("labelIds", v)}
+                />
+              )}
+              {!!items.involved.length && (
+                <PickMany
+                  label="Envolvidos"
+                  items={items.involved}
+                  value={form.involvedIds}
+                  onChange={(v) => set("involvedIds", v)}
                 />
               )}
               {!!form.checklist.length && (

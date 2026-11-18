@@ -25,7 +25,7 @@ import {
   toCreateInput,
   toUpdateInput,
 } from "@/server/services/agents";
-import { listMobileUnits, listProjects } from "@/server/services/catalog";
+import { listInvolved, listMobileUnits, listProjects } from "@/server/services/catalog";
 import { addComment } from "@/server/services/comments";
 import {
   TaskError,
@@ -127,6 +127,15 @@ export function createMcpServer(actor: AgentActor, access: Access[]) {
         .filter((u) => !i.project || u.project?.toUpperCase() === i.project.toUpperCase()),
     };
   });
+  tool(
+    "list_involved",
+    "read",
+    "Envolvidos ativos (pessoas de fora do app); use o id em involvedIds.",
+    {},
+    async () => ({
+      involved: (await listInvolved(actor)).map((p) => ({ id: p.id, name: p.name })),
+    }),
+  );
   tool("list_cycles", "read", "Ciclos com progresso.", mcpListCycles, async (i) => ({
     cycles: await listCyclesForAgent(i.state),
   }));

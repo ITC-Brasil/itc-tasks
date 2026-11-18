@@ -262,6 +262,7 @@ async function serviceFields(actor: AgentActor, input: Fields) {
     out.mobileUnitIds = await idsByCode(mobileUnits, input.mobileUnitIds, "Unidade Móvel");
   if (input.status) [out.statusId] = await idsByName(workflowStatuses, [input.status], "Status");
   if (input.labels) out.labelIds = await idsByName(labels, input.labels, "Etiqueta");
+  if (input.involvedIds) out.involvedIds = input.involvedIds; // ADR-073
   if (input.assignee !== undefined)
     out.assigneeId = input.assignee === null ? null : await personId(actor, input.assignee);
   if (input.description !== undefined)
@@ -352,6 +353,7 @@ export async function getTaskDetail(actor: Actor, number: number) {
     })),
     links: task.links.map((l) => ({ kind: l.kind, id: `TI-${l.number}` })),
     labels: task.labels.map((l) => l.name),
+    involved: task.involved.map((p) => ({ id: p.id, name: p.name })),
     comments: allComments.slice(-20).map((c) => ({
       author: c.authorName,
       viaAgent: c.actorKind === "agent",

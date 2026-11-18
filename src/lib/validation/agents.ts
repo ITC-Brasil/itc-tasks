@@ -63,6 +63,11 @@ const taskFields = {
     .optional()
     .describe("hora do prazo em Brasília, HH:MM; exige dueDate; null limpa"),
   labels: z.array(code).max(20).optional(),
+  involvedIds: z
+    .array(z.uuid())
+    .max(20)
+    .optional()
+    .describe("ids de list_involved; a lista substitui a atual ([] limpa)"),
   checklist: z.array(z.string().trim().min(1).max(200)).max(50).optional(),
   cycle: z
     .union([z.literal("current"), z.number().int().positive()])

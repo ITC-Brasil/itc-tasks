@@ -93,6 +93,8 @@ const fields = {
   dueTime: optional(dueTime),
   descriptionJson: optional(descriptionJson),
   labelIds: z.array(uuid).max(20).default([]),
+  // ADR-073: envolvidos (não são usuários); a lista enviada substitui a atual
+  involvedIds: z.array(uuid).max(20, "Até 20 envolvidos").default([]),
   // ADR-053: ciclo não encerrado; marco aberto de um dos Projetos/Clientes da tarefa
   cycleId: optional(uuid),
   milestoneId: optional(uuid),
@@ -127,6 +129,7 @@ export const updateTaskSchema = z
     mobileUnitIds: uniqueIds(20),
     priority: z.enum(PRIORITIES),
     labelIds: z.array(uuid).max(20),
+    involvedIds: z.array(uuid).max(20, "Até 20 envolvidos"),
   })
   .partial();
 export type UpdateTaskInput = z.input<typeof updateTaskSchema>;
