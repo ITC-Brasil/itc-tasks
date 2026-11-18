@@ -2331,3 +2331,39 @@ O prazo é só data (`due_date date`, vence no fim do dia). O time combina entre
 **Consequences**
 - Toda comparação de atraso no código passa pelo helper; consulta SQL que só olha `due_date`
   continua certa para "venceu ontem".
+
+## ADR-073 — Cadastro "Envolvidos" (pessoas de fora do app ligadas à tarefa)
+
+**Status:** Accepted
+**Date:** 2026-11-17
+**Module:** 16 — Ajustes de uso (item 7)
+
+**Context**
+Muitas tarefas dependem de pessoas que não usam o app (motorista da UM, contato no cliente,
+técnico terceirizado). Hoje elas aparecem só no texto da descrição e não dá para filtrar.
+
+**Decision**
+- Cadastro `involved_people` (`id`, `name`, `archived_at`, timestamps), em Configurações ›
+  Envolvidos, só com **nome** (único, sem diferenciar maiúsculas). Admin cria, edita e arquiva;
+  nunca exclui (ADR-018). Arquivado some dos seletores e continua nas tarefas que já o têm.
+- Ligação N:N `task_involved` (`task_id` com `ON DELETE CASCADE`, `involved_id`), como
+  `task_labels`. Até 20 por tarefa. Vale para tarefa pessoal e da equipe.
+- Envolvido **não é usuário**: sem login, notificação nem menção; nenhum fanout lê a tabela.
+- Mudança grava `involved_changed` `{ from, to }` (ids) em `task_events`, lido como "Envolvidos:
+  adicionou …; removeu …" (`task_events.type` é texto; as tabelas vêm na `0020_involved_people`).
+- Campo no detalhe e na criação completa da tarefa (a criação rápida é a completa; o prompt
+  dispensa só a "rápida" por atalho, mas o diálogo é um só, então o campo entra nele). No card
+  **não aparece** (decisão conservadora: o card já tem chips de projeto, UM e etiqueta).
+- Filtro "Envolvido" (`?envolvido=<id>`, repetível = "qualquer um de") em Kanban, Lista e
+  Calendário e nos filtros salvos, pelo `taskFiltersSchema` (ADR-046).
+- MCP: `list_involved` (leitura) e `involvedIds` em `create_task`/`update_task` (lista completa
+  substitui a atual). Os ids vêm do `list_involved`, porque nomes não são códigos estáveis.
+
+**Alternatives considered**
+- *Envolvido como `user` desativado:* rejeitado; misturaria login, papéis e listas de pessoas.
+- *Texto livre na tarefa:* rejeitado; não filtra nem padroniza nomes.
+- *Nome como chave no MCP:* rejeitado; o nome pode ser editado.
+
+**Consequences**
+- Novo cadastro na navegação de Configurações e uma consulta a mais no detalhe e nas visões
+  (lote por ids, como as etiquetas).
