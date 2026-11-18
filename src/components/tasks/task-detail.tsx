@@ -49,6 +49,7 @@ import {
 } from "./badges";
 import { CommentBody, CommentEditor } from "./comment-editor";
 import { DeleteTasksDialog } from "./delete-tasks-dialog";
+import { RecurringMark } from "./task-card";
 import { DescriptionEditor } from "./description-editor";
 import { type PickItem, Pick, PickMany, optionItems } from "./fields";
 import { Card } from "@/components/ui/card";
@@ -434,6 +435,24 @@ export function TaskDetail({
               </time>
             </>
           )}
+        </p>
+        {/* ADR-077 */}
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
+          {task.recurrenceName && (
+            <span className="inline-flex items-center gap-1">
+              <RecurringMark />
+              Criada pela recorrência{" "}
+              <Link href="/recorrencias" className="text-accent-text hover:underline">
+                {task.recurrenceName}
+              </Link>
+            </span>
+          )}
+          <Link
+            href={`/recorrencias?tarefa=${task.number}`}
+            className="text-accent-text hover:underline"
+          >
+            Repetir esta tarefa
+          </Link>
         </p>
         {canDelete && (
           <DeleteTasksDialog

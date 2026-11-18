@@ -10,6 +10,7 @@ export const QUEUES = {
   daily: "daily.morning",
   evaluate: "automation.evaluate",
   overdue: "automation.overdue",
+  recurrence: "recurrence.daily", // ADR-077
 } as const;
 
 export const NO_RETRY = new Set<string>([QUEUES.evaluate, QUEUES.overdue]);

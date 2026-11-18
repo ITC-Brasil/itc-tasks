@@ -275,9 +275,17 @@ it("token só-leitura não lista ferramentas de escrita (M-044)", async () => {
     "list_involved",
     "list_mobile_units",
     "list_projects",
+    "list_recurrences",
     "list_tasks",
   ]);
   expect(await list(writeKey)).toContain("create_task");
+});
+
+it("list_recurrences: só leitura, sem a regra pessoal de outra pessoa (ADR-077)", async () => {
+  const res = await call(readKey, "list_recurrences", {});
+  expect(res.isError).toBeFalsy();
+  const { recurrences } = res.structuredContent as { recurrences: { visibility: string }[] };
+  expect(Array.isArray(recurrences)).toBe(true);
 });
 
 it("issue #25: recusa lote JSON-RPC e limita tokens ativos por pessoa", async () => {

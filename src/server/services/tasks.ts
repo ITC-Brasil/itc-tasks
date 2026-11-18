@@ -34,6 +34,7 @@ import {
   taskMobileUnits,
   taskProjects,
   taskLinks,
+  taskRecurrences,
   tasks,
   user,
   workflowStatuses,
@@ -433,6 +434,25 @@ export async function unitTitle(tx: Tx, title: string, unitIds: string[]) {
   return out;
 }
 
+/** ADR-077: confere as referências de uma tarefa a criar sem criá-la (regra de recorrência). */
+export async function assertTaskRefs(
+  tx: Tx,
+  d: {
+    projectIds: string[];
+    mobileUnitIds: string[];
+    labelIds: string[];
+    involvedIds: string[];
+    assigneeId?: string | null;
+  },
+) {
+  await assertActive(tx, projects, d.projectIds, "Projeto/Cliente");
+  await assertActive(tx, mobileUnits, d.mobileUnitIds, "Unidade Móvel");
+  await assertUnitsFit(tx, d.mobileUnitIds, d.projectIds, []);
+  await assertLabels(tx, d.labelIds);
+  await assertInvolved(tx, d.involvedIds);
+  if (d.assigneeId) await assertAssignee(tx, d.assigneeId);
+}
+
 // ── Escrita ─────────────────────────────────────────────────────────
 
 export async function createTask(actor: Actor, input: CreateTaskInput) {
@@ -445,7 +465,13 @@ export async function insertTask(
   tx: Tx,
   actor: Actor,
   data: ReturnType<typeof createTaskSchema.parse>,
-  opts: { silent?: boolean; events?: Parameters<typeof record>[3] } = {},
+  opts: {
+    silent?: boolean;
+    events?: Parameters<typeof record>[3];
+    // ADR-077: a recorrência cria em nome do dono da regra e liga a tarefa a ela
+    creatorId?: string;
+    recurrence?: { id: string; name: string };
+  } = {},
 ) {
   if (data.templateId) {
     await countTemplateUse(tx, data.templateId, "task");
@@ -459,14 +485,16 @@ export async function insertTask(
   // ADR-069: a pessoal é de uma pessoa (ou do agente dela), sempre atribuída a quem criou
   const personal = data.visibility === "personal";
   if (personal) {
-    if (actor.kind !== "user" && actor.kind !== "agent")
+    if (actor.kind !== "user" && actor.kind !== "agent" && !opts.creatorId)
       throw new TaskError("VALIDATION", "Tarefa pessoal só é criada por uma pessoa");
-    if (data.assigneeId && data.assigneeId !== actor.userId)
+    const owner = opts.creatorId ?? (actor as { userId: string }).userId;
+    if (data.assigneeId && data.assigneeId !== owner)
       throw new TaskError("VALIDATION", PERSONAL_OWNER);
     if (data.cycleId || data.milestoneId) throw new TaskError("VALIDATION", PERSONAL_NO_PLANNING);
   }
   // ADR-045: sem responsável automático; omitido = sem responsável
-  const assigneeId = personal ? await creatorFor(tx, actor) : (data.assigneeId ?? null);
+  const creatorId = opts.creatorId ?? (await creatorFor(tx, actor));
+  const assigneeId = personal ? creatorId : (data.assigneeId ?? null);
   if (assigneeId) await assertAssignee(tx, assigneeId);
   await assertLabels(tx, data.labelIds);
   await assertInvolved(tx, data.involvedIds);
@@ -493,8 +521,9 @@ export async function insertTask(
       milestoneId: data.milestoneId ?? null,
       descriptionJson: data.descriptionJson,
       descriptionText: docText(data.descriptionJson),
-      creatorId: await creatorFor(tx, actor),
+      creatorId,
       createdVia: actor.kind,
+      recurrenceId: opts.recurrence?.id ?? null,
       position: await lastPosition(tx, status.id),
       completedAt: status.category === "done" ? new Date() : null,
     })
@@ -515,9 +544,18 @@ export async function insertTask(
     pos = generateKeyBetween(pos, null);
     await tx.insert(checklistItems).values({ taskId: task.id, text, position: pos });
   }
-  await record(tx, actor, task.id, [{ type: "created" }, ...(opts.events ?? [])], {
-    silent: opts.silent,
-  });
+  const created = opts.recurrence
+    ? { recurrenceId: opts.recurrence.id, recurrence: opts.recurrence.name }
+    : undefined;
+  await record(
+    tx,
+    actor,
+    task.id,
+    [{ type: "created", payload: created }, ...(opts.events ?? [])],
+    {
+      silent: opts.silent,
+    },
+  );
   return task;
 }
 
@@ -1038,6 +1076,7 @@ export async function getTaskByNumber(actor: Actor, number: number) {
           assigneeName: assignee.name,
           cycleNumber: cycles.number,
           milestoneName: milestones.name,
+          recurrenceName: taskRecurrences.name, // ADR-077
         })
         .from(tasks)
         .innerJoin(workflowStatuses, eq(workflowStatuses.id, tasks.statusId))
@@ -1045,6 +1084,7 @@ export async function getTaskByNumber(actor: Actor, number: number) {
         .leftJoin(assignee, eq(assignee.id, tasks.assigneeId))
         .leftJoin(cycles, eq(cycles.id, tasks.cycleId))
         .leftJoin(milestones, eq(milestones.id, tasks.milestoneId))
+        .leftJoin(taskRecurrences, eq(taskRecurrences.id, tasks.recurrenceId))
         .where(eq(tasks.id, task.id)),
       // ADR-045: o principal primeiro
       db
@@ -1164,6 +1204,7 @@ export async function listTasks(
         position: tasks.position,
         dueDate: tasks.dueDate,
         dueTime: tasks.dueTime,
+        recurrenceId: tasks.recurrenceId, // ADR-077: selo no card
         // Módulo 16: progresso das subtarefas no card, na mesma consulta (sem N+1)
         checklistTotal: sql<number>`(SELECT count(*)::int FROM ${checklistItems} WHERE ${checklistItems.taskId} = ${tasks.id})`,
         checklistDone: sql<number>`(SELECT count(*)::int FROM ${checklistItems} WHERE ${checklistItems.taskId} = ${tasks.id} AND ${checklistItems.done})`,

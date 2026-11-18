@@ -109,7 +109,9 @@ export function FormDialog({
   done,
   save,
   children,
+  defaultOpen = false,
 }: {
+  defaultOpen?: boolean;
   trigger: React.ReactElement;
   title: string;
   description?: string;
@@ -118,7 +120,7 @@ export function FormDialog({
   save: (form: FormData) => Promise<ActionResult>;
   children: React.ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 

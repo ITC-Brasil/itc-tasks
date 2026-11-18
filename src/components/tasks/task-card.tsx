@@ -1,4 +1,4 @@
-import { Calendar, ListChecks } from "lucide-react";
+import { Calendar, ListChecks, Repeat } from "lucide-react";
 import Link from "next/link";
 import { Avatar } from "@/components/ui/avatar";
 import { isOverdue, shortDate } from "@/lib/dates";
@@ -50,6 +50,20 @@ function ChecklistProgress({ done, total }: { done: number; total: number }) {
   );
 }
 
+/** ADR-077: selo de tarefa criada por recorrência (ícone neutro, nome no leitor de tela). */
+export function RecurringMark({ className }: { className?: string }) {
+  return (
+    <span
+      role="img"
+      aria-label="Recorrente"
+      title="Recorrente"
+      className={cn("text-muted", className)}
+    >
+      <Repeat className="size-3.5" strokeWidth={1.75} aria-hidden="true" />
+    </span>
+  );
+}
+
 /** TaskCard do Design System: ID, título, chips e rodapé com prazo, prioridade e responsável. */
 export function TaskCard({
   task,
@@ -87,6 +101,7 @@ export function TaskCard({
         {task.checklistTotal > 0 && (
           <ChecklistProgress done={task.checklistDone} total={task.checklistTotal} />
         )}
+        {task.recurrenceId && <RecurringMark />}
         <span className="flex-1" />
         {task.assigneeInitials && (
           <span title={task.assigneeName ?? undefined}>
