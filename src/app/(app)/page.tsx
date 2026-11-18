@@ -1,25 +1,20 @@
-import { CalendarDays, Inbox, LayoutGrid, List, ListChecks, Lock, Sun } from "lucide-react";
+import { CalendarDays, Columns3, Inbox, List, ListChecks, Lock, Sun } from "lucide-react";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Topbar } from "@/components/layout/topbar";
 import { CreateTaskButton } from "@/components/tasks/quick-create";
 import { MonthCalendar } from "@/components/tasks/calendar";
-import { TaskCard } from "@/components/tasks/task-card";
+import { Board } from "@/components/tasks/board";
 import { TaskTable } from "@/components/tasks/task-table";
 import { EmptyState } from "@/components/ui/empty-state";
-import { type DueBucket, dueBucket, dueKey, isOverdue, shortDate, todayISO } from "@/lib/dates";
+import { dueKey, isOverdue, shortDate, todayISO } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import { requireUser } from "@/server/actor";
 import { getTaskFormOptionsAction } from "@/server/actions/tasks";
+import { listStatuses } from "@/server/services/catalog";
 import { listChecklistDue, listTasks } from "@/server/services/tasks";
 
-const BUCKETS: [DueBucket, string][] = [
-  ["overdue", "Vencidas"],
-  ["today", "Hoje"],
-  ["week", "Esta semana"],
-  ["later", "Depois"],
-];
 // ADR-069: a aba vai na URL (?aba=); Módulo 16: sem o parâmetro, "Hoje"
 const TABS = [
   { aba: "", label: "Hoje" },
@@ -46,9 +41,9 @@ function scopeOf(aba: unknown, userId: string): Scope {
   }
 }
 
-// Módulo 15: o modo também vai na URL (?visao=); sem o parâmetro, Cards
+// Módulo 16: o modo vai na URL (?visao=); sem o parâmetro, Kanban (substitui os Cards por prazo)
 const VIEWS = [
-  { visao: "", label: "Cards", icon: LayoutGrid },
+  { visao: "", label: "Kanban", icon: Columns3 },
   { visao: "lista", label: "Lista", icon: List },
   { visao: "calendario", label: "Calendário", icon: CalendarDays },
 ] as const;
@@ -66,7 +61,7 @@ async function Mine({ searchParams }: PageProps<"/">) {
   const aba = TABS.find((t) => t.aba === params.aba)?.aba ?? "";
   const visao: Visao = VIEWS.find((v) => v.visao === params.visao)?.visao ?? "";
   const today = todayISO();
-  // Cards e Lista: só o que falta resolver; o Calendário mostra também o que já foi concluído
+  // Kanban e Lista: só o que falta resolver; o Calendário mostra também o que já foi concluído
   const { tasks: scoped } = await listTasks(
     actor,
     {},
@@ -172,44 +167,37 @@ async function Mine({ searchParams }: PageProps<"/">) {
     return (
       <main className="flex min-w-0 flex-1 flex-col">
         <div className="px-4 pt-4 md:px-6 md:pt-6 [&>div]:mb-0">{nav}</div>
+        {hoje && todaySubtasks.length > 0 && (
+          <div className="px-4 pt-4 md:px-6">
+            <TodaySubtasks subtasks={todaySubtasks} />
+          </div>
+        )}
         {options ? (
+          // na aba Hoje a ordem por prazo já põe as atrasadas primeiro
           <TaskTable tasks={tasks} options={options} today={today} viewer={actor} />
         ) : (
-          <div className="p-4 md:p-6">{empty}</div>
+          !(hoje && todaySubtasks.length) && <div className="p-4 md:p-6">{empty}</div>
         )}
       </main>
     );
   }
 
-  // na aba Hoje só há dois grupos: Atrasadas (a hora conta, ADR-072) e Hoje
-  const groups = Map.groupBy(tasks, (t) =>
-    hoje ? (isOverdue(t.dueDate, t.dueTime) ? "overdue" : "today") : dueBucket(t.dueDate, today),
-  );
+  // Kanban com colunas por status, como em Tarefas (também na aba Hoje); arrastar muda o status
+  const statuses = tasks.length ? await listStatuses(actor) : [];
+  tasks.sort((a, b) => (a.position < b.position ? -1 : a.position > b.position ? 1 : 0));
   return (
-    <main className="p-4 md:p-6">
-      {nav}
-      {hoje && todaySubtasks.length > 0 && <TodaySubtasks subtasks={todaySubtasks} />}
-      {tasks.length === 0
-        ? !(hoje && todaySubtasks.length) && empty
-        : BUCKETS.map(([bucket, label]) => {
-            const list = groups.get(bucket);
-            if (!list) return null;
-            return (
-              <section key={bucket} aria-labelledby={`g-${bucket}`} className="mb-6">
-                <h2 id={`g-${bucket}`} className="mb-2 text-sm font-semibold">
-                  {hoje && bucket === "overdue" ? "Atrasadas" : label}{" "}
-                  <span className="font-normal text-muted tabular-nums">{list.length}</span>
-                </h2>
-                <ul className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-                  {list.map((t) => (
-                    <li key={t.id}>
-                      <TaskCard task={t} today={today} />
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            );
-          })}
+    <main className="flex min-w-0 flex-1 flex-col">
+      <div className="px-4 pt-4 md:px-6 md:pt-6 [&>div]:mb-0">{nav}</div>
+      {hoje && todaySubtasks.length > 0 && (
+        <div className="px-4 pt-4 md:px-6">
+          <TodaySubtasks subtasks={todaySubtasks} />
+        </div>
+      )}
+      {tasks.length ? (
+        <Board statuses={statuses} tasks={tasks} today={today} />
+      ) : (
+        !(hoje && todaySubtasks.length) && <div className="p-4 md:p-6">{empty}</div>
+      )}
     </main>
   );
 }
