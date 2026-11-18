@@ -28,6 +28,7 @@ for (const [theme, block] of Object.entries(themes))
   for (const color of PROJECT_COLORS)
     it(`${color} no tema ${theme}: texto ≥ 5:1 sobre bg e unit-bg`, () => {
       const token = (part: string) =>
+        // eslint-disable-next-line security/detect-non-literal-regexp -- chave da paleta fechada
         block.match(new RegExp(`--project-${color}-${part}: (#[0-9a-f]{6});`, "i"))?.[1];
       const [bg, unit, fg] = [token("bg"), token("unit-bg"), token("fg")];
       expect([bg, unit, fg].every(Boolean), `tokens de ${color}`).toBe(true);
