@@ -980,11 +980,20 @@ export async function deleteTasks(actor: Actor, input: { taskIds: string[] }) {
           or(inArray(taskLinks.fromTaskId, taskIds), inArray(taskLinks.toTaskId, taskIds)),
         ),
       );
+    const others = deps.length
+      ? await tx
+          .select({ id: tasks.id, visibility: tasks.visibility })
+          .from(tasks)
+          .where(inArray(tasks.id, [...new Set(deps.flatMap((d) => [d.fromTaskId, d.toTaskId]))]))
+      : [];
     for (const d of deps) {
       const fromGone = taskIds.includes(d.fromTaskId);
       const [gone, other] = fromGone ? [d.fromTaskId, d.toTaskId] : [d.toTaskId, d.fromTaskId];
       if (taskIds.includes(other)) continue;
-      const number = rows.find((r) => r.id === gone)!.number;
+      const goneTask = rows.find((r) => r.id === gone)!;
+      // vínculo antigo entre pessoal e equipe não registra (nem vaza) o número (M-158)
+      if (others.find((o) => o.id === other)?.visibility !== goneTask.visibility) continue;
+      const number = goneTask.number;
       await record(tx, actor, other, [
         {
           type: "dependency_removed",
@@ -997,7 +1006,31 @@ export async function deleteTasks(actor: Actor, input: { taskIds: string[] }) {
       await tx.execute(
         sql`SELECT pg_notify('task_changed', json_build_object('id', ${t.id}::text, 'number', ${t.number}::int, 'fields', '["deleted"]'::json, 'by', ${actor.userId}::text, 'owner', ${t.visibility === "personal" ? t.creatorId : null}::text)::text)`,
       );
+    // M-158: excluir a última bloqueadora aberta libera como concluir (ADR-079)
+    const ids = sql`(${sql.join(
+      taskIds.map((id) => sql`${id}::uuid`),
+      sql`, `,
+    )})`;
+    const { rows: candidates } = await tx.execute<{ id: string; by: number }>(sql`
+      SELECT DISTINCT ON (t.id) t.id, b.number AS by FROM task_links l
+      JOIN tasks b ON b.id = l.from_task_id
+      JOIN workflow_statuses bs ON bs.id = b.status_id
+      JOIN tasks t ON t.id = l.to_task_id
+      JOIN workflow_statuses ts ON ts.id = t.status_id
+      WHERE l.kind = 'blocks' AND l.from_task_id IN ${ids}
+        AND t.id NOT IN ${ids}
+        AND bs.category <> 'done' AND ts.category <> 'done' AND b.visibility = t.visibility
+      ORDER BY t.id, b.number`);
     await tx.delete(tasks).where(inArray(tasks.id, taskIds));
+    for (const c of candidates) {
+      const { rows: still } = await tx.execute(
+        sql`SELECT 1 WHERE ${openBlocker(sql`${c.id}::uuid`)}`,
+      );
+      if (!still.length)
+        await record(tx, actor, c.id, [
+          { type: "unblocked", payload: { by: Number(c.by), deleted: true } },
+        ]);
+    }
     return files.map((f) => f.key);
   });
   await removeStoredFiles(keys);
@@ -1120,12 +1153,16 @@ async function linkRow(
 
 /** A partir de `start`, seguindo "bloqueia", chega em `target`? */
 async function reaches(tx: Tx, start: string, target: string) {
+  // só pela mesma visibilidade: vínculo antigo entre pessoal e equipe não conta (M-158)
   const { rows } = await tx.execute(sql`
     WITH RECURSIVE reach(id) AS (
-      SELECT to_task_id FROM task_links WHERE from_task_id = ${start} AND kind = 'blocks'
+      SELECT l.to_task_id FROM task_links l
+      JOIN tasks a ON a.id = l.from_task_id JOIN tasks b ON b.id = l.to_task_id
+      WHERE l.from_task_id = ${start} AND l.kind = 'blocks' AND a.visibility = b.visibility
       UNION
       SELECT l.to_task_id FROM task_links l JOIN reach r ON l.from_task_id = r.id
-      WHERE l.kind = 'blocks'
+      JOIN tasks a ON a.id = l.from_task_id JOIN tasks b ON b.id = l.to_task_id
+      WHERE l.kind = 'blocks' AND a.visibility = b.visibility
     )
     SELECT 1 FROM reach WHERE id = ${target} LIMIT 1`);
   return rows.length > 0;
