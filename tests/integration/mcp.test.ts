@@ -14,6 +14,7 @@ import {
 import { createMobileUnit, createProject } from "@/server/services/catalog";
 import { createMember } from "@/server/services/members";
 import { createCycle } from "@/server/services/planning";
+import { firstStatus } from "@/server/services/tasks";
 
 const system: Actor = { kind: "system" };
 const run = String(Date.now()).slice(-6);
@@ -316,4 +317,37 @@ it("issue #25: recusa lote JSON-RPC e limita tokens ativos por pessoa", async ()
   await expect(createAgentKey(owner, { name: "extra", access: "read" })).rejects.toThrow(/Limite/);
   await revokeAgentKey(owner, keys[0].id);
   await expect(createAgentKey(owner, { name: "extra", access: "read" })).resolves.toBeTruthy();
+});
+
+it("update_task: Aguardando exige motivo e previsão; dependências por número (ADR-078/079)", async () => {
+  const make = async (title: string) =>
+    (await call(writeKey, "create_task", { title: `${title} ${run}`, projectIds: [code] }))
+      .structuredContent.id as string;
+  const [a, b] = [await make("Espera MCP"), await make("Bloqueadora MCP")];
+  const status = (await db.transaction((tx) => firstStatus(tx, "waiting"))).name;
+  const bare = await call(writeKey, "update_task", { id: a, status });
+  expect(bare.structuredContent).toMatchObject({ code: "VALIDATION" });
+  const ok = await call(writeKey, "update_task", {
+    id: a,
+    status,
+    waitingReason: "supplier",
+    waitingUntil: "2099-01-01",
+    blockedByAdd: [b],
+  });
+  expect(ok.structuredContent).toMatchObject({
+    category: "waiting",
+    waitingReason: "supplier",
+    waitingUntil: "2099-01-01",
+  });
+  const detail = await call(readKey, "get_task", { id: a });
+  expect(detail.structuredContent).toMatchObject({
+    blockedBy: [{ id: b, done: false }],
+    blocks: [],
+  });
+  const cycle = await call(writeKey, "update_task", { id: b, blockedByAdd: [a] });
+  expect(cycle.structuredContent).toMatchObject({ code: "VALIDATION" });
+  await call(writeKey, "update_task", { id: a, blockedByRemove: [b] });
+  expect((await call(readKey, "get_task", { id: a })).structuredContent).toMatchObject({
+    blockedBy: [],
+  });
 });
