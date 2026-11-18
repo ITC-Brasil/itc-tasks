@@ -162,3 +162,28 @@ test("Envolvidos: cadastro, campo no detalhe e filtro nas visões (ADR-073)", as
   await expect(page).toHaveURL(/envolvido=[0-9a-f-]+/);
   await expect(page.getByRole("link", { name: title })).toBeVisible();
 });
+
+test("paleta com 12 cores: seletor e chip das novas sem violações do axe (ADR-075)", async ({
+  page,
+}) => {
+  test.slow();
+  const code = `CR${String(Date.now()).slice(-6)}`;
+  await login(page);
+  await page.goto("/config/projetos");
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("button", { name: "Criar Projeto/Cliente" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Nome").fill(`Cor ${code}`);
+  await dialog.getByLabel("Sigla (2 a 12 letras ou números)").fill(code);
+  for (const color of ["Verde-azulado", "Céu", "Terracota", "Mostarda"])
+    await expect(dialog.getByRole("radio", { name: color, exact: true })).toBeAttached();
+  await dialog
+    .locator("label")
+    .filter({ has: page.getByRole("radio", { name: "Terracota", exact: true }) })
+    .click();
+  await axeBothThemes(page); // diálogo com as 12 amostras
+  await dialog.getByRole("button", { name: "Criar Projeto/Cliente" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole("cell", { name: `Cor ${code}` })).toBeVisible();
+  await axeBothThemes(page); // tabela com o chip na cor nova
+});
