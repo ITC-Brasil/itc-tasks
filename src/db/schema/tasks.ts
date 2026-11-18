@@ -16,7 +16,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { apikey, user } from "./auth";
-import { labels, mobileUnits, projects, workflowStatuses } from "./catalog";
+import { involvedPeople, labels, mobileUnits, projects, workflowStatuses } from "./catalog";
 import { actorKind, linkKind, taskPriority, taskVisibility } from "./enums";
 import { cycles, milestones } from "./planning";
 
@@ -149,6 +149,23 @@ export const taskMobileUnits = pgTable(
   (t) => [
     primaryKey({ columns: [t.taskId, t.mobileUnitId] }),
     index("task_mobile_units_unit_idx").on(t.mobileUnitId),
+  ],
+);
+
+// ADR-073: envolvidos (não são usuários) por tarefa
+export const taskInvolved = pgTable(
+  "task_involved",
+  {
+    taskId: uuid("task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    involvedId: uuid("involved_id")
+      .notNull()
+      .references(() => involvedPeople.id),
+  },
+  (t) => [
+    primaryKey({ columns: [t.taskId, t.involvedId] }),
+    index("task_involved_person_idx").on(t.involvedId),
   ],
 );
 

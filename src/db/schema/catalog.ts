@@ -1,4 +1,5 @@
 // Cadastros: arquivados, nunca excluídos (ADR-018)
+import { sql } from "drizzle-orm";
 import { integer, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import type { ProjectColor } from "../../lib/validation/catalog";
 import { user } from "./auth";
@@ -48,6 +49,18 @@ export const workflowStatuses = pgTable("workflow_statuses", {
   archivedAt: timestamp("archived_at", { withTimezone: true }),
   ...timestamps,
 });
+
+// ADR-073: pessoas de fora do app ligadas a tarefas; só nome, arquivável
+export const involvedPeople = pgTable(
+  "involved_people",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("involved_people_name_uq").on(sql`lower(${t.name})`)],
+);
 
 export const labels = pgTable(
   "labels",
