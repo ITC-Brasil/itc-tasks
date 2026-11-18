@@ -2403,3 +2403,42 @@ pessoal: nem o admin deve ver os dos outros.
 - Atividade de agente em Agentes e MCP passa a ser só a dos próprios tokens também para o admin;
   o histórico de cada tarefa continua mostrando "via MCP · <token>" para quem vê a tarefa.
 - Tabela de Papéis do `CLAUDE.md` atualizada.
+
+## ADR-075 — Paleta de projetos com 12 cores (complementa o ADR-068)
+
+**Status:** Accepted
+**Date:** 2026-11-17
+**Module:** 16 — Ajustes de uso (item 12)
+
+**Context**
+As 8 cores do ADR-068 já se repetem entre os Projetos/Clientes ativos. O Matheus pediu 12, sem
+mexer nas 8 atuais (projetos já gravaram as chaves).
+
+**Decision**
+Quatro chaves novas, com os mesmos três tokens por cor (`--project-<cor>-bg`, `-unit-bg`, `-fg`)
+nos dois temas. As 8 do ADR-068 não mudam de nome nem de valor. Os nomes sugeridos (`cyan`,
+`amber`, `red`) foram trocados: `cyan` repetiria o ciano de destaque (`accent`), e `amber`/`red`
+se confundiriam com `warn` e `err`. Cada nova difere das vizinhas em matiz **e** luminosidade do
+fundo, e todas são dessaturadas em relação às funcionais.
+
+| Chave | Nome | Claro bg / unit-bg / fg | Contraste fg (bg · unit) | Escuro bg / unit-bg / fg | Contraste fg (bg · unit) |
+|---|---|---|---|---|---|
+| `teal` | Verde-azulado | `#c9e6dc` / `#e7f4ef` / `#1b4d40` | 7,26 · 8,52 | `#1f4a3f` / `#1a302a` / `#b5e6d6` | 7,23 · 10,17 |
+| `sky` | Céu | `#c6e5f2` / `#e6f4fa` / `#14465c` | 7,71 · 9,07 | `#1c4557` / `#1a2d37` / `#b3e1f4` | 7,36 · 10,17 |
+| `terracotta` | Terracota | `#f5d0c0` / `#fbebe4` / `#76301a` | 6,64 · 8,20 | `#5c2c1c` / `#3a2219` / `#f6c9b6` | 7,61 · 9,80 |
+| `mustard` | Mostarda | `#ecdfae` / `#f7f1da` / `#584612` | 6,84 · 8,07 | `#4f4317` / `#332d17` / `#efe0a6` | 7,40 · 10,39 |
+
+- `teal` é verde-acinzentado e mais escuro no texto que o `accent` (`#008F95`), sem a saturação dele;
+  `sky` puxa para o azul-claro e tem fundo mais claro que `blue`.
+- `terracotta` é laranja-tijolo de fundo claro (o `err` é vermelho saturado e só aparece como
+  texto/ícone); `mustard` é amarelo-terroso, distinto do `warn` (laranja saturado) e do `olive`
+  (mais verde e mais claro).
+- Zod (`PROJECT_COLORS`), nomes em `PROJECT_COLOR_NAMES` e o seletor de amostras ganham as 4.
+  Sem migração: a coluna `projects.color` é texto validado no Zod.
+
+**Alternatives considered**
+- *Gerar cores por matiz a partir de uma fórmula:* rejeitado; a paleta fechada com contraste
+  medido é o que o ADR-068 escolheu.
+
+**Consequences**
+- O artefato do Design System precisa das 4 cores (Cowork).
