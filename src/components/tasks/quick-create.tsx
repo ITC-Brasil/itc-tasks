@@ -88,6 +88,11 @@ export function QuickCreate() {
     const preset = (e as CustomEvent<Preset | undefined>)?.detail;
     if (preset?.statusId) setForm((f) => ({ ...f, statusId: preset.statusId! }));
     setPersonal(!!preset?.personal);
+    // M16 item 1: cada abertura começa sem Projeto/Cliente, UM e ciclo; só o "Criar outra",
+    // com o diálogo ainda aberto, os mantém
+    setProjectIds([]);
+    setMobileUnitIds([]);
+    setCycleId("");
     setOpen(true);
     // recarrega a cada abertura: cadastros podem ter mudado
     getTaskFormOptionsAction().then(
