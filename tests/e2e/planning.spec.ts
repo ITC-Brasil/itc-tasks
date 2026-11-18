@@ -92,7 +92,9 @@ test("admin exclui um ciclo planejado com confirmação (ADR-071)", async ({ pag
   await expect(page.getByRole("button", { name: `Excluir ${name}` })).toHaveCount(0);
 });
 
-test("painel mostra Concluídas por técnico com um card por membro (Módulo 16)", async ({ page }) => {
+test("painel mostra Concluídas por técnico com um card por membro (Módulo 16)", async ({
+  page,
+}) => {
   await login(page);
   await page.goto("/painel?dias=30");
   const block = page.getByRole("region", { name: /Concluídas por técnico/ });
