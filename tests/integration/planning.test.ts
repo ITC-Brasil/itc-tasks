@@ -240,3 +240,35 @@ it("excluir ciclo e marco: só admin; tarefas ficam sem vínculo e com evento (A
   expect(texts).toContain(`removeu do marco Apagar ${run}, que foi excluído`);
   await expect(deleteCycle(admin, c.id)).rejects.toThrow("Ciclo não encontrado");
 });
+
+it("painel: concluídas por técnico, só da equipe, membro sem nada com zero (Módulo 16)", async () => {
+  const p = await createProject(system, {
+    code: `T${run}`,
+    name: `Técnico ${run}`,
+    kind: "client",
+  });
+  const zero = await createMember(system, {
+    name: "Zero",
+    email: `zero-${run}@t.test`,
+    password: "senha-de-teste-123",
+    role: "member",
+  });
+  const team = await createTask(ana, {
+    title: "Da equipe",
+    projectIds: [p.id],
+    assigneeId: ana.userId,
+  });
+  await completeTask(ana, team.id);
+  const mine = await createTask(ana, {
+    title: "Pessoal",
+    projectIds: [p.id],
+    visibility: "personal",
+  });
+  await completeTask(ana, mine.id); // ADR-069: não conta
+  const d = await projectDashboard(ana, { projectId: p.id, days: "7" });
+  const of = (id: string) => d.byAssignee.find((a) => a.id === id)?.n;
+  expect(of(ana.userId)).toBe(1);
+  expect(of(zero.id)).toBe(0);
+  const ns = d.byAssignee.map((a) => a.n);
+  expect(ns).toEqual([...ns].sort((x, y) => y - x));
+});
