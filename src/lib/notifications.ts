@@ -63,6 +63,7 @@ export type NotificationData = {
   to?: string;
   rule?: string;
   subtask?: string; // Módulo 15: lembrete de prazo de uma subtarefa
+  dueTime?: string; // ADR-072: hora do prazo no aviso "vence hoje"
 };
 
 /** "Ana mencionou você em" — o que vem antes de "TI-149 Título". */
@@ -75,7 +76,9 @@ export function verb(event: NotificationEvent, data: NotificationData) {
     case "commented":
       return "comentou em";
     case "due_today":
-      return data.subtask ? `subtarefa “${data.subtask}” vence hoje em` : "vence hoje:";
+      if (data.subtask)
+        return `subtarefa “${data.subtask}” vence hoje${data.dueTime ? ` às ${data.dueTime}` : ""} em`;
+      return data.dueTime ? `vence hoje às ${data.dueTime}:` : "vence hoje:";
     case "overdue":
       return data.subtask ? `subtarefa “${data.subtask}” venceu em` : "venceu:";
     case "status_changed":
