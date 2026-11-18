@@ -324,7 +324,7 @@ export function QuickCreate() {
                 {/* ADR-072: hora opcional, só com data */}
                 <Input
                   type="time"
-                  aria-label="Hora do prazo"
+                  aria-label="Horário"
                   className="tabular-nums"
                   disabled={!form.dueDate}
                   value={form.dueTime}

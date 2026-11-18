@@ -177,16 +177,16 @@ test("prazo com hora: criação rápida e detalhe (ADR-072)", async ({ page }) =
   await dialog.getByLabel("Projeto/Cliente").click();
   await page.getByRole("option", { name: "BSBIA · BSBIA" }).click();
   await page.keyboard.press("Escape");
-  await expect(dialog.getByLabel("Hora do prazo")).toBeDisabled(); // sem data
+  await expect(dialog.getByLabel("Horário")).toBeDisabled(); // sem data
   await dialog.getByLabel("Prazo").fill("2020-01-02");
-  await dialog.getByLabel("Hora do prazo").fill("14:30");
+  await dialog.getByLabel("Horário").fill("14:30");
   await dialog.getByLabel("Título").press("Control+Enter");
   const toast = page.getByText(/^TI-\d+ criada$/);
   await expect(toast).toBeVisible();
   const number = (await toast.textContent())!.match(/\d+/)![0];
 
   await page.goto(`/tarefas/${number}`);
-  await expect(page.getByLabel("Hora do prazo")).toHaveValue("14:30");
+  await expect(page.getByLabel("Horário")).toHaveValue("14:30");
   await expect(page.getByLabel("Prazo", { exact: true })).toHaveValue("2020-01-02");
 });
 

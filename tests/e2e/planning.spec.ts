@@ -48,6 +48,7 @@ test("painel abre em Todos e o filtro de projeto mexe só no ?projeto= (M-139)",
 test("encerra o ciclo ativo mesmo sem próximo ciclo (Módulo 16)", async ({ page }) => {
   await login(page);
   await page.goto("/ciclos");
+  await page.waitForLoadState("networkidle"); // hidratação antes dos cliques
   if (!(await page.getByText("Ativo", { exact: true }).isVisible())) {
     await page.getByRole("button", { name: "Novo ciclo" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Novo ciclo" });
@@ -58,8 +59,11 @@ test("encerra o ciclo ativo mesmo sem próximo ciclo (Módulo 16)", async ({ pag
     await page.getByRole("button", { name: "Iniciar" }).first().click();
     await expect(page.getByText("Ativo", { exact: true })).toBeVisible();
   }
-  await page.getByRole("button", { name: "Encerrar ciclo" }).click();
   const dialog = page.getByRole("dialog", { name: /Encerrar Ciclo \d+/ });
+  await expect(async () => {
+    await page.getByRole("button", { name: "Encerrar ciclo" }).click();
+    await expect(dialog).toBeVisible({ timeout: 1000 });
+  }).toPass();
   await expect(dialog.getByRole("button", { name: "Encerrar ciclo" })).toBeEnabled();
   await dialog.getByRole("button", { name: "Encerrar ciclo" }).click();
   await expect(page.getByText(/^Ciclo \d+ encerrado/)).toBeVisible();
@@ -69,6 +73,7 @@ test("encerra o ciclo ativo mesmo sem próximo ciclo (Módulo 16)", async ({ pag
 test("admin exclui um ciclo planejado com confirmação (ADR-071)", async ({ page }) => {
   await login(page);
   await page.goto("/ciclos");
+  await page.waitForLoadState("networkidle");
   await page.getByRole("button", { name: "Novo ciclo" }).first().click();
   const form = page.getByRole("dialog", { name: "Novo ciclo" });
   await form.getByLabel("Início").fill("2096-06-01");
