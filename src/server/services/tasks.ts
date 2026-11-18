@@ -34,6 +34,7 @@ import {
   taskMobileUnits,
   taskProjects,
   taskLinks,
+  taskRecurrences,
   tasks,
   user,
   workflowStatuses,
@@ -1075,6 +1076,7 @@ export async function getTaskByNumber(actor: Actor, number: number) {
           assigneeName: assignee.name,
           cycleNumber: cycles.number,
           milestoneName: milestones.name,
+          recurrenceName: taskRecurrences.name, // ADR-077
         })
         .from(tasks)
         .innerJoin(workflowStatuses, eq(workflowStatuses.id, tasks.statusId))
@@ -1082,6 +1084,7 @@ export async function getTaskByNumber(actor: Actor, number: number) {
         .leftJoin(assignee, eq(assignee.id, tasks.assigneeId))
         .leftJoin(cycles, eq(cycles.id, tasks.cycleId))
         .leftJoin(milestones, eq(milestones.id, tasks.milestoneId))
+        .leftJoin(taskRecurrences, eq(taskRecurrences.id, tasks.recurrenceId))
         .where(eq(tasks.id, task.id)),
       // ADR-045: o principal primeiro
       db
@@ -1201,6 +1204,7 @@ export async function listTasks(
         position: tasks.position,
         dueDate: tasks.dueDate,
         dueTime: tasks.dueTime,
+        recurrenceId: tasks.recurrenceId, // ADR-077: selo no card
         // Módulo 16: progresso das subtarefas no card, na mesma consulta (sem N+1)
         checklistTotal: sql<number>`(SELECT count(*)::int FROM ${checklistItems} WHERE ${checklistItems.taskId} = ${tasks.id})`,
         checklistDone: sql<number>`(SELECT count(*)::int FROM ${checklistItems} WHERE ${checklistItems.taskId} = ${tasks.id} AND ${checklistItems.done})`,

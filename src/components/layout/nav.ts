@@ -7,6 +7,7 @@ import {
   House,
   LayoutTemplate,
   RefreshCw,
+  Repeat,
   Settings,
   SlidersHorizontal,
   type LucideIcon,
@@ -35,6 +36,7 @@ export const NAV: NavGroup[] = [
       { href: "/painel", label: "Painel", icon: ChartColumn },
       { href: "/notificacoes", label: "Notificações", icon: Bell },
       { href: "/templates", label: "Templates", icon: LayoutTemplate },
+      { href: "/recorrencias", label: "Recorrências", icon: Repeat }, // ADR-077
     ],
   },
   {
