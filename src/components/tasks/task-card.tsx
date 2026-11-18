@@ -5,6 +5,7 @@ import { isOverdue, shortDate } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import type { TaskRow } from "@/server/services/tasks";
 import { LabelChip, PersonalMark, PriorityIcon, ProjectChip, UnitChip } from "./badges";
+import { BlockedMark } from "./dependencies";
 import { WaitingInfo } from "./waiting";
 
 /** Prazo com ícone; vencido em `err` (ícone) e texto normal (contraste). */
@@ -110,6 +111,7 @@ export function TaskCard({
         {task.checklistTotal > 0 && (
           <ChecklistProgress done={task.checklistDone} total={task.checklistTotal} />
         )}
+        {task.blocked && task.category !== "done" && <BlockedMark />}
         {task.recurrenceId && <RecurringMark />}
         <span className="flex-1" />
         {task.assigneeInitials && (

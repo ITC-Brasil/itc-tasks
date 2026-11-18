@@ -20,6 +20,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
@@ -149,6 +150,14 @@ export function FilterBar({
         "waitingReasons",
         WAITING_REASONS.map((r) => ({ value: r, label: waitingReasonLabel(r)! })),
       )}
+      {/* ADR-079 */}
+      <label className="flex items-center gap-1.5 text-sm">
+        <Checkbox
+          checked={filters.blocked.length > 0}
+          onCheckedChange={(on) => apply({ blocked: on ? ["1"] : [] })}
+        />
+        Bloqueadas
+      </label>
       {current && (
         <Button variant="ghost" size="sm" onClick={() => router.replace(pathname)}>
           <X aria-hidden="true" /> Limpar filtros
