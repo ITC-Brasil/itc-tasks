@@ -142,7 +142,9 @@ com 2 workers passa.
 | 2 | Desativar membro pausa as recorrências dele | `src/server/services/members.ts`, `src/server/services/recurrences.ts` | `recurrences.test.ts` "A1" ✅ |
 | 3 | Excluir a última bloqueadora aberta gera `unblocked` com `deleted: true`; histórico "foi desbloqueada: TI-n excluída"; aviso "excluiu TI-n e desbloqueou" | `deleteTasks` em `src/server/services/tasks.ts`, `activity.ts`, `src/lib/notifications.ts` | `dependencies.test.ts` ✅ |
 | 4 | `dependency_removed` na exclusão e `reaches` só pela mesma visibilidade | `src/server/services/tasks.ts` | `dependencies.test.ts` (vínculos antigos inseridos direto) ✅ |
-| 5 | `0023` e auto-vínculo em produção | — | Consulta em produção não feita (sem acesso nesta sessão). Pelo código: `task_links` nasceu na `0005` (17/10/2026) e o único escritor, `linkRow` em `src/server/services/tasks.ts`, recusa "Uma tarefa não se vincula a ela mesma" desde `e8cce78` (mesmo dia, antes do go-live de 18/10). Conferir antes do merge: `SELECT count(*) FROM task_links WHERE from_task_id = to_task_id;` deve dar 0; se não der, a `0023` aborta e o deploy não segue (como a `0014`) |
+| 5 | `0023` e auto-vínculo em produção | — | ✅ O Matheus rodou em produção em 18/11/2026 `SELECT count(*) FROM task_links WHERE from_task_id = to_task_id;` → **0**: a `0023` passa. Pelo código já era esperado: o único escritor (`linkRow`) recusa auto-vínculo desde `e8cce78`, antes do go-live |
+
+Módulo aprovado na M-160 (18/11/2026). Observação do Cowork: o ADR-080 entrou no mesmo commit do código; nos próximos módulos o ADR vai num commit próprio antes do código.
 
 Os ajustes 3 e 4 mexem na mesma função e no mesmo teste: um commit.
 
