@@ -23,7 +23,7 @@ export function MonthCalendar({
   milestones: { id: string; name: string; dueOn: string | null; code: string }[];
   today: string;
   query: string; // filtros atuais, mantidos ao trocar de mês
-  path?: string; // Minhas tarefas usa o mesmo calendário em "/"
+  path?: string; // o Início usa o mesmo calendário em "/"
   // Módulo 15: subtarefas abertas com prazo, com ícone e rótulo próprios
   subtasks?: {
     id: string;

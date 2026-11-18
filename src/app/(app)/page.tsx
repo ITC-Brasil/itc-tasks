@@ -1,5 +1,6 @@
 import { CalendarDays, Inbox, LayoutGrid, List, Lock } from "lucide-react";
 import Link from "next/link";
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Topbar } from "@/components/layout/topbar";
 import { CreateTaskButton } from "@/components/tasks/quick-create";
@@ -189,10 +190,13 @@ async function Mine({ searchParams }: PageProps<"/">) {
   );
 }
 
-export default function MyTasks(props: PageProps<"/">) {
+// Módulo 16: "Minhas tarefas" virou "Início"; a URL continua "/" (sem redirect a manter)
+export const metadata: Metadata = { title: "Início · ITC Tasks" };
+
+export default function Home(props: PageProps<"/">) {
   return (
     <>
-      <Topbar title="Minhas tarefas">
+      <Topbar title="Início">
         <CreateTaskButton />
       </Topbar>
       <Suspense>
