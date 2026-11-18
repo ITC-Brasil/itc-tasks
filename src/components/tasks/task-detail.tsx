@@ -2,6 +2,7 @@
 
 import {
   Calendar,
+  ChevronRight,
   ListChecks,
   Lock,
   MessageSquare,
@@ -10,6 +11,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
+import { Collapsible } from "@base-ui/react/collapsible";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useOptimistic, useRef, useState, useTransition } from "react";
@@ -242,7 +244,7 @@ export function TaskDetail({
                 <Input
                   key={`${c.dueDate}-${c.dueTime}`}
                   type="time"
-                  aria-label={`Hora do prazo de ${c.text}`}
+                  aria-label={`Horário de ${c.text}`}
                   className="h-7 w-auto flex-none px-1.5 text-xs tabular-nums"
                   disabled={!c.dueDate}
                   defaultValue={c.dueTime ?? ""}
@@ -362,7 +364,7 @@ export function TaskDetail({
           <Input
             key={`${task.dueDate}-${task.dueTime}`}
             type="time"
-            aria-label="Hora do prazo"
+            aria-label="Horário"
             className="mt-1.5 tabular-nums"
             disabled={!task.dueDate}
             defaultValue={task.dueTime ?? ""}
@@ -612,7 +614,10 @@ function When({ at }: { at: Date }) {
 const via = (kind: string, token: string | null) =>
   kind === "agent" && <span className="text-xs text-muted">via MCP · {token}</span>;
 
-/** Comentários e histórico numa linha do tempo, mais recente embaixo (ADR-048). */
+/**
+ * Módulo 16: Comentários sempre visíveis, com o editor; o histórico de eventos fica em Atividade,
+ * recolhido por padrão (Collapsible do Base UI; o estado não é lembrado). Mais recente embaixo.
+ */
 function Activity({
   task,
   comments,
@@ -624,77 +629,96 @@ function Activity({
   activity: Event[];
   options: TaskFormOptions;
 }) {
-  const entries = [
-    ...comments.map((c) => ({ at: c.createdAt, comment: c, event: undefined })),
-    ...activity.map((e) => ({ at: e.createdAt, event: e, comment: undefined })),
-  ].sort((a, b) => a.at.getTime() - b.at.getTime());
   const [editing, setEditing] = useState<string | null>(null);
   const done = (r: TaskResult) => {
     if (!r.ok) toast.error(r.error);
     return r.ok;
   };
   return (
-    <section aria-labelledby="activity" className="flex flex-col gap-3">
-      <h2 id="activity" className="flex items-center gap-2 text-h4 font-semibold">
-        <MessageSquare className="size-4 text-muted" aria-hidden="true" />
-        Atividade
-      </h2>
-      <ol className="flex flex-col gap-3">
-        {entries.map(({ event: e, comment: c }) =>
-          e ? (
-            <li key={e.id} className="flex items-baseline gap-x-2 pl-1 text-sm text-muted">
-              <span>
-                <span className="font-medium text-foreground">{e.actor}</span> {e.text}
-              </span>
-              {via(e.actorKind, e.tokenName)}
-              <When at={e.createdAt} />
-            </li>
-          ) : (
-            <li key={c.id} className="flex gap-3">
-              <Avatar initials={c.authorInitials ?? ""} size="lg" />
-              <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <p className="flex flex-wrap items-baseline gap-x-2 text-sm">
-                  <span className="font-medium">{c.authorName}</span>
-                  {via(c.actorKind, c.tokenName)}
-                  <When at={c.createdAt} />
-                  {c.editedAt && <span className="text-xs text-muted">(editado)</span>}
-                  {c.authorId === options.actorId && editing !== c.id && (
-                    <Button
-                      variant="link"
-                      size="sm"
-                      className="h-auto p-0 text-xs"
-                      onClick={() => setEditing(c.id)}
-                    >
-                      Editar
-                    </Button>
+    <>
+      <section aria-labelledby="comments" className="flex flex-col gap-3">
+        <h2 id="comments" className="flex items-center gap-2 text-h4 font-semibold">
+          <MessageSquare className="size-4 text-muted" aria-hidden="true" />
+          Comentários
+          {comments.length > 0 && (
+            <span className="text-sm font-normal text-muted tabular-nums">{comments.length}</span>
+          )}
+        </h2>
+        {comments.length > 0 && (
+          <ol className="flex flex-col gap-3">
+            {comments.map((c) => (
+              <li key={c.id} className="flex gap-3">
+                <Avatar initials={c.authorInitials ?? ""} size="lg" />
+                <div className="flex min-w-0 flex-1 flex-col gap-1">
+                  <p className="flex flex-wrap items-baseline gap-x-2 text-sm">
+                    <span className="font-medium">{c.authorName}</span>
+                    {via(c.actorKind, c.tokenName)}
+                    <When at={c.createdAt} />
+                    {c.editedAt && <span className="text-xs text-muted">(editado)</span>}
+                    {c.authorId === options.actorId && editing !== c.id && (
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="h-auto p-0 text-xs"
+                        onClick={() => setEditing(c.id)}
+                      >
+                        Editar
+                      </Button>
+                    )}
+                  </p>
+                  {editing === c.id ? (
+                    <CommentEditor
+                      people={options.people}
+                      content={c.bodyJson as object}
+                      submitLabel="Salvar"
+                      onCancel={() => setEditing(null)}
+                      onSubmit={async (doc) => {
+                        const ok = done(await editCommentAction(c.id, task.number, doc));
+                        if (ok) setEditing(null);
+                        return ok;
+                      }}
+                    />
+                  ) : (
+                    <CommentBody key={String(c.editedAt)} content={c.bodyJson as object} />
                   )}
-                </p>
-                {editing === c.id ? (
-                  <CommentEditor
-                    people={options.people}
-                    content={c.bodyJson as object}
-                    submitLabel="Salvar"
-                    onCancel={() => setEditing(null)}
-                    onSubmit={async (doc) => {
-                      const ok = done(await editCommentAction(c.id, task.number, doc));
-                      if (ok) setEditing(null);
-                      return ok;
-                    }}
-                  />
-                ) : (
-                  <CommentBody key={String(c.editedAt)} content={c.bodyJson as object} />
-                )}
-              </div>
-            </li>
-          ),
+                </div>
+              </li>
+            ))}
+          </ol>
         )}
-      </ol>
-      <CommentEditor
-        people={options.people}
-        submitLabel="Comentar"
-        onSubmit={async (doc) => done(await addCommentAction(task.id, task.number, doc))}
-      />
-    </section>
+        <CommentEditor
+          people={options.people}
+          submitLabel="Comentar"
+          onSubmit={async (doc) => done(await addCommentAction(task.id, task.number, doc))}
+        />
+      </section>
+      <Collapsible.Root render={<section aria-labelledby="activity" />}>
+        <h2 id="activity" className="text-h4 font-semibold">
+          <Collapsible.Trigger className="group flex items-center gap-2 rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-accent-light">
+            <ChevronRight
+              className="size-4 text-muted transition-transform group-data-[panel-open]:rotate-90"
+              strokeWidth={1.75}
+              aria-hidden="true"
+            />
+            Atividade
+            <span className="text-sm font-normal text-muted tabular-nums">· {activity.length}</span>
+          </Collapsible.Trigger>
+        </h2>
+        <Collapsible.Panel>
+          <ol className="mt-3 flex flex-col gap-3">
+            {activity.map((e) => (
+              <li key={e.id} className="flex items-baseline gap-x-2 pl-1 text-sm text-muted">
+                <span>
+                  <span className="font-medium text-foreground">{e.actor}</span> {e.text}
+                </span>
+                {via(e.actorKind, e.tokenName)}
+                <When at={e.createdAt} />
+              </li>
+            ))}
+          </ol>
+        </Collapsible.Panel>
+      </Collapsible.Root>
+    </>
   );
 }
 
