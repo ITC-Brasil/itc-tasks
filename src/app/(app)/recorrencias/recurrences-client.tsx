@@ -220,7 +220,7 @@ export function RecurrenceDialog({
             </FieldLabel>
           </div>
         )}
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           <FieldLabel label="A partir de">
             <Input
               name="startDate"
