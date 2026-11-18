@@ -29,6 +29,7 @@ const TABS = [
   { href: "/config/unidades", label: "Unidades Móveis" },
   { href: "/config/workflow", label: "Workflow" },
   { href: "/config/etiquetas", label: "Etiquetas" },
+  { href: "/config/envolvidos", label: "Envolvidos" },
   { href: "/config/membros", label: "Membros" },
   { href: "/config/automacoes", label: "Automações" },
   { href: "/config/agentes", label: "Agentes e MCP" },

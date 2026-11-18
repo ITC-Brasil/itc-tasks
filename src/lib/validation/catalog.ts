@@ -23,6 +23,11 @@ export const PROJECT_COLORS = [
   "brown",
   "olive",
   "slate",
+  // ADR-075
+  "teal",
+  "sky",
+  "terracotta",
+  "mustard",
 ] as const;
 export type ProjectColor = (typeof PROJECT_COLORS)[number];
 // Map evita indexação dinâmica de objeto
@@ -35,6 +40,10 @@ export const PROJECT_COLOR_NAMES = new Map<ProjectColor, string>([
   ["brown", "Marrom"],
   ["olive", "Oliva"],
   ["slate", "Cinza-azulado"],
+  ["teal", "Verde-azulado"],
+  ["sky", "Céu"],
+  ["terracotta", "Terracota"],
+  ["mustard", "Mostarda"],
 ]);
 
 export const projectSchema = z.object({
@@ -78,6 +87,12 @@ export const labelSchema = z.object({
   colorToken: z.enum(LABEL_COLORS, "Escolha uma cor"),
 });
 export type LabelInput = z.input<typeof labelSchema>;
+
+// ADR-073: pessoa de fora do app; só o nome
+export const involvedSchema = z.object({
+  name: z.string().trim().min(1, "Informe o nome").max(80, "Até 80 caracteres"),
+});
+export type InvolvedInput = z.input<typeof involvedSchema>;
 
 export const STATUS_CATEGORIES = ["backlog", "todo", "in_progress", "waiting", "done"] as const; // ADR-022, ADR-067
 

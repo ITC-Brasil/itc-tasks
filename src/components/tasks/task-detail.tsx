@@ -2,6 +2,7 @@
 
 import {
   Calendar,
+  ChevronRight,
   ListChecks,
   Lock,
   MessageSquare,
@@ -10,6 +11,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
+import { Collapsible } from "@base-ui/react/collapsible";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useOptimistic, useRef, useState, useTransition } from "react";
@@ -18,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { relativeTime } from "@/lib/dates";
+import { isOverdue, relativeTime } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import type { Priority, UpdateTaskInput } from "@/lib/validation/tasks";
 import {
@@ -56,9 +58,13 @@ type Comment = Awaited<ReturnType<typeof listComments>>[number];
 type Event = Awaited<ReturnType<typeof listActivity>>[number];
 type Attachment = Awaited<ReturnType<typeof listAttachments>>[number];
 type Patch = Partial<
-  Pick<Task, "title" | "statusId" | "priority" | "assigneeId" | "glpiTicket" | "dueDate">
+  Pick<
+    Task,
+    "title" | "statusId" | "priority" | "assigneeId" | "glpiTicket" | "dueDate" | "dueTime"
+  >
 > & {
   labelIds?: string[];
+  involvedIds?: string[];
   projectIds?: string[];
   mobileUnitIds?: string[];
   check?: { id: string; done: boolean };
@@ -82,7 +88,6 @@ export function TaskDetail({
   options,
   glpiBaseUrl,
   canDelete,
-  today,
 }: {
   task: Task;
   comments: Comment[];
@@ -91,7 +96,8 @@ export function TaskDetail({
   options: TaskFormOptions;
   glpiBaseUrl: string;
   canDelete: boolean;
-  today: string;
+  /** ponytail: não usado desde o ADR-072 (o atraso vem do isOverdue); quem chama ainda passa */
+  today?: string;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -100,6 +106,7 @@ export function TaskDetail({
     {
       ...task,
       labelIds: task.labels.map((l) => l.id),
+      involvedIds: task.involved.map((p) => p.id),
       projectIds: task.projects.map((p) => p.id),
       mobileUnitIds: task.units.map((u) => u.id),
     },
@@ -214,7 +221,7 @@ export function TaskDetail({
                   {c.text}
                 </span>
                 {/* mesmo padrão do prazo da tarefa: ícone em err, texto normal; concluída não atrasa */}
-                {!c.done && c.dueDate && c.dueDate < today && (
+                {!c.done && isOverdue(c.dueDate, c.dueTime) && (
                   <>
                     <Calendar
                       className="size-3.5 flex-none text-err"
@@ -233,6 +240,20 @@ export function TaskDetail({
                   onChange={(e) => {
                     const dueDate = e.currentTarget.value || null;
                     act({}, () => updateChecklistItemAction(c.id, task.number, { dueDate }));
+                  }}
+                />
+                {/* ADR-072: hora opcional, só com data */}
+                <Input
+                  key={`${c.dueDate}-${c.dueTime}`}
+                  type="time"
+                  aria-label={`Horário de ${c.text}`}
+                  className="h-7 w-auto flex-none px-1.5 text-xs tabular-nums"
+                  disabled={!c.dueDate}
+                  defaultValue={c.dueTime ?? ""}
+                  onBlur={(e) => {
+                    const dueTime = e.currentTarget.value || null;
+                    if (dueTime !== c.dueTime)
+                      act({}, () => updateChecklistItemAction(c.id, task.number, { dueTime }));
                   }}
                 />
                 <Button
@@ -341,6 +362,19 @@ export function TaskDetail({
             defaultValue={task.dueDate ?? ""}
             onChange={(e) => save({ dueDate: e.currentTarget.value || null })}
           />
+          {/* ADR-072: hora opcional; sem data fica desabilitada */}
+          <Input
+            key={`${task.dueDate}-${task.dueTime}`}
+            type="time"
+            aria-label="Horário"
+            className="mt-1.5 tabular-nums"
+            disabled={!task.dueDate}
+            defaultValue={task.dueTime ?? ""}
+            onBlur={(e) => {
+              const dueTime = e.currentTarget.value || null;
+              if (dueTime !== task.dueTime) save({ dueTime });
+            }}
+          />
         </Prop>
         {!personal && (
           <>
@@ -376,6 +410,15 @@ export function TaskDetail({
             items={withLabels(items.labels, task.labels)}
             value={view.labelIds}
             onChange={(labelIds) => save({ labelIds })}
+          />
+        </Prop>
+        {/* ADR-073: pessoas de fora do app; arquivado continua visível só na tarefa que já o tem */}
+        <Prop label="Envolvidos">
+          <PickMany
+            label="Envolvidos"
+            items={task.involved.reduce((acc, p) => withCurrent(acc, p.id, p.name), items.involved)}
+            value={view.involvedIds}
+            onChange={(involvedIds) => save({ involvedIds })}
           />
         </Prop>
         <p className="border-t pt-3 text-xs text-muted">
@@ -582,7 +625,10 @@ function When({ at }: { at: Date }) {
 const via = (kind: string, token: string | null) =>
   kind === "agent" && <span className="text-xs text-muted">via MCP · {token}</span>;
 
-/** Comentários e histórico numa linha do tempo, mais recente embaixo (ADR-048). */
+/**
+ * Módulo 16: Comentários sempre visíveis, com o editor; o histórico de eventos fica em Atividade,
+ * recolhido por padrão (Collapsible do Base UI; o estado não é lembrado). Mais recente embaixo.
+ */
 function Activity({
   task,
   comments,
@@ -594,77 +640,96 @@ function Activity({
   activity: Event[];
   options: TaskFormOptions;
 }) {
-  const entries = [
-    ...comments.map((c) => ({ at: c.createdAt, comment: c, event: undefined })),
-    ...activity.map((e) => ({ at: e.createdAt, event: e, comment: undefined })),
-  ].sort((a, b) => a.at.getTime() - b.at.getTime());
   const [editing, setEditing] = useState<string | null>(null);
   const done = (r: TaskResult) => {
     if (!r.ok) toast.error(r.error);
     return r.ok;
   };
   return (
-    <section aria-labelledby="activity" className="flex flex-col gap-3">
-      <h2 id="activity" className="flex items-center gap-2 text-h4 font-semibold">
-        <MessageSquare className="size-4 text-muted" aria-hidden="true" />
-        Atividade
-      </h2>
-      <ol className="flex flex-col gap-3">
-        {entries.map(({ event: e, comment: c }) =>
-          e ? (
-            <li key={e.id} className="flex items-baseline gap-x-2 pl-1 text-sm text-muted">
-              <span>
-                <span className="font-medium text-foreground">{e.actor}</span> {e.text}
-              </span>
-              {via(e.actorKind, e.tokenName)}
-              <When at={e.createdAt} />
-            </li>
-          ) : (
-            <li key={c.id} className="flex gap-3">
-              <Avatar initials={c.authorInitials ?? ""} size="lg" />
-              <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <p className="flex flex-wrap items-baseline gap-x-2 text-sm">
-                  <span className="font-medium">{c.authorName}</span>
-                  {via(c.actorKind, c.tokenName)}
-                  <When at={c.createdAt} />
-                  {c.editedAt && <span className="text-xs text-muted">(editado)</span>}
-                  {c.authorId === options.actorId && editing !== c.id && (
-                    <Button
-                      variant="link"
-                      size="sm"
-                      className="h-auto p-0 text-xs"
-                      onClick={() => setEditing(c.id)}
-                    >
-                      Editar
-                    </Button>
+    <>
+      <section aria-labelledby="comments" className="flex flex-col gap-3">
+        <h2 id="comments" className="flex items-center gap-2 text-h4 font-semibold">
+          <MessageSquare className="size-4 text-muted" aria-hidden="true" />
+          Comentários
+          {comments.length > 0 && (
+            <span className="text-sm font-normal text-muted tabular-nums">{comments.length}</span>
+          )}
+        </h2>
+        {comments.length > 0 && (
+          <ol className="flex flex-col gap-3">
+            {comments.map((c) => (
+              <li key={c.id} className="flex gap-3">
+                <Avatar initials={c.authorInitials ?? ""} size="lg" />
+                <div className="flex min-w-0 flex-1 flex-col gap-1">
+                  <p className="flex flex-wrap items-baseline gap-x-2 text-sm">
+                    <span className="font-medium">{c.authorName}</span>
+                    {via(c.actorKind, c.tokenName)}
+                    <When at={c.createdAt} />
+                    {c.editedAt && <span className="text-xs text-muted">(editado)</span>}
+                    {c.authorId === options.actorId && editing !== c.id && (
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="h-auto p-0 text-xs"
+                        onClick={() => setEditing(c.id)}
+                      >
+                        Editar
+                      </Button>
+                    )}
+                  </p>
+                  {editing === c.id ? (
+                    <CommentEditor
+                      people={options.people}
+                      content={c.bodyJson as object}
+                      submitLabel="Salvar"
+                      onCancel={() => setEditing(null)}
+                      onSubmit={async (doc) => {
+                        const ok = done(await editCommentAction(c.id, task.number, doc));
+                        if (ok) setEditing(null);
+                        return ok;
+                      }}
+                    />
+                  ) : (
+                    <CommentBody key={String(c.editedAt)} content={c.bodyJson as object} />
                   )}
-                </p>
-                {editing === c.id ? (
-                  <CommentEditor
-                    people={options.people}
-                    content={c.bodyJson as object}
-                    submitLabel="Salvar"
-                    onCancel={() => setEditing(null)}
-                    onSubmit={async (doc) => {
-                      const ok = done(await editCommentAction(c.id, task.number, doc));
-                      if (ok) setEditing(null);
-                      return ok;
-                    }}
-                  />
-                ) : (
-                  <CommentBody key={String(c.editedAt)} content={c.bodyJson as object} />
-                )}
-              </div>
-            </li>
-          ),
+                </div>
+              </li>
+            ))}
+          </ol>
         )}
-      </ol>
-      <CommentEditor
-        people={options.people}
-        submitLabel="Comentar"
-        onSubmit={async (doc) => done(await addCommentAction(task.id, task.number, doc))}
-      />
-    </section>
+        <CommentEditor
+          people={options.people}
+          submitLabel="Comentar"
+          onSubmit={async (doc) => done(await addCommentAction(task.id, task.number, doc))}
+        />
+      </section>
+      <Collapsible.Root render={<section aria-labelledby="activity" />}>
+        <h2 id="activity" className="text-h4 font-semibold">
+          <Collapsible.Trigger className="group flex items-center gap-2 rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-accent-light">
+            <ChevronRight
+              className="size-4 text-muted transition-transform group-data-[panel-open]:rotate-90"
+              strokeWidth={1.75}
+              aria-hidden="true"
+            />
+            Atividade
+            <span className="text-sm font-normal text-muted tabular-nums">· {activity.length}</span>
+          </Collapsible.Trigger>
+        </h2>
+        <Collapsible.Panel>
+          <ol className="mt-3 flex flex-col gap-3">
+            {activity.map((e) => (
+              <li key={e.id} className="flex items-baseline gap-x-2 pl-1 text-sm text-muted">
+                <span>
+                  <span className="font-medium text-foreground">{e.actor}</span> {e.text}
+                </span>
+                {via(e.actorKind, e.tokenName)}
+                <When at={e.createdAt} />
+              </li>
+            ))}
+          </ol>
+        </Collapsible.Panel>
+      </Collapsible.Root>
+    </>
   );
 }
 

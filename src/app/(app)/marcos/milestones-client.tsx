@@ -12,6 +12,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { shortDate, todayISO } from "@/lib/dates";
 import { cn } from "@/lib/utils";
+import { DeletePlanningDialog } from "../ciclos/delete-planning";
 import { saveMilestoneAction, setMilestoneClosedAction } from "@/server/actions/planning";
 import type { MilestoneRow } from "@/server/services/planning";
 import { Card } from "@/components/ui/card";
@@ -106,9 +107,11 @@ function CloseButton({ milestone }: { milestone: MilestoneRow }) {
 export function MilestonesView({
   milestones,
   projects,
+  canDelete = false,
 }: {
   milestones: MilestoneRow[];
   projects: Option[];
+  canDelete?: boolean;
 }) {
   if (!milestones.length)
     return (
@@ -164,6 +167,9 @@ export function MilestonesView({
               </Link>
               <MilestoneDialog milestone={m} projects={projects} />
               <CloseButton milestone={m} />
+              {canDelete && (
+                <DeletePlanningDialog kind="milestone" id={m.id} name={m.name} tasks={m.total} />
+              )}
             </div>
           </Card>
         );

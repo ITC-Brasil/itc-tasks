@@ -132,6 +132,64 @@ test("criação rápida com descrição; Criar outra limpa a descrição", async
   );
 });
 
+test("criação seguida abre sem Projeto/Cliente nem UM da anterior", async ({ page }) => {
+  test.slow();
+  await login(page);
+  const dialog = page.getByRole("dialog", { name: "Criar tarefa" });
+  const open = () =>
+    expect(async () => {
+      await page.keyboard.press("c");
+      await expect(dialog).toBeVisible({ timeout: 1000 });
+    }).toPass();
+
+  await open();
+  await dialog.getByLabel("Título").fill(`E2E vazia ${Date.now()}`);
+  await dialog.getByLabel("Projeto/Cliente").click();
+  await page.getByRole("option", { name: "BSBIA · BSBIA" }).click();
+  await page.keyboard.press("Escape");
+  await dialog.getByLabel("Unidade Móvel").click();
+  await page.getByRole("option", { name: "BSBIA01" }).click();
+  await page.keyboard.press("Escape");
+  await dialog.getByLabel("Título").press("Control+Enter");
+  await expect(dialog).toBeHidden();
+  await expect(page.getByText(/^TI-\d+ criada$/)).toBeVisible();
+
+  // M16 item 1: a segunda abre vazia
+  await open();
+  await expect(dialog.getByRole("combobox", { name: "Projeto/Cliente" })).not.toContainText(
+    "BSBIA",
+  );
+  await expect(dialog.getByRole("combobox", { name: "Unidade Móvel" })).not.toContainText(
+    "BSBIA01",
+  );
+});
+
+test("prazo com hora: criação rápida e detalhe (ADR-072)", async ({ page }) => {
+  test.slow();
+  const title = `E2E hora ${Date.now()}`;
+  await login(page);
+  const dialog = page.getByRole("dialog", { name: "Criar tarefa" });
+  await expect(async () => {
+    await page.keyboard.press("c");
+    await expect(dialog).toBeVisible({ timeout: 1000 });
+  }).toPass();
+  await dialog.getByLabel("Título").fill(title);
+  await dialog.getByLabel("Projeto/Cliente").click();
+  await page.getByRole("option", { name: "BSBIA · BSBIA" }).click();
+  await page.keyboard.press("Escape");
+  await expect(dialog.getByLabel("Horário")).toBeDisabled(); // sem data
+  await dialog.getByLabel("Prazo").fill("2020-01-02");
+  await dialog.getByLabel("Horário").fill("14:30");
+  await dialog.getByLabel("Título").press("Control+Enter");
+  const toast = page.getByText(/^TI-\d+ criada$/);
+  await expect(toast).toBeVisible();
+  const number = (await toast.textContent())!.match(/\d+/)![0];
+
+  await page.goto(`/tarefas/${number}`);
+  await expect(page.getByLabel("Horário")).toHaveValue("14:30");
+  await expect(page.getByLabel("Prazo", { exact: true })).toHaveValue("2020-01-02");
+});
+
 test("tarefa inexistente mostra a página de não encontrado", async ({ page }) => {
   await login(page);
   await page.goto("/tarefas/999999999");

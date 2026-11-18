@@ -156,5 +156,6 @@ export function optionItems(o: TaskFormOptions) {
       label: l.name,
       icon: <LabelDot colorToken={l.colorToken} />,
     })),
+    involved: o.involved.map((p) => ({ value: p.id, label: p.name })), // ADR-073
   };
 }

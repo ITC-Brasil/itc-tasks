@@ -25,6 +25,7 @@ import type { TaskRow } from "@/server/services/tasks";
 import { DeleteTasksDialog } from "./delete-tasks-dialog";
 import { PersonalMark, PriorityIcon, ProjectChip, StatusIcon, priorityLabel } from "./badges";
 import { Pick, optionItems } from "./fields";
+import { dueKey, isOverdue } from "@/lib/dates";
 import { DueDate } from "./task-card";
 
 const features = tableFeatures({
@@ -39,12 +40,12 @@ const col = createColumnHelper<typeof features, TaskRow>();
 export function TaskTable({
   tasks,
   options,
-  today,
   viewer,
 }: {
   tasks: TaskRow[];
   options: TaskFormOptions;
-  today: string;
+  /** ponytail: não usado desde o ADR-072 (o atraso vem do isOverdue); quem chama ainda passa */
+  today?: string;
   viewer: Actor;
 }) {
   const router = useRouter();
@@ -128,12 +129,16 @@ export function TaskTable({
           <span className="text-muted">—</span>
         ),
     }),
-    col.accessor((t) => t.dueDate ?? "9999", {
+    col.accessor((t) => dueKey(t.dueDate, t.dueTime), {
       id: "due",
       header: "Prazo",
       cell: ({ row: { original: t } }) =>
         t.dueDate ? (
-          <DueDate due={t.dueDate} overdue={t.dueDate < today && t.category !== "done"} />
+          <DueDate
+            due={t.dueDate}
+            time={t.dueTime}
+            overdue={t.category !== "done" && isOverdue(t.dueDate, t.dueTime)}
+          />
         ) : null,
     }),
   ]);

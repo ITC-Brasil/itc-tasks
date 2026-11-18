@@ -7,6 +7,7 @@ import { requireActor } from "@/server/actor";
 import { listProjects } from "@/server/services/catalog";
 import { projectDashboard } from "@/server/services/planning";
 import { DashboardFilters, WeeklyChart } from "./dashboard-client";
+import { Avatar } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 
 export const metadata: Metadata = { title: "Painel · ITC Tasks" };
@@ -81,6 +82,23 @@ async function Dashboard({ searchParams }: PageProps<"/painel">) {
           hint={`Concluídas em ${d.days} dias`}
         />
       </div>
+      <section aria-labelledby="por-tecnico" className="flex flex-col gap-2">
+        <h2 id="por-tecnico" className="text-sm font-medium">
+          Concluídas por técnico <span className="text-muted">· {d.days} dias</span>
+        </h2>
+        <ul className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          {d.byAssignee.map((p) => (
+            <Card as="li" padding="md" key={p.id} className="flex items-center gap-3">
+              <Avatar initials={p.initials ?? ""} size="lg" />
+              <span className="min-w-0 flex-1 truncate text-sm">{p.name}</span>
+              <span className="text-h3 font-bold tabular-nums">
+                {p.n}
+                <span className="sr-only"> concluídas</span>
+              </span>
+            </Card>
+          ))}
+        </ul>
+      </section>
       <WeeklyChart weeks={d.weeks} />
       <div className="grid gap-3 md:grid-cols-2">
         <Bars title="Abertas por status" rows={d.byStatus} />

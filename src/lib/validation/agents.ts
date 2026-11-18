@@ -1,13 +1,13 @@
 import { z } from "zod";
 import { STATUS_CATEGORIES } from "./catalog";
-import { PRIORITIES, VISIBILITIES, taskNumberSchema } from "./tasks";
+import { DUE_TIME_RE, PRIORITIES, VISIBILITIES, taskNumberSchema } from "./tasks";
 
 // ── Tokens (ADR-049) ────────────────────────────────────────────────
 
-export const createAgentKeySchema = z.object({
+// ADR-074: token só para a própria pessoa; campo a mais (ex.: userId) é recusado
+export const createAgentKeySchema = z.strictObject({
   name: z.string().trim().min(1, "Informe o nome").max(60, "Até 60 caracteres"),
   access: z.enum(["read", "write"]), // write inclui read
-  userId: z.string().min(1).optional(), // admin cria para outra pessoa
 });
 
 // ── Entradas das ferramentas MCP (docs/API.md §1) ───────────────────
@@ -56,7 +56,18 @@ const taskFields = {
   mobileUnitIds: z.array(code).max(20).optional(),
   glpiTicket: z.number().int().positive().max(9_999_999).nullable().optional(),
   dueDate: date.nullable().optional(),
+  dueTime: z
+    .string()
+    .regex(DUE_TIME_RE, "HH:MM")
+    .nullable()
+    .optional()
+    .describe("hora do prazo em Brasília, HH:MM; exige dueDate; null limpa"),
   labels: z.array(code).max(20).optional(),
+  involvedIds: z
+    .array(z.uuid())
+    .max(20)
+    .optional()
+    .describe("ids de list_involved; a lista substitui a atual ([] limpa)"),
   checklist: z.array(z.string().trim().min(1).max(200)).max(50).optional(),
   cycle: z
     .union([z.literal("current"), z.number().int().positive()])
@@ -84,7 +95,13 @@ export const mcpUpdateTask = {
     .max(50)
     .optional(),
   checklistDue: z
-    .array(z.object({ index: z.number().int().min(0), dueDate: date.nullable() }))
+    .array(
+      z.object({
+        index: z.number().int().min(0),
+        dueDate: date.nullable(),
+        dueTime: z.string().regex(DUE_TIME_RE, "HH:MM").nullable().optional(),
+      }),
+    )
     .max(50)
     .optional()
     .describe("prazo da subtarefa pelo índice; null limpa"),

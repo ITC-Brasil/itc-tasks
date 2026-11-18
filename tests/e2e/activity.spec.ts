@@ -43,10 +43,19 @@ test("busca ⌘K abre a tarefa; comentário com @menção vai para a aba Mençõ
   await page.keyboard.type("Olhar com @Admin");
   await page.getByRole("option", { name: /Admin/ }).first().click();
   await page.keyboard.press("Control+Enter");
-  await expect(page.getByText("criou a tarefa")).toBeVisible();
-  await expect(page.locator("section[aria-labelledby=activity] .mention")).toBeVisible();
+  await expect(page.locator("section[aria-labelledby=comments] .mention")).toBeVisible();
 
-  await axeBothThemes(page);
+  // Módulo 16: Atividade separada dos comentários, recolhida por padrão, com a contagem
+  const toggle = page.getByRole("button", { name: /^Atividade · \d+$/ });
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByText("criou a tarefa")).toBeHidden();
+  await axeBothThemes(page); // recolhida
+  await toggle.focus();
+  await page.keyboard.press("Enter"); // abre pelo teclado
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByText("criou a tarefa")).toBeVisible();
+  await expect(page.locator("section[aria-labelledby=activity] .mention")).toHaveCount(0);
+  await axeBothThemes(page); // aberta
 
   await page.goto("/?aba=mencoes");
   await expect(page.getByText(title)).toBeVisible();

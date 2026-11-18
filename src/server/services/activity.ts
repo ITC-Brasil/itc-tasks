@@ -3,6 +3,7 @@ import { db } from "@/db";
 import {
   apikey,
   cycles,
+  involvedPeople,
   labels,
   milestones,
   mobileUnits,
@@ -25,11 +26,13 @@ type Payload = {
   action?: string;
   text?: string;
   dueDate?: string;
+  dueTime?: string | null;
   kind?: string;
   target?: number;
   fileName?: string;
   key?: string;
   sourceId?: string;
+  deleted?: string;
 };
 type Names = Map<string, string>;
 
@@ -74,12 +77,19 @@ function fieldChange(p: Payload, names: Names) {
       return p.to ? `definiu o chamado GLPI #${String(p.to)}` : "removeu o chamado GLPI";
     case "dueDate":
       return p.to ? `definiu o prazo para ${brDate(String(p.to))}` : "removeu o prazo";
+    case "dueTime": // ADR-072
+      return p.to
+        ? `definiu o horário do prazo para ${String(p.to)}`
+        : "removeu o horário do prazo";
     case "description":
       return "editou a descrição";
     case "cycle":
-      return p.to ? `moveu para o ${name(names, p.to)}` : "tirou do ciclo";
     case "milestone":
-      return p.to ? `ligou ao marco ${name(names, p.to)}` : "tirou do marco";
+      if (p.deleted)
+        return `removeu do ${p.field === "milestone" ? "marco " : ""}${p.deleted}, que foi excluído`; // ADR-071
+      if (p.field === "milestone")
+        return p.to ? `ligou ao marco ${name(names, p.to)}` : "tirou do marco";
+      return p.to ? `moveu para o ${name(names, p.to)}` : "tirou do ciclo";
     case "position":
       return "moveu para o topo da coluna";
     case "visibility":
@@ -101,13 +111,15 @@ export function describe(type: string, p: Payload, names: Names): string | null 
       return fieldChange(p, names);
     case "labels_changed":
       return listChange("etiquetas", p, names);
+    case "involved_changed": // ADR-073
+      return listChange("Envolvidos", p, names);
     case "projects_changed":
       return listChange("Projetos/Clientes", p, names);
     case "mobile_units_changed":
       return listChange("Unidades Móveis", p, names);
     case "checklist_changed":
       if (p.action === "due_set" && p.dueDate)
-        return `definiu o prazo da subtarefa “${p.text ?? ""}” para ${brDate(p.dueDate)}`;
+        return `definiu o prazo da subtarefa “${p.text ?? ""}” para ${brDate(p.dueDate)}${p.dueTime ? ` ${p.dueTime}` : ""}`;
       return `${CHECK.get(p.action ?? "") ?? "alterou a subtarefa"} “${p.text ?? ""}”`;
     case "link_added":
       return `vinculou: ${LINK.get(p.kind ?? "") ?? p.kind} TI-${p.target}`;
@@ -130,6 +142,7 @@ async function allNames(): Promise<Names> {
     db.select({ id: projects.id, name: projects.code }).from(projects),
     db.select({ id: mobileUnits.id, name: mobileUnits.code }).from(mobileUnits),
     db.select({ id: labels.id, name: labels.name }).from(labels),
+    db.select({ id: involvedPeople.id, name: involvedPeople.name }).from(involvedPeople),
     db.select({ id: cycles.id, name: sql<string>`'Ciclo ' || ${cycles.number}` }).from(cycles),
     db.select({ id: milestones.id, name: milestones.name }).from(milestones),
   ]);

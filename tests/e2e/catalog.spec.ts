@@ -130,3 +130,60 @@ test("cor por Projeto/Cliente: três cores, chip só com a sigla e UM no tom sua
   );
   await axeBothThemes(page);
 });
+
+test("Envolvidos: cadastro, campo no detalhe e filtro nas visões (ADR-073)", async ({ page }) => {
+  test.slow();
+  const name = `Contato E2E ${Date.now()}`;
+  await login(page);
+  await page.goto("/config/envolvidos");
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("button", { name: "Criar envolvido" }).click();
+  const form = page.getByRole("dialog", { name: "Criar envolvido" });
+  await form.getByLabel("Nome").fill(name);
+  await form.getByRole("button", { name: "Criar envolvido" }).click();
+  await expect(page.getByRole("cell", { name, exact: true })).toBeVisible();
+  await axeBothThemes(page);
+
+  const title = `E2E envolvido ${Date.now()}`;
+  await createTask(page, title, "BSBIA · BSBIA");
+  const toast = page.getByText(/^TI-\d+ criada$/);
+  const number = (await toast.textContent())!.match(/\d+/)![0];
+  await page.goto(`/tarefas/${number}`);
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("combobox", { name: "Envolvidos" }).click();
+  await page.getByRole("option", { name }).click();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("combobox", { name: "Envolvidos" })).toContainText(name);
+
+  await page.goto("/tarefas/lista");
+  await page.getByRole("combobox", { name: "Envolvido" }).click();
+  await page.getByRole("option", { name }).click();
+  await page.keyboard.press("Escape");
+  await expect(page).toHaveURL(/envolvido=[0-9a-f-]+/);
+  await expect(page.getByRole("link", { name: title })).toBeVisible();
+});
+
+test("paleta com 12 cores: seletor e chip das novas sem violações do axe (ADR-075)", async ({
+  page,
+}) => {
+  test.slow();
+  const code = `CR${String(Date.now()).slice(-6)}`;
+  await login(page);
+  await page.goto("/config/projetos");
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("button", { name: "Criar Projeto/Cliente" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Nome").fill(`Cor ${code}`);
+  await dialog.getByLabel("Sigla (2 a 12 letras ou números)").fill(code);
+  for (const color of ["Verde-azulado", "Céu", "Terracota", "Mostarda"])
+    await expect(dialog.getByRole("radio", { name: color, exact: true })).toBeAttached();
+  await dialog
+    .locator("label")
+    .filter({ has: page.getByRole("radio", { name: "Terracota", exact: true }) })
+    .click();
+  await axeBothThemes(page); // diálogo com as 12 amostras
+  await dialog.getByRole("button", { name: "Criar Projeto/Cliente" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole("cell", { name: `Cor ${code}`, exact: true })).toBeVisible();
+  await axeBothThemes(page); // tabela com o chip na cor nova
+});

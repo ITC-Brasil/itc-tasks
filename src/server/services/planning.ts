@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, inArray, isNotNull, isNull, max, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNotNull, isNull, max, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   cycles,
@@ -22,6 +22,7 @@ import {
 } from "@/lib/validation/planning";
 import type { Actor } from "@/server/actor";
 import { listProjects } from "./catalog";
+import { ForbiddenError, isAdmin } from "@/server/permissions";
 import { TaskError, lockTask, record, teamOnly } from "./tasks";
 
 // ADR-053: admin e member planejam; nada é excluído (ciclo encerra, marco conclui)
@@ -184,7 +185,8 @@ export const nextPlannedCycle = () => nextPlanned();
 
 /**
  * Encerra o ciclo ativo: as pendências marcadas vão para o próximo planejado, as demais ficam sem
- * ciclo; cada tarefa grava `field_changed` (ADR-053). Tudo numa transação.
+ * ciclo; cada tarefa grava `field_changed` (ADR-053). Tudo numa transação. Desde o Módulo 16 não
+ * exige próximo ciclo: sem ele, nenhuma pendência pode ser levada e todas ficam sem ciclo.
  */
 export async function closeCycle(actor: Actor, id: string, input: { carryTaskIds: string[] }) {
   assertPerson(actor);
@@ -193,7 +195,8 @@ export async function closeCycle(actor: Actor, id: string, input: { carryTaskIds
     const c = await openCycle(tx, id);
     if (c.state !== "active") throw new TaskError("VALIDATION", "Só o ciclo ativo é encerrado");
     const next = await nextPlanned(tx);
-    if (!next) throw new TaskError("VALIDATION", "Crie o próximo ciclo antes de encerrar");
+    if (!next && carryTaskIds.length)
+      throw new TaskError("VALIDATION", "Não há próximo ciclo para levar as tarefas");
     const pending = await tx
       .select({ id: tasks.id })
       .from(tasks)
@@ -202,7 +205,7 @@ export async function closeCycle(actor: Actor, id: string, input: { carryTaskIds
       );
     for (const { id: taskId } of pending) {
       await lockTask(tx, taskId, actor);
-      const to = carryTaskIds.includes(taskId) ? next.id : null;
+      const to = next && carryTaskIds.includes(taskId) ? next.id : null;
       await tx
         .update(tasks)
         .set({ cycleId: to, updatedAt: new Date() })
@@ -213,11 +216,49 @@ export async function closeCycle(actor: Actor, id: string, input: { carryTaskIds
     }
     await tx.update(cycles).set({ state: "closed", closedAt: new Date() }).where(eq(cycles.id, id));
     return {
-      next: next.number,
-      carried: pending.filter((p) => carryTaskIds.includes(p.id)).length,
+      next: next?.number ?? null,
+      carried: next ? pending.filter((p) => carryTaskIds.includes(p.id)).length : 0,
     };
   });
 }
+
+/**
+ * ADR-071: só admin (pessoa, nunca agente) exclui ciclo ou marco; as tarefas ficam, perdem o
+ * vínculo e gravam o evento com o nome do que foi excluído.
+ */
+async function deletePlanning(actor: Actor, kind: "cycle" | "milestone", id: string) {
+  if (actor.kind !== "user" || !isAdmin(actor)) throw new ForbiddenError();
+  const table = kind === "cycle" ? cycles : milestones;
+  const column = kind === "cycle" ? tasks.cycleId : tasks.milestoneId;
+  return db.transaction(async (tx) => {
+    const [row] = await tx.select().from(table).where(eq(table.id, id)).for("update");
+    if (!row)
+      throw new TaskError(
+        "NOT_FOUND",
+        kind === "cycle" ? "Ciclo não encontrado" : "Marco não encontrado",
+      );
+    const name = "number" in row ? `Ciclo ${row.number}` : row.name;
+    const linked = await tx.select({ id: tasks.id }).from(tasks).where(eq(column, id));
+    for (const { id: taskId } of linked) {
+      await lockTask(tx, taskId, actor);
+      await tx
+        .update(tasks)
+        .set(kind === "cycle" ? { cycleId: null } : { milestoneId: null })
+        .where(eq(tasks.id, taskId));
+      await record(tx, actor, taskId, [
+        { type: "field_changed", payload: { field: kind, from: id, to: null, deleted: name } },
+      ]);
+    }
+    await tx.delete(table).where(eq(table.id, id));
+    console.info(
+      `[planning] ${kind === "cycle" ? "ciclo" : "marco"} excluído name="${name}" tasks=${linked.length} userId=${actor.userId}`,
+    );
+    return { name, tasks: linked.length };
+  });
+}
+
+export const deleteCycle = (actor: Actor, id: string) => deletePlanning(actor, "cycle", id);
+export const deleteMilestone = (actor: Actor, id: string) => deletePlanning(actor, "milestone", id);
 
 // ── Marcos ──────────────────────────────────────────────────────────
 
@@ -330,7 +371,7 @@ export async function projectDashboard(
   const since = sql`now() - make_interval(days => ${days})`;
   const doneInPeriod = and(base, sql`${tasks.completedAt} >= ${since}`);
 
-  const [[totals], [period], weekly, byStatus, byUnit, byProject] = await Promise.all([
+  const [[totals], [period], weekly, byStatus, byUnit, byProject, byAssignee] = await Promise.all([
     db
       .select({
         open: count(),
@@ -387,6 +428,19 @@ export async function projectDashboard(
           .where(and(open, inScope))
           .groupBy(projects.code)
           .orderBy(desc(count()), asc(projects.code)),
+    // Módulo 16: concluídas no período por membro ativo; quem não concluiu nada aparece com zero
+    db
+      .select({
+        id: user.id,
+        name: user.name,
+        initials: user.initials,
+        n: count(tasks.id),
+      })
+      .from(user)
+      .leftJoin(tasks, and(eq(tasks.assigneeId, user.id), doneInPeriod))
+      .where(or(isNull(user.banned), eq(user.banned, false)))
+      .groupBy(user.id)
+      .orderBy(desc(count(tasks.id)), asc(user.name)),
   ]);
 
   // semanas sem conclusão aparecem com zero (segunda-feira de cada semana)
@@ -410,6 +464,7 @@ export async function projectDashboard(
     byStatus,
     byUnit,
     byProject,
+    byAssignee,
   };
 }
 export type Dashboard = Awaited<ReturnType<typeof projectDashboard>>;

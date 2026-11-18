@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
   catalogIdSchema,
+  involvedSchema,
   labelSchema,
   mobileUnitSchema,
   projectSchema,
@@ -14,16 +15,19 @@ import { ForbiddenError, requireActor } from "@/server/actor";
 import type { ActionResult } from "@/server/actions/members";
 import {
   CatalogError,
+  createInvolved,
   createLabel,
   createMobileUnit,
   createProject,
   createStatus,
   moveStatus,
   renameStatus,
+  setInvolvedArchived,
   setLabelArchived,
   setMobileUnitArchived,
   setProjectArchived,
   setStatusArchived,
+  updateInvolved,
   updateLabel,
   updateMobileUnit,
   updateProject,
@@ -91,6 +95,22 @@ export async function setLabelArchivedAction(id: string, archived: boolean) {
   const actor = await requireActor();
   return run("/config/etiquetas", () =>
     setLabelArchived(actor, catalogIdSchema.parse(id), z.boolean().parse(archived)),
+  );
+}
+
+export async function saveInvolvedAction(id: string | null, form: FormData) {
+  const actor = await requireActor();
+  return run("/config/envolvidos", () => {
+    const involvedId = optionalId.parse(id);
+    const data = involvedSchema.parse(fields(form));
+    return involvedId ? updateInvolved(actor, involvedId, data) : createInvolved(actor, data);
+  });
+}
+
+export async function setInvolvedArchivedAction(id: string, archived: boolean) {
+  const actor = await requireActor();
+  return run("/config/envolvidos", () =>
+    setInvolvedArchived(actor, catalogIdSchema.parse(id), z.boolean().parse(archived)),
   );
 }
 

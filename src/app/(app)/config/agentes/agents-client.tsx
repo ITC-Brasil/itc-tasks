@@ -38,13 +38,7 @@ const ACCESS: Option[] = [
 ];
 
 /** Novo token; o segredo aparece uma única vez, no próprio diálogo. */
-export function NewAgentKeyDialog({
-  owners,
-  label = "Novo token",
-}: {
-  owners: Option[];
-  label?: string;
-}) {
+export function NewAgentKeyDialog({ label = "Novo token" }: { label?: string }) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [key, setKey] = useState<string | null>(null);
@@ -116,14 +110,6 @@ export function NewAgentKeyDialog({
                 />
               </FieldLabel>
               <FormSelect name="access" label="Permissões" items={ACCESS} defaultValue="write" />
-              {owners.length > 0 && (
-                <FormSelect
-                  name="userId"
-                  label="Dono"
-                  items={[{ value: "", label: "Eu" }, ...owners]}
-                  defaultValue=""
-                />
-              )}
               {error && (
                 <p role="alert" className="text-err">
                   {error}
@@ -142,7 +128,7 @@ export function NewAgentKeyDialog({
   );
 }
 
-export function AgentKeysTable({ keys, showOwner }: { keys: AgentKey[]; showOwner: boolean }) {
+export function AgentKeysTable({ keys }: { keys: AgentKey[] }) {
   const [pending, startTransition] = useTransition();
 
   if (keys.length === 0)
@@ -168,7 +154,6 @@ export function AgentKeysTable({ keys, showOwner }: { keys: AgentKey[]; showOwne
         <thead className="text-left text-muted">
           <tr>
             <th className="px-4 py-3 font-medium">Nome</th>
-            {showOwner && <th className="px-4 py-3 font-medium">Dono</th>}
             <th className="px-4 py-3 font-medium">Permissões</th>
             <th className="px-4 py-3 font-medium">Último uso</th>
             <th className="px-4 py-3 font-medium">Situação</th>
@@ -184,7 +169,6 @@ export function AgentKeysTable({ keys, showOwner }: { keys: AgentKey[]; showOwne
                 <span className="font-medium">{k.name}</span>{" "}
                 <span className="font-mono text-xs text-muted">{k.start}…</span>
               </td>
-              {showOwner && <td className="px-4 py-3">{k.ownerName}</td>}
               <td className="px-4 py-3">{k.write ? "Leitura e escrita" : "Só leitura"}</td>
               <td className="px-4 py-3 text-muted tabular-nums">
                 {k.lastRequest

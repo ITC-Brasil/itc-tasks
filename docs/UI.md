@@ -98,11 +98,11 @@ Empty states com texto definido:
 | `⌘K` / `Ctrl K` | Busca e comandos |
 | `C` | Criar tarefa |
 | `[` | Recolher/expandir sidebar |
-| `G` `M` | Ir para Minhas tarefas |
+| `G` `I` / `G` `M` | Ir para o Início (antiga Minhas tarefas; Módulo 16) |
 | `G` `T` | Ir para Tarefas |
 | `G` `C` | Ir para o ciclo atual |
 | `G` `N` | Ir para Notificações |
-| `V` `K` / `V` `L` / `V` `C` | Visão Kanban / Lista / Calendário em Tarefas (mantém os filtros da URL); em Minhas tarefas, Cards / Lista / Calendário (mantém a aba) |
+| `V` `K` / `V` `L` / `V` `C` | Visão Kanban / Lista / Calendário em Tarefas (mantém os filtros da URL); no Início, Kanban / Lista / Calendário (mantém a aba) |
 | `⌘↵` | Enviar (criar, comentar) |
 | `Esc` | Fechar modal/painel |
 | `?` | Mostrar atalhos |
@@ -162,3 +162,13 @@ A navegação pela lista por teclado (`J`/`K`, `Enter`, `X`) ficou fora por deci
 - `/ajuda` (ADR-065), para qualquer papel logado: manual em 14 seções com âncoras estáveis (`pessoais`, do Módulo 15, e `primeiro-acesso`, `tela-principal`, `criar-tarefa`, `visoes`, `detalhe`, `busca`, `planejamento`, `notificacoes`, `templates-automacoes`, `mcp` com `mcp-claude-code`, `mcp-claude-desktop` e `mcp-hermes`, `celular`, `atalhos`, `papeis`).
 - Ilustrações só com componentes do Design System e dados fixos; sem capturas de tela.
 - Pontos de entrada: "Ajuda" no menu do usuário (e no "Mais" do celular), "Abrir ajuda" no ⌘K, "Manual completo" no diálogo de atalhos, "Como conectar um agente" em Agentes e MCP.
+
+## 12. Módulo 16 (ajustes de uso)
+
+- **Início** (`/`, antiga Minhas tarefas): abas Hoje (padrão), Minhas tarefas, Pessoais, Atribuídas, Criadas, Menções; modos Kanban (padrão, `Board`), Lista e Calendário. Subtarefas de hoje/atrasadas num bloco "Subtarefas" com "Atrasadas" e "Hoje".
+- **Detalhe:** Comentários sempre visíveis; Atividade em `Collapsible` do Base UI, recolhida, "Atividade · N".
+- **TaskCard:** indicador `ListChecks` + `2/5` (`text-muted`, `tabular-nums`), ícone em `ok` com tudo concluído, nome acessível "2 de 5 subtarefas concluídas".
+- **Prazo:** campo "Horário" (`type="time"`) ao lado da data, desabilitado sem data; exibição `17 nov 14:30`.
+- **Paleta de projetos:** 12 cores (ADR-075).
+- **Envolvidos:** Configurações › Envolvidos; campo "Envolvidos" no detalhe e na criação; filtro "Envolvido" nas visões. Não aparece no card.
+- Detalhes: `docs/modules/16-ajustes-uso.md`.

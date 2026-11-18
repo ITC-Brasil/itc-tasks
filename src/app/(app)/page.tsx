@@ -1,27 +1,24 @@
-import { CalendarDays, Inbox, LayoutGrid, List, Lock } from "lucide-react";
+import { CalendarDays, Columns3, Inbox, List, ListChecks, Lock, Sun } from "lucide-react";
 import Link from "next/link";
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Topbar } from "@/components/layout/topbar";
 import { CreateTaskButton } from "@/components/tasks/quick-create";
 import { MonthCalendar } from "@/components/tasks/calendar";
-import { TaskCard } from "@/components/tasks/task-card";
+import { Board } from "@/components/tasks/board";
 import { TaskTable } from "@/components/tasks/task-table";
 import { EmptyState } from "@/components/ui/empty-state";
-import { type DueBucket, dueBucket, todayISO } from "@/lib/dates";
+import { dueKey, isOverdue, shortDate, todayISO } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import { requireUser } from "@/server/actor";
 import { getTaskFormOptionsAction } from "@/server/actions/tasks";
+import { listStatuses } from "@/server/services/catalog";
 import { listChecklistDue, listTasks } from "@/server/services/tasks";
 
-const BUCKETS: [DueBucket, string][] = [
-  ["overdue", "Vencidas"],
-  ["today", "Hoje"],
-  ["week", "Esta semana"],
-  ["later", "Depois"],
-];
-// ADR-069: a aba vai na URL (?aba=); sem o parâmetro, "Minhas tarefas"
+// ADR-069: a aba vai na URL (?aba=); Módulo 16: sem o parâmetro, "Hoje"
 const TABS = [
-  { aba: "", label: "Minhas tarefas" },
+  { aba: "", label: "Hoje" },
+  { aba: "minhas", label: "Minhas tarefas" },
   { aba: "pessoais", label: "Pessoais" },
   { aba: "atribuidas", label: "Atribuídas" },
   { aba: "criadas", label: "Criadas" },
@@ -39,14 +36,14 @@ function scopeOf(aba: unknown, userId: string): Scope {
       return { creatorId: userId };
     case "mencoes":
       return { mentionedUserId: userId };
-    default: // tudo o que a pessoa tem de resolver: as pessoais (sempre dela) e as da equipe com ela
+    default: // Hoje e Minhas tarefas: as pessoais (sempre dela) e as da equipe com ela
       return { visibility: "all", assigneeId: userId };
   }
 }
 
-// Módulo 15: o modo também vai na URL (?visao=); sem o parâmetro, Cards
+// Módulo 16: o modo vai na URL (?visao=); sem o parâmetro, Kanban (substitui os Cards por prazo)
 const VIEWS = [
-  { visao: "", label: "Cards", icon: LayoutGrid },
+  { visao: "", label: "Kanban", icon: Columns3 },
   { visao: "lista", label: "Lista", icon: List },
   { visao: "calendario", label: "Calendário", icon: CalendarDays },
 ] as const;
@@ -64,13 +61,28 @@ async function Mine({ searchParams }: PageProps<"/">) {
   const aba = TABS.find((t) => t.aba === params.aba)?.aba ?? "";
   const visao: Visao = VIEWS.find((v) => v.visao === params.visao)?.visao ?? "";
   const today = todayISO();
-  // Cards e Lista: só o que falta resolver; o Calendário mostra também o que já foi concluído
-  const { tasks } = await listTasks(
+  // Kanban e Lista: só o que falta resolver; o Calendário mostra também o que já foi concluído
+  const { tasks: scoped } = await listTasks(
     actor,
     {},
     { ...scopeOf(aba, actor.userId), openOnly: visao !== "calendario" },
   );
-  tasks.sort((a, b) => (a.dueDate ?? "9999").localeCompare(b.dueDate ?? "9999"));
+  // Módulo 16, aba Hoje: com prazo até hoje (atrasadas e de hoje) e as subtarefas abertas idem
+  const hoje = aba === "";
+  const tasks = hoje
+    ? scoped.filter((t) => t.category !== "done" && t.dueDate && t.dueDate <= today)
+    : scoped;
+  const todaySubtasks = hoje
+    ? (
+        await listChecklistDue(
+          actor,
+          scoped.filter((t) => t.category !== "done").map((t) => t.id),
+        )
+      )
+        .filter((s) => s.dueDate <= today)
+        .sort((a, b) => dueKey(a.dueDate, a.dueTime).localeCompare(dueKey(b.dueDate, b.dueTime)))
+    : [];
+  tasks.sort((a, b) => dueKey(a.dueDate, a.dueTime).localeCompare(dueKey(b.dueDate, b.dueTime)));
 
   const nav = (
     <div className="mb-4 flex flex-wrap items-end gap-x-4 gap-y-2 border-b">
@@ -136,63 +148,123 @@ async function Mine({ searchParams }: PageProps<"/">) {
     );
   }
 
-  const empty =
-    aba === "pessoais" ? (
-      <EmptyState icon={Lock} title="Nenhuma tarefa pessoal aberta" action={<CreateTaskButton />}>
-        Tarefa pessoal só você vê. Marque “Tarefa pessoal” ao criar.
-      </EmptyState>
-    ) : (
-      <EmptyState icon={Inbox} title="Nada pendente por aqui" action={<CreateTaskButton />}>
-        Você não tem tarefas abertas neste ciclo. Crie uma ou puxe algo do backlog.
-      </EmptyState>
-    );
+  const empty = hoje ? (
+    <EmptyState icon={Sun} title="Nada para hoje" action={<CreateTaskButton />}>
+      Nenhuma tarefa ou subtarefa sua vence hoje ou está atrasada.
+    </EmptyState>
+  ) : aba === "pessoais" ? (
+    <EmptyState icon={Lock} title="Nenhuma tarefa pessoal aberta" action={<CreateTaskButton />}>
+      Tarefa pessoal só você vê. Marque “Tarefa pessoal” ao criar.
+    </EmptyState>
+  ) : (
+    <EmptyState icon={Inbox} title="Nada pendente por aqui" action={<CreateTaskButton />}>
+      Você não tem tarefas abertas neste ciclo. Crie uma ou puxe algo do backlog.
+    </EmptyState>
+  );
 
   if (visao === "lista") {
     const options = tasks.length ? await getTaskFormOptionsAction() : null;
     return (
       <main className="flex min-w-0 flex-1 flex-col">
         <div className="px-4 pt-4 md:px-6 md:pt-6 [&>div]:mb-0">{nav}</div>
+        {hoje && todaySubtasks.length > 0 && (
+          <div className="px-4 pt-4 md:px-6">
+            <TodaySubtasks subtasks={todaySubtasks} />
+          </div>
+        )}
         {options ? (
+          // na aba Hoje a ordem por prazo já põe as atrasadas primeiro
           <TaskTable tasks={tasks} options={options} today={today} viewer={actor} />
         ) : (
-          <div className="p-4 md:p-6">{empty}</div>
+          !(hoje && todaySubtasks.length) && <div className="p-4 md:p-6">{empty}</div>
         )}
       </main>
     );
   }
 
-  const groups = Map.groupBy(tasks, (t) => dueBucket(t.dueDate, today));
+  // Kanban com colunas por status, como em Tarefas (também na aba Hoje); arrastar muda o status
+  const statuses = tasks.length ? await listStatuses(actor) : [];
+  tasks.sort((a, b) => (a.position < b.position ? -1 : a.position > b.position ? 1 : 0));
   return (
-    <main className="p-4 md:p-6">
-      {nav}
-      {tasks.length === 0
-        ? empty
-        : BUCKETS.map(([bucket, label]) => {
-            const list = groups.get(bucket);
-            if (!list) return null;
-            return (
-              <section key={bucket} aria-labelledby={`g-${bucket}`} className="mb-6">
-                <h2 id={`g-${bucket}`} className="mb-2 text-sm font-semibold">
-                  {label} <span className="font-normal text-muted tabular-nums">{list.length}</span>
-                </h2>
-                <ul className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-                  {list.map((t) => (
-                    <li key={t.id}>
-                      <TaskCard task={t} today={today} />
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            );
-          })}
+    <main className="flex min-w-0 flex-1 flex-col">
+      <div className="px-4 pt-4 md:px-6 md:pt-6 [&>div]:mb-0">{nav}</div>
+      {hoje && todaySubtasks.length > 0 && (
+        <div className="px-4 pt-4 md:px-6">
+          <TodaySubtasks subtasks={todaySubtasks} />
+        </div>
+      )}
+      {tasks.length ? (
+        <Board statuses={statuses} tasks={tasks} today={today} />
+      ) : (
+        !(hoje && todaySubtasks.length) && <div className="p-4 md:p-6">{empty}</div>
+      )}
     </main>
   );
 }
 
-export default function MyTasks(props: PageProps<"/">) {
+type DueSubtask = Awaited<ReturnType<typeof listChecklistDue>>[number];
+
+/** Aba Hoje: subtarefas com prazo hoje ou atrasadas, com rótulo e link para a tarefa. */
+function TodaySubtasks({ subtasks }: { subtasks: DueSubtask[] }) {
+  const groups = Map.groupBy(subtasks, (s) => (isOverdue(s.dueDate, s.dueTime) ? 0 : 1));
+  return (
+    <section aria-labelledby="g-subtarefas" className="mb-6">
+      <h2 id="g-subtarefas" className="mb-2 text-sm font-semibold">
+        Subtarefas <span className="font-normal text-muted tabular-nums">{subtasks.length}</span>
+      </h2>
+      {([0, 1] as const).map((g) => {
+        const list = groups.get(g);
+        if (!list) return null;
+        return (
+          <div key={g} className="mb-2">
+            <h3 className="mb-1 text-xs font-medium text-muted">{g ? "Hoje" : "Atrasadas"}</h3>
+            <ul className="flex flex-col gap-1">
+              {list.map((s) => (
+                <li
+                  key={s.id}
+                  className={cn(
+                    "flex items-center gap-2 rounded-md border bg-surface px-3 py-2 text-sm",
+                    !g && "border-l-2 border-l-err",
+                  )}
+                >
+                  <ListChecks
+                    className="size-4 flex-none text-muted"
+                    strokeWidth={1.75}
+                    aria-hidden="true"
+                  />
+                  <span className="text-xs text-muted">Subtarefa</span>
+                  <span className="min-w-0 flex-1 truncate">{s.text}</span>
+                  {!g && <span className="sr-only">(vencida)</span>}
+                  {(s.dueTime || s.dueDate !== todayISO()) && (
+                    <span className="text-xs text-muted tabular-nums">
+                      {[s.dueDate !== todayISO() && shortDate(s.dueDate), s.dueTime]
+                        .filter(Boolean)
+                        .join(" ")}
+                    </span>
+                  )}
+                  <Link
+                    href={`/tarefas/${s.number}`}
+                    className="text-xs text-accent-text tabular-nums hover:underline"
+                  >
+                    TI-{s.number}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })}
+    </section>
+  );
+}
+
+// Módulo 16: "Minhas tarefas" virou "Início"; a URL continua "/" (sem redirect a manter)
+export const metadata: Metadata = { title: "Início · ITC Tasks" };
+
+export default function Home(props: PageProps<"/">) {
   return (
     <>
-      <Topbar title="Minhas tarefas">
+      <Topbar title="Início">
         <CreateTaskButton />
       </Topbar>
       <Suspense>

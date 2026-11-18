@@ -33,9 +33,9 @@ test("tarefa pessoal: criar, ver só em Minhas tarefas, trocar de visão e mover
   await dialog.getByRole("button", { name: "Criar tarefa" }).click();
   await expect(dialog).toBeHidden();
 
-  // Minhas tarefas (padrão) e Pessoais mostram; Atribuídas e as visões da equipe, não
+  // Minhas tarefas e Pessoais mostram; Atribuídas e as visões da equipe, não
   const link = page.getByRole("link", { name: title });
-  await page.goto("/");
+  await page.goto("/?aba=minhas");
   await expect(link).toBeVisible();
   const card = page.getByRole("listitem").filter({ has: link });
   await expect(card.getByText("Tarefa pessoal")).toBeAttached();
@@ -54,7 +54,7 @@ test("tarefa pessoal: criar, ver só em Minhas tarefas, trocar de visão e mover
   await page.getByRole("checkbox").first().waitFor();
   await expect(link).toHaveCount(0);
 
-  // Cards | Lista | Calendário, com a aba mantida na URL; V K volta para Cards
+  // Kanban | Lista | Calendário, com a aba mantida na URL; V K volta para o Kanban
   await page.goto("/?aba=pessoais");
   const views = page.getByRole("navigation", { name: "Visões" });
   await views.getByRole("link", { name: "Lista" }).click();

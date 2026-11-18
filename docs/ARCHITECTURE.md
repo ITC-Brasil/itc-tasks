@@ -34,7 +34,7 @@ navegadores por SSE.
 - **Leituras no servidor, cache no cliente.** Páginas carregam dados no servidor; o TanStack Query assume no cliente e aplica atualização otimista nas mutações frequentes (mover card, marcar item, concluir).
 - **Validação sempre no servidor**, com os mesmos schemas Zod da UI (ADR-006).
 - **Sem SQL cru fora de `src/db/` e `src/server/services/`.**
-- **Datas:** `timestamptz` no banco; prazos (`dueDate`) são `date` (sem hora); fuso de exibição `America/Sao_Paulo`.
+- **Datas:** `timestamptz` no banco; prazos (`dueDate`) são `date`, com hora opcional em `due_time` (`time`, hora de Brasília, ADR-072); atraso calculado por `isOverdue` em `src/lib/dates.ts`; fuso de exibição `America/Sao_Paulo`.
 - **Ordem no board:** `tasks.position` em índice fracionário (texto), reordenar não reescreve a coluna inteira.
 - **Banco de teste isolado:** Vitest usa `DATABASE_URL_TEST` (banco `itc_tasks_test`) e `fileParallelism: false` nos testes de integração.
 

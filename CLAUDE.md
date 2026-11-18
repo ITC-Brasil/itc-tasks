@@ -51,8 +51,8 @@ Chamado GLPI (opcionais), e agentes operam o app por um servidor MCP embutido em
 
 | Papel | Pode |
 |---|---|
-| `admin` | Tudo, incluindo membros, workflow, cadastros, automações, tokens de qualquer pessoa |
-| `member` | Tarefas, ciclos, marcos, comentários, templates, os próprios tokens e preferências |
+| `admin` | Tudo, incluindo membros, workflow, cadastros (Envolvidos inclusive), automações e excluir ciclos e marcos (ADR-071); dos tokens, só os próprios e "Revogar todos os tokens" de um membro, sem vê-los (ADR-074) |
+| `member` | Tarefas, ciclos, marcos (sem excluir), comentários, templates, os próprios tokens e preferências |
 | Agente (API key) | Ferramentas MCP permitidas (`tasks:read`, `tasks:write`), em nome do dono do token |
 
 ## Componentes obrigatórios do Design System
