@@ -2461,7 +2461,18 @@ teste). O CI da `develop` ficou vermelho só por isso (`f4988cf`).
   advisories `high` e `critical` e falha se sobrar algum fora da lista `IGNORED` do próprio script.
 - A lista tem só este advisory, com o motivo. O nível do gate continua `high`; qualquer outro
   advisory high/critical derruba o CI (conferido trocando o id na lista: sai com 1).
-- **Remover a exceção** quando o `picomatch` corrigido for publicado (o Dependabot abre o PR).
+- **Remover a exceção** no que vier primeiro (M-153):
+  1. sair uma versão corrigida do `picomatch` (o Dependabot abre o PR); ou
+  2. sair um `better-auth` sem o `vitest` como peer, o que tira o `picomatch` da árvore de produção.
+- **Por que o `vitest` conta como produção** (levantamento de 18/11/2026, M-153): o `better-auth` não
+  tem o `vitest` em `dependencies`. Ele é **peer opcional** (`peerDependencies.vitest`
+  `^2 || ^3 || ^4 || ^5`, `peerDependenciesMeta.vitest.optional: true`) em todas as versões
+  publicadas depois da 1.7.10 (1.7.11 a 1.7.25 e 1.8.0-beta.0 a beta.10). Como o projeto instala o
+  `vitest` (dev), o npm resolve o peer e o `npm audit --omit=dev` passa a contá-lo pelo caminho do
+  `better-auth`. O `@better-auth/api-key` não declara o `vitest` em nenhuma dessas versões. Hoje
+  **nenhuma versão publicada** atende a condição 2.
+- Issue no `better-auth`: **a abrir** (só com o Matheus). As que existem tratam da faixa de versões
+  do peer, não disso: better-auth/better-auth#11166 (fechada) e better-auth/better-auth#6759 (fechada).
 
 **Alternatives considered**
 - *`--audit-level=critical`:* rejeitado pelo Matheus (M-151); afrouxaria o gate para tudo.
