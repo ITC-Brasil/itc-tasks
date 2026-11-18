@@ -184,6 +184,6 @@ test("paleta com 12 cores: seletor e chip das novas sem violações do axe (ADR-
   await axeBothThemes(page); // diálogo com as 12 amostras
   await dialog.getByRole("button", { name: "Criar Projeto/Cliente" }).click();
   await expect(dialog).toBeHidden();
-  await expect(page.getByRole("cell", { name: `Cor ${code}` })).toBeVisible();
+  await expect(page.getByRole("cell", { name: `Cor ${code}`, exact: true })).toBeVisible();
   await axeBothThemes(page); // tabela com o chip na cor nova
 });

@@ -46,7 +46,11 @@ test("Início: nome, aba Hoje com Atrasadas e Hoje, subtarefa e atalhos", async 
   await page.goto(`/tarefas/${number}`);
   await page.getByLabel("Nova subtarefa").fill(`Sub ${run}`);
   await page.getByLabel("Nova subtarefa").press("Enter");
-  const saved = page.waitForResponse((r) => r.request().method() === "POST");
+  await expect(page.getByRole("checkbox", { name: `Sub ${run}` })).toBeVisible();
+  await page.waitForLoadState("networkidle"); // a action da subtarefa nova terminou
+  const saved = page.waitForResponse(
+    (r) => r.request().method() === "POST" && !!r.request().postData()?.includes("2020-03-02"),
+  );
   await page.getByLabel(`Prazo de Sub ${run}`).fill("2020-03-02");
   await saved;
 
