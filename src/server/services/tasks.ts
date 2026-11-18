@@ -1164,6 +1164,9 @@ export async function listTasks(
         position: tasks.position,
         dueDate: tasks.dueDate,
         dueTime: tasks.dueTime,
+        // Módulo 16: progresso das subtarefas no card, na mesma consulta (sem N+1)
+        checklistTotal: sql<number>`(SELECT count(*)::int FROM ${checklistItems} WHERE ${checklistItems.taskId} = ${tasks.id})`,
+        checklistDone: sql<number>`(SELECT count(*)::int FROM ${checklistItems} WHERE ${checklistItems.taskId} = ${tasks.id} AND ${checklistItems.done})`,
         glpiTicket: tasks.glpiTicket,
         assigneeId: tasks.assigneeId,
         assigneeName: assignee.name,
