@@ -23,9 +23,14 @@ test("sem rede: faixa e escrita desabilitada", async ({ page, context }) => {
   await context.setOffline(true);
   await expect(page.getByText(/Sem conexão — mostrando a última versão salva/)).toBeVisible();
   await expect(page.getByRole("button", { name: "Criar tarefa" }).first()).toBeDisabled();
-  // o atalho C também não abre a criação rápida
-  await page.keyboard.press("c");
-  await expect(page.getByText("Sem conexão. Crie a tarefa quando a rede voltar.")).toBeVisible();
+  // o atalho C também não abre a criação rápida; ao ficar offline a tela pode ser trocada pela
+  // versão salva (ADR-054), então repete a tecla até o atalho estar ligado de novo
+  await expect(async () => {
+    await page.keyboard.press("c");
+    await expect(page.getByText("Sem conexão. Crie a tarefa quando a rede voltar.")).toBeVisible({
+      timeout: 1000,
+    });
+  }).toPass();
   await expect(page.getByRole("dialog", { name: "Criar tarefa" })).toBeHidden();
   await context.setOffline(false);
   await expect(page.getByText(/Sem conexão — mostrando a última versão salva/)).toBeHidden();
