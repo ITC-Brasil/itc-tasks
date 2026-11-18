@@ -20,7 +20,12 @@ import type {
   AutomationConditions,
   AutomationTrigger,
 } from "@/lib/validation/automations";
-import { PRIORITIES } from "@/lib/validation/tasks";
+import {
+  PRIORITIES,
+  WAITING_REASONS,
+  WAITING_REASON_LABELS,
+  type WaitingReason,
+} from "@/lib/validation/tasks";
 import {
   saveAutomationRuleAction,
   setAutomationRuleEnabledAction,
@@ -39,7 +44,7 @@ type Rule = {
   runCount: number;
   lastRunAt: Date | null;
 };
-type Ref = { id: string; name: string; archivedAt: Date | null };
+type Ref = { id: string; name: string; archivedAt: Date | null; category?: string };
 type Refs = { statuses: Ref[]; labels: Ref[] };
 
 const TRIGGERS: { value: AutomationTrigger; label: string }[] = [
@@ -82,8 +87,14 @@ function describeAction(a: AutomationAction, refs: Refs) {
   switch (a.type) {
     case "notify":
       return `Notificar ${NOTIFY.find((n) => n.value === a.to)?.label}`;
-    case "setStatus":
-      return `Mover para ${nameOf(refs.statuses, a.statusId)}`;
+    case "setStatus": {
+      const w = a.waiting;
+      const days =
+        w && (w.inDays === 0 ? "hoje" : w.inDays === 1 ? "amanhã" : `em ${w.inDays} dias`);
+      return w
+        ? `Mover para ${nameOf(refs.statuses, a.statusId)} (${w.note || WAITING_REASON_LABELS[w.reason]}, previsão ${days})`
+        : `Mover para ${nameOf(refs.statuses, a.statusId)}`;
+    }
     case "moveToActiveCycle":
       return "Mover para o ciclo atual";
     case "moveToTop":
@@ -101,8 +112,11 @@ function blank(type: AutomationAction["type"], refs: Refs): AutomationAction {
   switch (type) {
     case "notify":
       return { type, to: "assignee" };
-    case "setStatus":
-      return { type, statusId: active(refs.statuses) };
+    case "setStatus": {
+      const statusId = active(refs.statuses);
+      const waiting = refs.statuses.find((r) => r.id === statusId)?.category === "waiting";
+      return { type, statusId, ...(waiting && { waiting: { reason: "supplier", inDays: 3 } }) };
+    }
     case "addLabel":
       return { type, labelId: active(refs.labels) };
     case "comment":
@@ -143,6 +157,7 @@ function ActionsEditor({ initial, refs }: { initial: AutomationAction[]; refs: R
   const [actions, setActions] = useState(initial.length ? initial : [blank("notify", refs)]);
   const set = (i: number, a: AutomationAction) =>
     setActions((list) => list.map((x, j) => (j === i ? a : x)));
+  const isWaiting = (id: string) => refs.statuses.find((r) => r.id === id)?.category === "waiting";
   const options = (list: Ref[]) =>
     list.filter((r) => !r.archivedAt).map((r) => ({ value: r.id, label: r.name }));
 
@@ -171,8 +186,61 @@ function ActionsEditor({ initial, refs }: { initial: AutomationAction[]; refs: R
               label={`Status da ação ${i + 1}`}
               value={a.statusId}
               items={options(refs.statuses)}
-              onChange={(statusId) => set(i, { ...a, statusId })}
+              onChange={(statusId) =>
+                set(i, {
+                  type: "setStatus",
+                  statusId,
+                  // ADR-080: motivo e previsão só com destino Aguardando
+                  ...(isWaiting(statusId) && {
+                    waiting: a.waiting ?? { reason: "supplier", inDays: 3 },
+                  }),
+                })
+              }
             />
+          )}
+          {a.type === "setStatus" && a.waiting && (
+            <>
+              <MiniSelect
+                label={`Motivo do Aguardando da ação ${i + 1}`}
+                value={a.waiting.reason}
+                items={WAITING_REASONS.map((r) => ({ value: r, label: WAITING_REASON_LABELS[r] }))}
+                onChange={(reason) =>
+                  set(i, { ...a, waiting: { ...a.waiting!, reason: reason as WaitingReason } })
+                }
+              />
+              {a.waiting.reason === "other" && (
+                <Input
+                  aria-label={`Descrição do motivo da ação ${i + 1}`}
+                  placeholder="Descreva o motivo"
+                  maxLength={120}
+                  required
+                  value={a.waiting.note ?? ""}
+                  onChange={(e) =>
+                    set(i, { ...a, waiting: { ...a.waiting!, note: e.target.value } })
+                  }
+                  className="min-w-0 flex-[2_1_180px]"
+                />
+              )}
+              <label className="flex items-center gap-1.5 text-sm">
+                Previsão em
+                <Input
+                  type="number"
+                  min={0}
+                  max={60}
+                  required
+                  aria-label={`Previsão em dias da ação ${i + 1}`}
+                  value={a.waiting.inDays}
+                  onChange={(e) =>
+                    set(i, {
+                      ...a,
+                      waiting: { ...a.waiting!, inDays: e.target.valueAsNumber || 0 },
+                    })
+                  }
+                  className="w-16 tabular-nums"
+                />
+                dias
+              </label>
+            </>
           )}
           {a.type === "addLabel" && (
             <MiniSelect

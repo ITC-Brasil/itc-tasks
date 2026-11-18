@@ -2641,3 +2641,32 @@ O Matheus aprovou (12/11/2026) registrar que uma tarefa está bloqueada por outr
 **Consequences**
 - O tipo de vínculo "bloqueia/bloqueada por" da seção Vínculos vira a seção "Dependências";
   "Vínculos" fica só com "relacionada a".
+
+## ADR-080 — Automação "Mover para o status" com destino Aguardando
+
+**Status:** Accepted
+**Date:** 2026-11-18
+**Module:** 17 — ajuste 1 da revisão (M-158); substitui a decisão a confirmar 8
+
+**Context**
+O ADR-078 exige motivo e data prevista para entrar no Aguardando, em toda entrada. A ação
+`setStatus` de uma automação (ADR-052) só guarda o `statusId`; com destino `waiting` ela falharia
+sempre, com registro em `automation_runs`.
+
+**Decision**
+- A ação `setStatus` ganha `waiting?: { reason, note?, inDays }`: motivo da lista do ADR-078,
+  texto obrigatório com "Outro" (até 120), previsão "daqui a N dias" (`0..60`).
+- Ao rodar, a previsão é `addDays(todayISO(), inDays)`, no fuso de Brasília (a data do dia em
+  que a automação roda, não a da criação da regra).
+- Zod no servidor (`src/lib/validation/automations.ts`); `saveRule` recusa salvar ação com
+  destino da categoria `waiting` sem `waiting`. Destino de outra categoria descarta `waiting`.
+- A tela de Automações mostra os três campos só quando o status escolhido é da categoria
+  `waiting`.
+- Regra antiga sem os campos continua falhando com registro, como hoje (sem migração de dados).
+
+**Alternatives considered**
+- Data fixa na regra: vence e passa a falhar sozinha. Recusada.
+- Deixar falhar (decisão 8 original): o Matheus pediu a mudança na revisão.
+
+**Consequences**
+- `automation_rules.actions` é JSON; o campo novo não pede migração.

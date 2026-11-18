@@ -50,3 +50,26 @@ test("automações: criar regra com duas ações", async ({ page }) => {
   await row.getByRole("switch").click();
   await expect(row.getByRole("switch")).toHaveAttribute("aria-checked", "false");
 });
+
+test("automações: mover para Aguardando pede motivo e previsão (ADR-080)", async ({ page }) => {
+  const name = `E2E aguardar ${Date.now()}`;
+  await login(page);
+  await page.goto("/config/automacoes");
+  await page.getByRole("button", { name: "Nova automação" }).first().click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Nome").fill(name);
+  await dialog.getByRole("combobox", { name: "Tipo da ação 1" }).click();
+  await page.getByRole("option", { name: "Mover para o status" }).click();
+  await expect(dialog.getByLabel("Previsão em dias da ação 1")).toBeHidden();
+  await dialog.getByRole("combobox", { name: "Status da ação 1" }).click();
+  await page.getByRole("option", { name: "Aguardando" }).click();
+  await dialog.getByRole("combobox", { name: "Motivo do Aguardando da ação 1" }).click();
+  await page.getByRole("option", { name: "Compra" }).click();
+  await dialog.getByLabel("Previsão em dias da ação 1").fill("5");
+  await dialog.getByRole("button", { name: "Criar automação" }).click();
+  await expect(dialog).toBeHidden();
+  const row = page.getByRole("listitem").filter({ hasText: name });
+  await expect(row).toContainText("Mover para Aguardando (Compra, previsão em 5 dias)");
+  await row.getByRole("switch").click();
+  await expect(row.getByRole("switch")).toHaveAttribute("aria-checked", "false");
+});

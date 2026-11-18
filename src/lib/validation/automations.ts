@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { STATUS_CATEGORIES } from "./catalog";
-import { PRIORITIES } from "./tasks";
+import { PRIORITIES, WAITING_NOTE_NEEDED, WAITING_REASONS } from "./tasks";
 
 // ADR-052: regras "Quando → Se → Então"
 export const AUTOMATION_TRIGGERS = [
@@ -25,7 +25,22 @@ export type AutomationConditions = z.infer<typeof automationConditionsSchema>;
 
 export const automationActionSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("notify"), to: z.enum(["creator", "assignee", "team"]) }),
-  z.object({ type: z.literal("setStatus"), statusId: z.uuid("Escolha o status") }),
+  z.object({
+    type: z.literal("setStatus"),
+    statusId: z.uuid("Escolha o status"),
+    // ADR-080: só quando o destino é da categoria `waiting`
+    waiting: z
+      .object({
+        reason: z.enum(WAITING_REASONS),
+        note: z.string().trim().max(120, "Até 120 caracteres").optional(),
+        inDays: z.number().int().min(0, "De 0 a 60 dias").max(60, "De 0 a 60 dias"),
+      })
+      .refine((w) => w.reason !== "other" || !!w.note, {
+        message: WAITING_NOTE_NEEDED,
+        path: ["note"],
+      })
+      .optional(),
+  }),
   z.object({ type: z.literal("moveToActiveCycle") }),
   z.object({ type: z.literal("moveToTop") }),
   z.object({ type: z.literal("addLabel"), labelId: z.uuid("Escolha a etiqueta") }),
