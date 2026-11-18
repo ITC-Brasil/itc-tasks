@@ -175,7 +175,11 @@ export function createMcpServer(actor: AgentActor, access: Access[]) {
         await updateChecklistItem(actor, itemId, { done: toggles[n].done });
       for (const [n, itemId] of dueIds.entries())
         // eslint-disable-next-line security/detect-object-injection -- n é o índice do próprio array
-        await updateChecklistItem(actor, itemId, { dueDate: dues[n].dueDate });
+        await updateChecklistItem(actor, itemId, {
+          dueDate: dues[n].dueDate,
+          // eslint-disable-next-line security/detect-object-injection -- idem
+          ...(dues[n].dueTime !== undefined && { dueTime: dues[n].dueTime }),
+        });
       return (await getTaskSummary(actor, id)).summary;
     },
   );

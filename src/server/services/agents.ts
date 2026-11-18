@@ -11,7 +11,7 @@ import {
   workflowStatuses,
 } from "@/db/schema";
 import { glpiUrl } from "@/components/tasks/badges";
-import { todayISO } from "@/lib/dates";
+import { isOverdue } from "@/lib/dates";
 import { env } from "@/lib/env";
 import {
   type McpCreateTask,
@@ -269,6 +269,7 @@ async function serviceFields(actor: AgentActor, input: Fields) {
   if (input.priority) out.priority = input.priority;
   if (input.glpiTicket !== undefined) out.glpiTicket = input.glpiTicket;
   if (input.dueDate !== undefined) out.dueDate = input.dueDate;
+  if (input.dueTime !== undefined) out.dueTime = input.dueTime; // ADR-072
   return out;
 }
 
@@ -327,6 +328,7 @@ export async function getTaskSummary(actor: Actor, number: number) {
       glpiTicket: task.glpiTicket ?? undefined,
       assignee: (task.assigneeId && mail.get(task.assigneeId)) || undefined,
       dueDate: task.dueDate ?? undefined,
+      dueTime: task.dueTime ?? undefined,
       url: taskUrl(task.number),
     },
   };
@@ -345,6 +347,7 @@ export async function getTaskDetail(actor: Actor, number: number) {
       text: c.text,
       done: c.done,
       dueDate: c.dueDate ?? undefined,
+      dueTime: c.dueTime ?? undefined,
       assignee: (c.assigneeId && mail.get(c.assigneeId)) || undefined,
     })),
     links: task.links.map((l) => ({ kind: l.kind, id: `TI-${l.number}` })),
@@ -397,7 +400,6 @@ export async function listTasksForAgent(actor: AgentActor, input: McpListTasks) 
   };
   // ADR-069: sem `visibility`, só as da equipe; as pessoais são sempre as do dono do token
   const { tasks: rows } = await listTasks(actor, filters, { visibility: input.visibility });
-  const today = todayISO();
   const q = input.query?.trim().toLowerCase();
   const glpi = q?.match(/^#(\d+)$/)?.[1];
   const cursor = input.cursor ? Number(input.cursor) : Infinity;
@@ -409,7 +411,7 @@ export async function listTasksForAgent(actor: AgentActor, input: McpListTasks) 
         (input.assignee !== "none" || !t.assigneeId) &&
         (!input.category || input.category.includes(t.category)) &&
         (!input.dueBefore || (t.dueDate && t.dueDate < input.dueBefore)) &&
-        (!input.overdue || (t.category !== "done" && t.dueDate && t.dueDate < today)) &&
+        (!input.overdue || (t.category !== "done" && isOverdue(t.dueDate, t.dueTime))) &&
         (!q || (glpi ? String(t.glpiTicket) === glpi : t.title.toLowerCase().includes(q))),
     )
     .sort((a, b) => b.number - a.number);
@@ -431,6 +433,7 @@ export async function listTasksForAgent(actor: AgentActor, input: McpListTasks) 
       glpiTicket: t.glpiTicket ?? undefined,
       assignee: (t.assigneeId && mail.get(t.assigneeId)) || undefined,
       dueDate: t.dueDate ?? undefined,
+      dueTime: t.dueTime ?? undefined,
       url: taskUrl(t.number),
     })),
     nextCursor: matched.length > limit ? String(page.at(-1)!.number) : undefined,

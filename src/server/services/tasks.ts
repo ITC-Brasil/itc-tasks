@@ -42,6 +42,7 @@ import {
   type UpdateTaskInput,
   bulkUpdateSchema,
   deleteTasksSchema,
+  DUE_TIME_NEEDS_DATE,
   checklistItemSchema,
   checklistTextSchema,
   PERSONAL_NO_PLANNING,
@@ -473,6 +474,7 @@ export async function insertTask(
       mobileUnitId: data.mobileUnitIds[0] ?? null,
       glpiTicket: data.glpiTicket,
       dueDate: data.dueDate,
+      dueTime: dueTimeFor(data.dueDate, data.dueTime),
       cycleId: data.cycleId ?? null,
       milestoneId: data.milestoneId ?? null,
       descriptionJson: data.descriptionJson,
@@ -500,7 +502,23 @@ export async function insertTask(
   return task;
 }
 
-const FIELDS = ["title", "priority", "glpiTicket", "dueDate"] as const;
+const FIELDS = ["title", "priority", "glpiTicket", "dueDate", "dueTime"] as const;
+
+/** ADR-072: hora só com data; sem data a hora some. */
+function dueTimeFor(date: string | null | undefined, time: string | null | undefined) {
+  if (time && !date) throw new TaskError("VALIDATION", DUE_TIME_NEEDS_DATE);
+  return date ? (time ?? null) : null;
+}
+/** No patch: limpar a data limpa a hora; hora nova exige data (a do patch ou a atual). */
+function patchDueTime<T extends { dueDate?: string | null; dueTime?: string | null }>(
+  data: T,
+  current: { dueDate: string | null },
+): T {
+  const date = "dueDate" in data ? data.dueDate : current.dueDate;
+  if ("dueTime" in data || ("dueDate" in data && !date))
+    return { ...data, dueTime: dueTimeFor(date, "dueTime" in data ? data.dueTime : null) };
+  return data;
+}
 
 /** Aplica a mudança já validada dentro da transação; devolve a tarefa nova. */
 async function applyUpdate(
@@ -509,6 +527,7 @@ async function applyUpdate(
   current: Task,
   data: ReturnType<typeof updateTaskSchema.parse>,
 ) {
+  data = patchDueTime(data, current);
   // ADR-045: confere a combinação resultante de projetos e UMs
   const linked = await linkedIds(tx, current.id);
   const projectsAfter = data.projectIds ?? linked.projectIds;
@@ -806,12 +825,19 @@ export async function addChecklistItem(actor: Actor, taskId: string, text: strin
 export async function updateChecklistItem(
   actor: Actor,
   itemId: string,
-  input: { text?: string; done?: boolean; assigneeId?: string | null; dueDate?: string | null },
+  input: {
+    text?: string;
+    done?: boolean;
+    assigneeId?: string | null;
+    dueDate?: string | null;
+    dueTime?: string | null;
+  },
 ) {
-  const data = checklistItemSchema.parse(input);
+  const parsed = checklistItemSchema.parse(input);
   return db.transaction(async (tx) => {
     const [item] = await tx.select().from(checklistItems).where(eq(checklistItems.id, itemId));
     if (!item) throw new TaskError("NOT_FOUND", "Subtarefa não encontrada");
+    const data = patchDueTime(parsed, item);
     await lockTask(tx, item.taskId, actor);
     if (data.assigneeId && data.assigneeId !== item.assigneeId)
       await assertAssignee(tx, data.assigneeId);
@@ -825,15 +851,20 @@ export async function updateChecklistItem(
         ? data.done
           ? "checked"
           : "unchecked"
-        : "dueDate" in data && data.dueDate !== item.dueDate
-          ? data.dueDate
+        : ("dueDate" in data && data.dueDate !== item.dueDate) ||
+            ("dueTime" in data && data.dueTime !== item.dueTime)
+          ? row.dueDate
             ? "due_set"
             : "due_cleared"
           : "edited";
     await record(tx, actor, item.taskId, [
       {
         type: "checklist_changed",
-        payload: { action, text: row.text, ...(action === "due_set" && { dueDate: row.dueDate }) },
+        payload: {
+          action,
+          text: row.text,
+          ...(action === "due_set" && { dueDate: row.dueDate, dueTime: row.dueTime }),
+        },
       },
     ]);
     return row;
@@ -1079,6 +1110,7 @@ export async function listTasks(
         category: workflowStatuses.category,
         position: tasks.position,
         dueDate: tasks.dueDate,
+        dueTime: tasks.dueTime,
         glpiTicket: tasks.glpiTicket,
         assigneeId: tasks.assigneeId,
         assigneeName: assignee.name,
@@ -1219,6 +1251,7 @@ export async function listChecklistDue(actor: Actor, taskIds: string[]) {
       id: checklistItems.id,
       text: checklistItems.text,
       dueDate: sql<string>`${checklistItems.dueDate}`,
+      dueTime: checklistItems.dueTime,
       number: tasks.number,
     })
     .from(checklistItems)

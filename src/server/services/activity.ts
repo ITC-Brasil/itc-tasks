@@ -25,6 +25,7 @@ type Payload = {
   action?: string;
   text?: string;
   dueDate?: string;
+  dueTime?: string | null;
   kind?: string;
   target?: number;
   fileName?: string;
@@ -75,6 +76,10 @@ function fieldChange(p: Payload, names: Names) {
       return p.to ? `definiu o chamado GLPI #${String(p.to)}` : "removeu o chamado GLPI";
     case "dueDate":
       return p.to ? `definiu o prazo para ${brDate(String(p.to))}` : "removeu o prazo";
+    case "dueTime": // ADR-072
+      return p.to
+        ? `definiu o horário do prazo para ${String(p.to)}`
+        : "removeu o horário do prazo";
     case "description":
       return "editou a descrição";
     case "cycle":
@@ -111,7 +116,7 @@ export function describe(type: string, p: Payload, names: Names): string | null 
       return listChange("Unidades Móveis", p, names);
     case "checklist_changed":
       if (p.action === "due_set" && p.dueDate)
-        return `definiu o prazo da subtarefa “${p.text ?? ""}” para ${brDate(p.dueDate)}`;
+        return `definiu o prazo da subtarefa “${p.text ?? ""}” para ${brDate(p.dueDate)}${p.dueTime ? ` ${p.dueTime}` : ""}`;
       return `${CHECK.get(p.action ?? "") ?? "alterou a subtarefa"} “${p.text ?? ""}”`;
     case "link_added":
       return `vinculou: ${LINK.get(p.kind ?? "") ?? p.kind} TI-${p.target}`;

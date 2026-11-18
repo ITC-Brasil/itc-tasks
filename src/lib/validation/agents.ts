@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { STATUS_CATEGORIES } from "./catalog";
-import { PRIORITIES, VISIBILITIES, taskNumberSchema } from "./tasks";
+import { DUE_TIME_RE, PRIORITIES, VISIBILITIES, taskNumberSchema } from "./tasks";
 
 // ── Tokens (ADR-049) ────────────────────────────────────────────────
 
@@ -56,6 +56,12 @@ const taskFields = {
   mobileUnitIds: z.array(code).max(20).optional(),
   glpiTicket: z.number().int().positive().max(9_999_999).nullable().optional(),
   dueDate: date.nullable().optional(),
+  dueTime: z
+    .string()
+    .regex(DUE_TIME_RE, "HH:MM")
+    .nullable()
+    .optional()
+    .describe("hora do prazo em Brasília, HH:MM; exige dueDate; null limpa"),
   labels: z.array(code).max(20).optional(),
   checklist: z.array(z.string().trim().min(1).max(200)).max(50).optional(),
   cycle: z
@@ -84,7 +90,13 @@ export const mcpUpdateTask = {
     .max(50)
     .optional(),
   checklistDue: z
-    .array(z.object({ index: z.number().int().min(0), dueDate: date.nullable() }))
+    .array(
+      z.object({
+        index: z.number().int().min(0),
+        dueDate: date.nullable(),
+        dueTime: z.string().regex(DUE_TIME_RE, "HH:MM").nullable().optional(),
+      }),
+    )
     .max(50)
     .optional()
     .describe("prazo da subtarefa pelo índice; null limpa"),
