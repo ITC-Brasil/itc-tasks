@@ -7,6 +7,8 @@ Doze ajustes pedidos pelo Matheus em 17/11/2026 depois do uso diário do Módulo
 
 ## Decisões a confirmar
 
+**Aceitas pelo Matheus em 18/11/2026 (M-151), todas como estão abaixo.** Backlog: nome do envolvido único também sem acento (`unaccent`). Ajuste pedido: exceção do `picomatch` no `npm audit` (ADR-076).
+
 Escolhas feitas sem o Matheus, sempre a opção mais conservadora. Cada uma tem onde mudar.
 
 1. **URL do Início continua `/`** (item 8). O prompt permitia `/inicio` com redirect permanente;
