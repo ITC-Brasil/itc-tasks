@@ -2367,3 +2367,39 @@ técnico terceirizado). Hoje elas aparecem só no texto da descrição e não d�
 **Consequences**
 - Novo cadastro na navegação de Configurações e uma consulta a mais no detalhe e nas visões
   (lote por ids, como as etiquetas).
+
+## ADR-074 — Tokens de MCP privados (cada pessoa vê só os próprios)
+
+**Status:** Accepted
+**Date:** 2026-11-17
+**Module:** 16 — Ajustes de uso (item 11)
+
+**Context**
+Pelo ADR-049 o admin via, criava e revogava tokens de qualquer pessoa em Configurações › Agentes
+e MCP, com nome, prefixo, uso e a atividade feita por eles. O Matheus decidiu que o token é
+pessoal: nem o admin deve ver os dos outros.
+
+**Decision** (substitui a parte "admin gerencia os tokens de qualquer pessoa" do ADR-049)
+- `listAgentKeys`, `listAgentActivity` e `revokeAgentKey` em `src/server/services/agents.ts`
+  filtram sempre pelo dono (`apikey.reference_id = actor.userId`), **inclusive para o admin**.
+  Revogar token alheio → `ForbiddenError`, mesmo para o admin.
+- `createAgentKey` cria só para a própria pessoa: o campo `userId` sai do Zod e da tela (criar
+  para outra pessoa entregaria o segredo a quem não é dono).
+- O admin ganha `revokeAllAgentKeys(actor, userId)` em Configurações › Membros ("Revogar todos os
+  tokens", com confirmação). Desativa todos os tokens ativos do membro sem listar nada deles e grava
+  `[agents] tokens revogados userId=… count=… by=…` no log do processo (rastro como o ADR-062).
+  Devolve só a quantidade.
+- Desativar membro continua cortando o acesso: `agentFromKey` recusa token de dono `banned`.
+- As rotas do Better Auth `apiKey` continuam fechadas pela lista de permissão do ADR-058
+  (`/api/auth/api-key/*` → 404); o teste confere isso de novo.
+
+**Alternatives considered**
+- *Admin vê só a contagem por pessoa:* rejeitado no prompt ("nem nome, prefixo ou datas"); a
+  contagem só aparece como resultado da revogação.
+- *Admin cria token para outra pessoa e o segredo vai por e-mail:* rejeitado; aumenta a
+  superfície sem ganho para um time de 4.
+
+**Consequences**
+- Atividade de agente em Agentes e MCP passa a ser só a dos próprios tokens também para o admin;
+  o histórico de cada tarefa continua mostrando "via MCP · <token>" para quem vê a tarefa.
+- Tabela de Papéis do `CLAUDE.md` atualizada.
