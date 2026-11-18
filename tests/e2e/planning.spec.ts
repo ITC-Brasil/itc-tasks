@@ -44,3 +44,24 @@ test("painel abre em Todos e o filtro de projeto mexe só no ?projeto= (M-139)",
   await expect(page).toHaveURL(/\/painel\?dias=7$/);
   await expect(page.getByText("Abertas por Projeto/Cliente")).toBeVisible();
 });
+
+test("encerra o ciclo ativo mesmo sem próximo ciclo (Módulo 16)", async ({ page }) => {
+  await login(page);
+  await page.goto("/ciclos");
+  if (!(await page.getByText("Ativo", { exact: true }).isVisible())) {
+    await page.getByRole("button", { name: "Novo ciclo" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Novo ciclo" });
+    await dialog.getByLabel("Início").fill("2097-03-02");
+    await dialog.getByLabel("Fim").fill("2097-03-13");
+    await dialog.getByRole("button", { name: "Criar ciclo" }).click();
+    await expect(dialog).toBeHidden();
+    await page.getByRole("button", { name: "Iniciar" }).first().click();
+    await expect(page.getByText("Ativo", { exact: true })).toBeVisible();
+  }
+  await page.getByRole("button", { name: "Encerrar ciclo" }).click();
+  const dialog = page.getByRole("dialog", { name: /Encerrar Ciclo \d+/ });
+  await expect(dialog.getByRole("button", { name: "Encerrar ciclo" })).toBeEnabled();
+  await dialog.getByRole("button", { name: "Encerrar ciclo" }).click();
+  await expect(page.getByText(/^Ciclo \d+ encerrado/)).toBeVisible();
+  await expect(page.getByText("Nenhum ciclo ativo. Inicie um ciclo planejado.")).toBeVisible();
+});
