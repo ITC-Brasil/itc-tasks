@@ -18,9 +18,9 @@ test("bloqueada por: busca, selo no card, filtro e confirmação ao concluir", a
 
   const deps = page.getByRole("region", { name: "Dependências" });
   await deps.getByLabel("Buscar tarefa").fill(blocker);
-  await deps.getByRole("button", { name: new RegExp(blocker) }).click();
+  await deps.getByRole("button", { name: blocker }).click();
   await expect(deps).toContainText("1 bloqueadora aberta");
-  await expect(deps.getByRole("link", { name: new RegExp(blocker) })).toBeVisible();
+  await expect(deps.getByRole("link", { name: blocker })).toBeVisible();
   await axeBothThemes(page);
 
   // concluir pede confirmação; cancelar não muda
