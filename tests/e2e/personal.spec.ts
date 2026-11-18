@@ -33,9 +33,9 @@ test("tarefa pessoal: criar, ver só em Minhas tarefas, trocar de visão e mover
   await dialog.getByRole("button", { name: "Criar tarefa" }).click();
   await expect(dialog).toBeHidden();
 
-  // Minhas tarefas (padrão) e Pessoais mostram; Atribuídas e as visões da equipe, não
+  // Minhas tarefas e Pessoais mostram; Atribuídas e as visões da equipe, não
   const link = page.getByRole("link", { name: title });
-  await page.goto("/");
+  await page.goto("/?aba=minhas");
   await expect(link).toBeVisible();
   const card = page.getByRole("listitem").filter({ has: link });
   await expect(card.getByText("Tarefa pessoal")).toBeAttached();

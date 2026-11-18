@@ -1,4 +1,4 @@
-import { CalendarDays, Inbox, LayoutGrid, List, Lock } from "lucide-react";
+import { CalendarDays, Inbox, LayoutGrid, List, ListChecks, Lock, Sun } from "lucide-react";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Suspense } from "react";
@@ -8,7 +8,7 @@ import { MonthCalendar } from "@/components/tasks/calendar";
 import { TaskCard } from "@/components/tasks/task-card";
 import { TaskTable } from "@/components/tasks/task-table";
 import { EmptyState } from "@/components/ui/empty-state";
-import { type DueBucket, dueBucket, dueKey, todayISO } from "@/lib/dates";
+import { type DueBucket, dueBucket, dueKey, isOverdue, shortDate, todayISO } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import { requireUser } from "@/server/actor";
 import { getTaskFormOptionsAction } from "@/server/actions/tasks";
@@ -20,9 +20,10 @@ const BUCKETS: [DueBucket, string][] = [
   ["week", "Esta semana"],
   ["later", "Depois"],
 ];
-// ADR-069: a aba vai na URL (?aba=); sem o parâmetro, "Minhas tarefas"
+// ADR-069: a aba vai na URL (?aba=); Módulo 16: sem o parâmetro, "Hoje"
 const TABS = [
-  { aba: "", label: "Minhas tarefas" },
+  { aba: "", label: "Hoje" },
+  { aba: "minhas", label: "Minhas tarefas" },
   { aba: "pessoais", label: "Pessoais" },
   { aba: "atribuidas", label: "Atribuídas" },
   { aba: "criadas", label: "Criadas" },
@@ -40,7 +41,7 @@ function scopeOf(aba: unknown, userId: string): Scope {
       return { creatorId: userId };
     case "mencoes":
       return { mentionedUserId: userId };
-    default: // tudo o que a pessoa tem de resolver: as pessoais (sempre dela) e as da equipe com ela
+    default: // Hoje e Minhas tarefas: as pessoais (sempre dela) e as da equipe com ela
       return { visibility: "all", assigneeId: userId };
   }
 }
@@ -66,11 +67,26 @@ async function Mine({ searchParams }: PageProps<"/">) {
   const visao: Visao = VIEWS.find((v) => v.visao === params.visao)?.visao ?? "";
   const today = todayISO();
   // Cards e Lista: só o que falta resolver; o Calendário mostra também o que já foi concluído
-  const { tasks } = await listTasks(
+  const { tasks: scoped } = await listTasks(
     actor,
     {},
     { ...scopeOf(aba, actor.userId), openOnly: visao !== "calendario" },
   );
+  // Módulo 16, aba Hoje: com prazo até hoje (atrasadas e de hoje) e as subtarefas abertas idem
+  const hoje = aba === "";
+  const tasks = hoje
+    ? scoped.filter((t) => t.category !== "done" && t.dueDate && t.dueDate <= today)
+    : scoped;
+  const todaySubtasks = hoje
+    ? (
+        await listChecklistDue(
+          actor,
+          scoped.filter((t) => t.category !== "done").map((t) => t.id),
+        )
+      )
+        .filter((s) => s.dueDate <= today)
+        .sort((a, b) => dueKey(a.dueDate, a.dueTime).localeCompare(dueKey(b.dueDate, b.dueTime)))
+    : [];
   tasks.sort((a, b) => dueKey(a.dueDate, a.dueTime).localeCompare(dueKey(b.dueDate, b.dueTime)));
 
   const nav = (
@@ -137,16 +153,19 @@ async function Mine({ searchParams }: PageProps<"/">) {
     );
   }
 
-  const empty =
-    aba === "pessoais" ? (
-      <EmptyState icon={Lock} title="Nenhuma tarefa pessoal aberta" action={<CreateTaskButton />}>
-        Tarefa pessoal só você vê. Marque “Tarefa pessoal” ao criar.
-      </EmptyState>
-    ) : (
-      <EmptyState icon={Inbox} title="Nada pendente por aqui" action={<CreateTaskButton />}>
-        Você não tem tarefas abertas neste ciclo. Crie uma ou puxe algo do backlog.
-      </EmptyState>
-    );
+  const empty = hoje ? (
+    <EmptyState icon={Sun} title="Nada para hoje" action={<CreateTaskButton />}>
+      Nenhuma tarefa ou subtarefa sua vence hoje ou está atrasada.
+    </EmptyState>
+  ) : aba === "pessoais" ? (
+    <EmptyState icon={Lock} title="Nenhuma tarefa pessoal aberta" action={<CreateTaskButton />}>
+      Tarefa pessoal só você vê. Marque “Tarefa pessoal” ao criar.
+    </EmptyState>
+  ) : (
+    <EmptyState icon={Inbox} title="Nada pendente por aqui" action={<CreateTaskButton />}>
+      Você não tem tarefas abertas neste ciclo. Crie uma ou puxe algo do backlog.
+    </EmptyState>
+  );
 
   if (visao === "lista") {
     const options = tasks.length ? await getTaskFormOptionsAction() : null;
@@ -162,19 +181,24 @@ async function Mine({ searchParams }: PageProps<"/">) {
     );
   }
 
-  const groups = Map.groupBy(tasks, (t) => dueBucket(t.dueDate, today));
+  // na aba Hoje só há dois grupos: Atrasadas (a hora conta, ADR-072) e Hoje
+  const groups = Map.groupBy(tasks, (t) =>
+    hoje ? (isOverdue(t.dueDate, t.dueTime) ? "overdue" : "today") : dueBucket(t.dueDate, today),
+  );
   return (
     <main className="p-4 md:p-6">
       {nav}
+      {hoje && todaySubtasks.length > 0 && <TodaySubtasks subtasks={todaySubtasks} />}
       {tasks.length === 0
-        ? empty
+        ? !(hoje && todaySubtasks.length) && empty
         : BUCKETS.map(([bucket, label]) => {
             const list = groups.get(bucket);
             if (!list) return null;
             return (
               <section key={bucket} aria-labelledby={`g-${bucket}`} className="mb-6">
                 <h2 id={`g-${bucket}`} className="mb-2 text-sm font-semibold">
-                  {label} <span className="font-normal text-muted tabular-nums">{list.length}</span>
+                  {hoje && bucket === "overdue" ? "Atrasadas" : label}{" "}
+                  <span className="font-normal text-muted tabular-nums">{list.length}</span>
                 </h2>
                 <ul className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
                   {list.map((t) => (
@@ -187,6 +211,62 @@ async function Mine({ searchParams }: PageProps<"/">) {
             );
           })}
     </main>
+  );
+}
+
+type DueSubtask = Awaited<ReturnType<typeof listChecklistDue>>[number];
+
+/** Aba Hoje: subtarefas com prazo hoje ou atrasadas, com rótulo e link para a tarefa. */
+function TodaySubtasks({ subtasks }: { subtasks: DueSubtask[] }) {
+  const groups = Map.groupBy(subtasks, (s) => (isOverdue(s.dueDate, s.dueTime) ? 0 : 1));
+  return (
+    <section aria-labelledby="g-subtarefas" className="mb-6">
+      <h2 id="g-subtarefas" className="mb-2 text-sm font-semibold">
+        Subtarefas <span className="font-normal text-muted tabular-nums">{subtasks.length}</span>
+      </h2>
+      {([0, 1] as const).map((g) => {
+        const list = groups.get(g);
+        if (!list) return null;
+        return (
+          <div key={g} className="mb-2">
+            <h3 className="mb-1 text-xs font-medium text-muted">{g ? "Hoje" : "Atrasadas"}</h3>
+            <ul className="flex flex-col gap-1">
+              {list.map((s) => (
+                <li
+                  key={s.id}
+                  className={cn(
+                    "flex items-center gap-2 rounded-md border bg-surface px-3 py-2 text-sm",
+                    !g && "border-l-2 border-l-err",
+                  )}
+                >
+                  <ListChecks
+                    className="size-4 flex-none text-muted"
+                    strokeWidth={1.75}
+                    aria-hidden="true"
+                  />
+                  <span className="text-xs text-muted">Subtarefa</span>
+                  <span className="min-w-0 flex-1 truncate">{s.text}</span>
+                  {!g && <span className="sr-only">(vencida)</span>}
+                  {(s.dueTime || s.dueDate !== todayISO()) && (
+                    <span className="text-xs text-muted tabular-nums">
+                      {[s.dueDate !== todayISO() && shortDate(s.dueDate), s.dueTime]
+                        .filter(Boolean)
+                        .join(" ")}
+                    </span>
+                  )}
+                  <Link
+                    href={`/tarefas/${s.number}`}
+                    className="text-xs text-accent-text tabular-nums hover:underline"
+                  >
+                    TI-{s.number}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })}
+    </section>
   );
 }
 
