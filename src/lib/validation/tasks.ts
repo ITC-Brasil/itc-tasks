@@ -198,6 +198,7 @@ export const FILTER_PARAMS = {
   prioridade: "priorities",
   etiqueta: "labelIds",
   ciclo: "cycleIds",
+  envolvido: "involvedIds", // ADR-073
 } as const;
 const many = <T extends z.ZodType>(item: T) =>
   z
@@ -211,6 +212,7 @@ export const taskFiltersSchema = z.object({
   priorities: many(z.enum(PRIORITIES)),
   labelIds: many(uuid),
   cycleIds: many(uuid),
+  involvedIds: many(uuid),
 });
 export type TaskFilters = z.output<typeof taskFiltersSchema>;
 

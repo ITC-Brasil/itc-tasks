@@ -1205,6 +1205,16 @@ export async function listTasks(
                 .where(inArray(taskMobileUnits.mobileUnitId, ids)),
             ),
           ),
+          // ADR-073: qualquer um dos envolvidos escolhidos
+          any(f.involvedIds, (ids) =>
+            inArray(
+              tasks.id,
+              db
+                .select({ id: taskInvolved.taskId })
+                .from(taskInvolved)
+                .where(inArray(taskInvolved.involvedId, ids)),
+            ),
+          ),
           any(f.labelIds, (ids) =>
             inArray(
               tasks.id,
