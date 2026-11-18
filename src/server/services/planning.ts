@@ -22,6 +22,7 @@ import {
 } from "@/lib/validation/planning";
 import type { Actor } from "@/server/actor";
 import { listProjects } from "./catalog";
+import { ForbiddenError, isAdmin } from "@/server/permissions";
 import { TaskError, lockTask, record, teamOnly } from "./tasks";
 
 // ADR-053: admin e member planejam; nada é excluído (ciclo encerra, marco conclui)
@@ -220,6 +221,44 @@ export async function closeCycle(actor: Actor, id: string, input: { carryTaskIds
     };
   });
 }
+
+/**
+ * ADR-071: só admin (pessoa, nunca agente) exclui ciclo ou marco; as tarefas ficam, perdem o
+ * vínculo e gravam o evento com o nome do que foi excluído.
+ */
+async function deletePlanning(actor: Actor, kind: "cycle" | "milestone", id: string) {
+  if (actor.kind !== "user" || !isAdmin(actor)) throw new ForbiddenError();
+  const table = kind === "cycle" ? cycles : milestones;
+  const column = kind === "cycle" ? tasks.cycleId : tasks.milestoneId;
+  return db.transaction(async (tx) => {
+    const [row] = await tx.select().from(table).where(eq(table.id, id)).for("update");
+    if (!row)
+      throw new TaskError(
+        "NOT_FOUND",
+        kind === "cycle" ? "Ciclo não encontrado" : "Marco não encontrado",
+      );
+    const name = "number" in row ? `Ciclo ${row.number}` : row.name;
+    const linked = await tx.select({ id: tasks.id }).from(tasks).where(eq(column, id));
+    for (const { id: taskId } of linked) {
+      await lockTask(tx, taskId, actor);
+      await tx
+        .update(tasks)
+        .set(kind === "cycle" ? { cycleId: null } : { milestoneId: null })
+        .where(eq(tasks.id, taskId));
+      await record(tx, actor, taskId, [
+        { type: "field_changed", payload: { field: kind, from: id, to: null, deleted: name } },
+      ]);
+    }
+    await tx.delete(table).where(eq(table.id, id));
+    console.info(
+      `[planning] ${kind === "cycle" ? "ciclo" : "marco"} excluído name="${name}" tasks=${linked.length} userId=${actor.userId}`,
+    );
+    return { name, tasks: linked.length };
+  });
+}
+
+export const deleteCycle = (actor: Actor, id: string) => deletePlanning(actor, "cycle", id);
+export const deleteMilestone = (actor: Actor, id: string) => deletePlanning(actor, "milestone", id);
 
 // ── Marcos ──────────────────────────────────────────────────────────
 

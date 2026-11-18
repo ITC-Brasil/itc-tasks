@@ -30,6 +30,7 @@ type Payload = {
   fileName?: string;
   key?: string;
   sourceId?: string;
+  deleted?: string;
 };
 type Names = Map<string, string>;
 
@@ -77,9 +78,12 @@ function fieldChange(p: Payload, names: Names) {
     case "description":
       return "editou a descrição";
     case "cycle":
-      return p.to ? `moveu para o ${name(names, p.to)}` : "tirou do ciclo";
     case "milestone":
-      return p.to ? `ligou ao marco ${name(names, p.to)}` : "tirou do marco";
+      if (p.deleted)
+        return `removeu do ${p.field === "milestone" ? "marco " : ""}${p.deleted}, que foi excluído`; // ADR-071
+      if (p.field === "milestone")
+        return p.to ? `ligou ao marco ${name(names, p.to)}` : "tirou do marco";
+      return p.to ? `moveu para o ${name(names, p.to)}` : "tirou do ciclo";
     case "position":
       return "moveu para o topo da coluna";
     case "visibility":

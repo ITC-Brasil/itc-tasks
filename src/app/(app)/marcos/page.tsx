@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Topbar } from "@/components/layout/topbar";
 import { requireActor } from "@/server/actor";
+import { isAdmin } from "@/server/permissions";
 import { listProjects } from "@/server/services/catalog";
 import { listMilestones } from "@/server/services/planning";
 import { MilestoneDialog, MilestonesView } from "./milestones-client";
@@ -18,7 +19,7 @@ async function Milestones() {
         <MilestoneDialog projects={options} />
       </Topbar>
       <main className="flex flex-col gap-5 p-4 md:p-6">
-        <MilestonesView milestones={milestones} projects={options} />
+        <MilestonesView milestones={milestones} projects={options} canDelete={isAdmin(actor)} />
       </main>
     </>
   );
