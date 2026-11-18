@@ -184,7 +184,8 @@ export const nextPlannedCycle = () => nextPlanned();
 
 /**
  * Encerra o ciclo ativo: as pendências marcadas vão para o próximo planejado, as demais ficam sem
- * ciclo; cada tarefa grava `field_changed` (ADR-053). Tudo numa transação.
+ * ciclo; cada tarefa grava `field_changed` (ADR-053). Tudo numa transação. Desde o Módulo 16 não
+ * exige próximo ciclo: sem ele, nenhuma pendência pode ser levada e todas ficam sem ciclo.
  */
 export async function closeCycle(actor: Actor, id: string, input: { carryTaskIds: string[] }) {
   assertPerson(actor);
@@ -193,7 +194,8 @@ export async function closeCycle(actor: Actor, id: string, input: { carryTaskIds
     const c = await openCycle(tx, id);
     if (c.state !== "active") throw new TaskError("VALIDATION", "Só o ciclo ativo é encerrado");
     const next = await nextPlanned(tx);
-    if (!next) throw new TaskError("VALIDATION", "Crie o próximo ciclo antes de encerrar");
+    if (!next && carryTaskIds.length)
+      throw new TaskError("VALIDATION", "Não há próximo ciclo para levar as tarefas");
     const pending = await tx
       .select({ id: tasks.id })
       .from(tasks)
@@ -202,7 +204,7 @@ export async function closeCycle(actor: Actor, id: string, input: { carryTaskIds
       );
     for (const { id: taskId } of pending) {
       await lockTask(tx, taskId, actor);
-      const to = carryTaskIds.includes(taskId) ? next.id : null;
+      const to = next && carryTaskIds.includes(taskId) ? next.id : null;
       await tx
         .update(tasks)
         .set({ cycleId: to, updatedAt: new Date() })
@@ -213,8 +215,8 @@ export async function closeCycle(actor: Actor, id: string, input: { carryTaskIds
     }
     await tx.update(cycles).set({ state: "closed", closedAt: new Date() }).where(eq(cycles.id, id));
     return {
-      next: next.number,
-      carried: pending.filter((p) => carryTaskIds.includes(p.id)).length,
+      next: next?.number ?? null,
+      carried: next ? pending.filter((p) => carryTaskIds.includes(p.id)).length : 0,
     };
   });
 }

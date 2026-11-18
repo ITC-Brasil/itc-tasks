@@ -81,11 +81,14 @@ it("ciclo: um ativo por vez; encerrar leva as marcadas e solta as demais (ADR-05
 
   await expect(updateTask(ana, carry.id, { cycleId: a.id })).rejects.toThrow("já foi encerrado");
   await startCycle(ana, b.id);
-  // sem ciclo planejado não encerra
-  await expect(closeCycle(ana, b.id, { carryTaskIds: [] })).rejects.toThrow(
-    "Crie o próximo ciclo antes de encerrar",
+  // M16 item 2: sem ciclo planejado encerra; não leva nada e as pendências ficam sem ciclo
+  await expect(closeCycle(ana, b.id, { carryTaskIds: [carry.id] })).rejects.toThrow(
+    "Não há próximo ciclo",
   );
-  await db.update(cycles).set({ state: "closed" }).where(eq(cycles.id, b.id));
+  expect(await closeCycle(ana, b.id, { carryTaskIds: [] })).toEqual({ next: null, carried: 0 });
+  expect(await cycleOf(carry.id)).toBeNull();
+  expect((await listActivity({ kind: "system" }, carry.id)).at(-1)?.text).toBe("tirou do ciclo");
+  expect((await db.select().from(cycles).where(eq(cycles.id, b.id)))[0].state).toBe("closed");
 });
 
 it("marco: do projeto da tarefa, aberto, com progresso", async () => {

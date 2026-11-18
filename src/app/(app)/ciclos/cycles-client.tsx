@@ -112,10 +112,12 @@ function CloseCycle({
 
   function close() {
     start(async () => {
-      const r = await closeCycleAction(cycle.id, [...carry]);
+      const r = await closeCycleAction(cycle.id, next ? [...carry] : []);
       if (!r.ok) return void toast.error(r.error);
       toast.success(
-        `Ciclo ${cycle.number} encerrado; ${r.data.carried} tarefas no Ciclo ${r.data.next}`,
+        r.data.next
+          ? `Ciclo ${cycle.number} encerrado; ${r.data.carried} tarefas no Ciclo ${r.data.next}`
+          : `Ciclo ${cycle.number} encerrado`,
       );
       setOpen(false);
     });
@@ -132,7 +134,9 @@ function CloseCycle({
           <DialogDescription>
             {next
               ? `As tarefas marcadas vão para o Ciclo ${next.number}; as desmarcadas ficam sem ciclo.`
-              : "Crie o próximo ciclo antes de encerrar."}
+              : pending.length
+                ? `Sem próximo ciclo planejado: as ${pending.length} tarefas pendentes ficam sem ciclo.`
+                : "Sem próximo ciclo planejado. Nenhuma tarefa pendente neste ciclo."}
           </DialogDescription>
         </DialogHeader>
         {next && pending.length > 0 && (
@@ -162,7 +166,7 @@ function CloseCycle({
           <p className="text-sm text-muted">Nenhuma tarefa pendente neste ciclo.</p>
         )}
         <DialogFooter>
-          <Button onClick={close} disabled={busy || !next}>
+          <Button onClick={close} disabled={busy}>
             {busy ? "Encerrando…" : "Encerrar ciclo"}
           </Button>
         </DialogFooter>
