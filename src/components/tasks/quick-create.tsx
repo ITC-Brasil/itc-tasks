@@ -51,7 +51,9 @@ const EMPTY = {
   assigneeId: "",
   glpiTicket: "",
   dueDate: "",
+  dueTime: "",
   labelIds: [] as string[],
+  involvedIds: [] as string[],
   checklist: [] as string[],
   descriptionJson: null as { type: "doc" } | null,
   templateId: undefined as string | undefined,
@@ -88,6 +90,11 @@ export function QuickCreate() {
     const preset = (e as CustomEvent<Preset | undefined>)?.detail;
     if (preset?.statusId) setForm((f) => ({ ...f, statusId: preset.statusId! }));
     setPersonal(!!preset?.personal);
+    // M16 item 1: cada abertura começa sem Projeto/Cliente, UM e ciclo; só o "Criar outra",
+    // com o diálogo ainda aberto, os mantém
+    setProjectIds([]);
+    setMobileUnitIds([]);
+    setCycleId("");
     setOpen(true);
     // recarrega a cada abertura: cadastros podem ter mudado
     getTaskFormOptionsAction().then(
@@ -310,7 +317,19 @@ export function QuickCreate() {
                   aria-label="Prazo"
                   className="tabular-nums"
                   value={form.dueDate}
-                  onChange={(e) => set("dueDate", e.target.value)}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setForm((f) => ({ ...f, dueDate: v, dueTime: v ? f.dueTime : "" }));
+                  }}
+                />
+                {/* ADR-072: hora opcional, só com data */}
+                <Input
+                  type="time"
+                  aria-label="Horário"
+                  className="tabular-nums"
+                  disabled={!form.dueDate}
+                  value={form.dueTime}
+                  onChange={(e) => set("dueTime", e.target.value)}
                 />
               </div>
               {!!items.labels.length && (
@@ -319,6 +338,14 @@ export function QuickCreate() {
                   items={items.labels}
                   value={form.labelIds}
                   onChange={(v) => set("labelIds", v)}
+                />
+              )}
+              {!!items.involved.length && (
+                <PickMany
+                  label="Envolvidos"
+                  items={items.involved}
+                  value={form.involvedIds}
+                  onChange={(v) => set("involvedIds", v)}
                 />
               )}
               {!!form.checklist.length && (

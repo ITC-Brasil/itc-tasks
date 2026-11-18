@@ -19,6 +19,7 @@ import {
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { shortDate } from "@/lib/dates";
+import { DeletePlanningDialog } from "./delete-planning";
 import { closeCycleAction, saveCycleAction, startCycleAction } from "@/server/actions/planning";
 import type { CycleRow } from "@/server/services/planning";
 import { Card } from "@/components/ui/card";
@@ -112,10 +113,12 @@ function CloseCycle({
 
   function close() {
     start(async () => {
-      const r = await closeCycleAction(cycle.id, [...carry]);
+      const r = await closeCycleAction(cycle.id, next ? [...carry] : []);
       if (!r.ok) return void toast.error(r.error);
       toast.success(
-        `Ciclo ${cycle.number} encerrado; ${r.data.carried} tarefas no Ciclo ${r.data.next}`,
+        r.data.next
+          ? `Ciclo ${cycle.number} encerrado; ${r.data.carried} tarefas no Ciclo ${r.data.next}`
+          : `Ciclo ${cycle.number} encerrado`,
       );
       setOpen(false);
     });
@@ -132,7 +135,9 @@ function CloseCycle({
           <DialogDescription>
             {next
               ? `As tarefas marcadas vão para o Ciclo ${next.number}; as desmarcadas ficam sem ciclo.`
-              : "Crie o próximo ciclo antes de encerrar."}
+              : pending.length
+                ? `Sem próximo ciclo planejado: as ${pending.length} tarefas pendentes ficam sem ciclo.`
+                : "Sem próximo ciclo planejado. Nenhuma tarefa pendente neste ciclo."}
           </DialogDescription>
         </DialogHeader>
         {next && pending.length > 0 && (
@@ -162,7 +167,7 @@ function CloseCycle({
           <p className="text-sm text-muted">Nenhuma tarefa pendente neste ciclo.</p>
         )}
         <DialogFooter>
-          <Button onClick={close} disabled={busy || !next}>
+          <Button onClick={close} disabled={busy}>
             {busy ? "Encerrando…" : "Encerrar ciclo"}
           </Button>
         </DialogFooter>
@@ -195,11 +200,17 @@ export function CyclesView({
   cycles,
   load,
   pending,
+  canDelete = false,
 }: {
   cycles: CycleRow[];
   load: { name: string; open: number }[];
   pending: Pending[];
+  canDelete?: boolean;
 }) {
+  const del = (c: CycleRow) =>
+    canDelete && (
+      <DeletePlanningDialog kind="cycle" id={c.id} name={`Ciclo ${c.number}`} tasks={c.total} />
+    );
   if (!cycles.length)
     return (
       <EmptyState icon={RefreshCw} title="Nenhum ciclo ainda" action={<CycleDialog />}>
@@ -232,6 +243,7 @@ export function CyclesView({
             </Link>
             <CycleDialog cycle={active} />
             <CloseCycle cycle={active} next={planned[0]} pending={pending} />
+            {del(active)}
           </div>
           <div className="mt-4 grid gap-6 md:grid-cols-2">
             <Progress
@@ -284,6 +296,7 @@ export function CyclesView({
               <span className="flex-1" />
               <CycleDialog cycle={c} />
               <StartButton cycle={c} blocked={!!active} />
+              {del(c)}
             </Card>
           ))}
         </section>
@@ -308,6 +321,7 @@ export function CyclesView({
                 <span className="text-muted tabular-nums">
                   {c.done}/{c.total} concluídas
                 </span>
+                {del(c)}
               </li>
             ))}
           </Card>

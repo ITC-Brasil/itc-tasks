@@ -19,6 +19,29 @@ export function addBusinessDays(iso: string, days: number) {
   return d;
 }
 
+/** "14:30" agora em Brasília (ADR-072). */
+export const nowHM = (now = new Date()) =>
+  new Intl.DateTimeFormat("en-GB", {
+    timeZone: "America/Sao_Paulo",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(now);
+
+/**
+ * ADR-072: sem hora vence no fim do dia (atrasada a partir de amanhã); com hora, a partir dela.
+ * Não olha o status: quem chama descarta as concluídas.
+ */
+export function isOverdue(date: string | null, time: string | null, now = new Date()) {
+  if (!date) return false;
+  const today = todayISO(now);
+  return date < today || (date === today && !!time && time <= nowHM(now));
+}
+
+/** Chave de ordenação por prazo: data, depois hora; sem hora = fim do dia; sem prazo por último. */
+export const dueKey = (date: string | null, time?: string | null) =>
+  date ? `${date}T${time ?? "99:99"}` : "9999";
+
 export type DueBucket = "overdue" | "today" | "week" | "later";
 
 /** PRD V1: vencidas, hoje, esta semana (até domingo), depois (inclui sem prazo). */

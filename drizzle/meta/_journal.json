@@ -134,6 +134,20 @@
       "when": 1794469747533,
       "tag": "0018_task_visibility",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1794964098139,
+      "tag": "0019_due_time",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1794964914795,
+      "tag": "0020_involved_people",
+      "breakpoints": true
     }
   ]
 }

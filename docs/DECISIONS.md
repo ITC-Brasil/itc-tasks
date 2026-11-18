@@ -2257,3 +2257,230 @@ O `deploy.yml` passa a disparar por `workflow_run` do workflow `CI` (`types: [co
   terminar. Risco aceito pelo Cowork e pelo Matheus (M-148, 12/11/2026): só pesa com dois merges muito
   próximos; merges na `main` são raros e manuais, e o deploy do segundo roda depois.
 - `workflow_run` só vale com o `deploy.yml` na branch padrão (`main`): passa a valer no próximo merge.
+
+## ADR-071 — Excluir ciclos e marcos (só admin; tarefas ficam e perdem o vínculo)
+
+**Status:** Accepted
+**Date:** 2026-11-17
+**Module:** 16 — Ajustes de uso (item 3)
+
+**Context**
+Ciclos e marcos criados por engano ou de teste não tinham como sair: o ADR-053 só previa encerrar
+o ciclo e concluir o marco. A regra "cadastros nunca são excluídos" (ADR-018) vale para Projetos/
+Clientes, UMs, Workflow, Etiquetas e Envolvidos, que outras telas e o MCP referenciam por nome. Ciclo
+e marco **não são cadastros**: são planejamento, com vida curta, e o único vínculo forte é
+`tasks.cycle_id`/`tasks.milestone_id`.
+
+**Decision**
+- `deleteCycle(actor, id)` e `deleteMilestone(actor, id)` em `src/server/services/planning.ts`. Só
+  `user` com papel `admin` exclui; agente (mesmo de admin), automação e sistema são recusados.
+- Numa transação: cada tarefa ligada (de qualquer estado, inclusive concluída ou arquivada) é
+  travada com `lockTask`, perde o vínculo (`cycle_id`/`milestone_id = null`) e grava
+  `field_changed` `{ field: "cycle" | "milestone", from, to: null, deleted: "<nome>" }`, lido no
+  histórico como "removeu do Ciclo N, que foi excluído". Depois a linha do ciclo/marco é apagada.
+- O nome vai no payload porque o id deixa de existir e o histórico não conseguiria mais resolvê-lo.
+- Rastro da exclusão: o evento em cada tarefa e uma linha `[planning] ciclo excluído …` no log do
+  processo, como a troca de senha (ADR-062). **Sem tabela nova** como o `task_deletions` (ADR-063):
+  um ciclo ou marco sem tarefas não tem o que preservar além do número/nome, e a migração só
+  acrescentaria escrita. Se o Matheus quiser auditoria consultável, vira item próprio.
+- Confirmação na UI com o número de tarefas afetadas.
+
+**Alternatives considered**
+- *Arquivar (`archivedAt`) em vez de excluir:* rejeitado. O pedido é tirar o ciclo/marco de vista e
+  das tarefas; arquivar deixaria o vínculo e exigiria filtrar em todas as leituras.
+- *Recusar a exclusão com tarefas ligadas:* rejeitado pelo Matheus no prompt do Módulo 16.
+- *Tabela `planning_deletions`:* adiada (acima).
+
+**Consequences**
+- Números de ciclo não são reaproveitados enquanto houver um maior (`max + 1`); excluir o último
+  libera o número dele.
+- As tarefas perdem a referência; o histórico conta o que aconteceu.
+
+## ADR-072 — Horário opcional no prazo (`due_time`, America/Sao_Paulo)
+
+**Status:** Accepted
+**Date:** 2026-11-17
+**Module:** 16 — Ajustes de uso (item 4)
+
+**Context**
+O prazo é só data (`due_date date`, vence no fim do dia). O time combina entregas com hora marcada
+(visita, janela de manutenção) e quer ver a tarefa atrasada a partir daquele horário.
+
+**Decision**
+- Colunas aditivas `due_time time` (nula) em `tasks` e `checklist_items` (`0019_due_time`). A data
+  continua sendo o prazo; a hora é complemento e só existe com data: limpar a data limpa a hora, e
+  hora sem data é recusada (`VALIDATION`).
+- Fuso fixo **America/Sao_Paulo**, o mesmo do `todayISO()`. A hora é "de parede" de Brasília;
+  sem conversão.
+- Sem hora: comportamento atual (vence no fim do dia). Com hora: atrasada quando
+  `due_date < hoje` ou `due_date = hoje e due_time <= agora` (helper `isOverdue` em
+  `src/lib/dates.ts`, usado no card, na lista, no detalhe e no MCP `overdue`).
+- Ordenação por prazo: `due_date`, depois `due_time` (sem hora = fim do dia, vai por último no dia).
+- MCP: `dueTime` (`HH:MM`, `null` limpa) em `create_task`/`update_task` e por subtarefa em
+  `checklistDue`; `get_task`/`list_tasks` devolvem `dueTime`.
+- Exibição: `17 nov 14:30` com `tabular-nums`; seletor `<input type="time">` ao lado do de data.
+- Lembretes: o worker só tem jobs diários (08:00 e 00:05), sem granularidade de minutos. Fica o
+  mínimo: o lembrete das 08:00 e o resumo mostram a hora; a automação `task.overdue` continua no
+  dia seguinte. Aviso perto do horário vai para "Decisões a confirmar" do Módulo 16.
+
+**Alternatives considered**
+- *Converter `due_date` em `timestamptz`:* rejeitado; reescreveria dados (migrações só aditivas,
+  INFRA §9) e mudaria toda comparação de "hoje".
+- *Hora em UTC:* rejeitado; o time inteiro está em Brasília e o horário de verão não existe mais.
+
+**Consequences**
+- Toda comparação de atraso no código passa pelo helper; consulta SQL que só olha `due_date`
+  continua certa para "venceu ontem".
+
+## ADR-073 — Cadastro "Envolvidos" (pessoas de fora do app ligadas à tarefa)
+
+**Status:** Accepted
+**Date:** 2026-11-17
+**Module:** 16 — Ajustes de uso (item 7)
+
+**Context**
+Muitas tarefas dependem de pessoas que não usam o app (motorista da UM, contato no cliente,
+técnico terceirizado). Hoje elas aparecem só no texto da descrição e não dá para filtrar.
+
+**Decision**
+- Cadastro `involved_people` (`id`, `name`, `archived_at`, timestamps), em Configurações ›
+  Envolvidos, só com **nome** (único, sem diferenciar maiúsculas). Admin cria, edita e arquiva;
+  nunca exclui (ADR-018). Arquivado some dos seletores e continua nas tarefas que já o têm.
+- Ligação N:N `task_involved` (`task_id` com `ON DELETE CASCADE`, `involved_id`), como
+  `task_labels`. Até 20 por tarefa. Vale para tarefa pessoal e da equipe.
+- Envolvido **não é usuário**: sem login, notificação nem menção; nenhum fanout lê a tabela.
+- Mudança grava `involved_changed` `{ from, to }` (ids) em `task_events`, lido como "Envolvidos:
+  adicionou …; removeu …" (`task_events.type` é texto; as tabelas vêm na `0020_involved_people`).
+- Campo no detalhe e na criação completa da tarefa (a criação rápida é a completa; o prompt
+  dispensa só a "rápida" por atalho, mas o diálogo é um só, então o campo entra nele). No card
+  **não aparece** (decisão conservadora: o card já tem chips de projeto, UM e etiqueta).
+- Filtro "Envolvido" (`?envolvido=<id>`, repetível = "qualquer um de") em Kanban, Lista e
+  Calendário e nos filtros salvos, pelo `taskFiltersSchema` (ADR-046).
+- MCP: `list_involved` (leitura) e `involvedIds` em `create_task`/`update_task` (lista completa
+  substitui a atual). Os ids vêm do `list_involved`, porque nomes não são códigos estáveis.
+
+**Alternatives considered**
+- *Envolvido como `user` desativado:* rejeitado; misturaria login, papéis e listas de pessoas.
+- *Texto livre na tarefa:* rejeitado; não filtra nem padroniza nomes.
+- *Nome como chave no MCP:* rejeitado; o nome pode ser editado.
+
+**Consequences**
+- Novo cadastro na navegação de Configurações e uma consulta a mais no detalhe e nas visões
+  (lote por ids, como as etiquetas).
+
+## ADR-074 — Tokens de MCP privados (cada pessoa vê só os próprios)
+
+**Status:** Accepted
+**Date:** 2026-11-17
+**Module:** 16 — Ajustes de uso (item 11)
+
+**Context**
+Pelo ADR-049 o admin via, criava e revogava tokens de qualquer pessoa em Configurações › Agentes
+e MCP, com nome, prefixo, uso e a atividade feita por eles. O Matheus decidiu que o token é
+pessoal: nem o admin deve ver os dos outros.
+
+**Decision** (substitui a parte "admin gerencia os tokens de qualquer pessoa" do ADR-049)
+- `listAgentKeys`, `listAgentActivity` e `revokeAgentKey` em `src/server/services/agents.ts`
+  filtram sempre pelo dono (`apikey.reference_id = actor.userId`), **inclusive para o admin**.
+  Revogar token alheio → `ForbiddenError`, mesmo para o admin.
+- `createAgentKey` cria só para a própria pessoa: o campo `userId` sai do Zod e da tela (criar
+  para outra pessoa entregaria o segredo a quem não é dono).
+- O admin ganha `revokeAllAgentKeys(actor, userId)` em Configurações › Membros ("Revogar todos os
+  tokens", com confirmação). Desativa todos os tokens ativos do membro sem listar nada deles e grava
+  `[agents] tokens revogados userId=… count=… by=…` no log do processo (rastro como o ADR-062).
+  Devolve só a quantidade.
+- Desativar membro continua cortando o acesso: `agentFromKey` recusa token de dono `banned`.
+- As rotas do Better Auth `apiKey` continuam fechadas pela lista de permissão do ADR-058
+  (`/api/auth/api-key/*` → 404); o teste confere isso de novo.
+
+**Alternatives considered**
+- *Admin vê só a contagem por pessoa:* rejeitado no prompt ("nem nome, prefixo ou datas"); a
+  contagem só aparece como resultado da revogação.
+- *Admin cria token para outra pessoa e o segredo vai por e-mail:* rejeitado; aumenta a
+  superfície sem ganho para um time de 4.
+
+**Consequences**
+- Atividade de agente em Agentes e MCP passa a ser só a dos próprios tokens também para o admin;
+  o histórico de cada tarefa continua mostrando "via MCP · <token>" para quem vê a tarefa.
+- Tabela de Papéis do `CLAUDE.md` atualizada.
+
+## ADR-075 — Paleta de projetos com 12 cores (complementa o ADR-068)
+
+**Status:** Accepted
+**Date:** 2026-11-17
+**Module:** 16 — Ajustes de uso (item 12)
+
+**Context**
+As 8 cores do ADR-068 já se repetem entre os Projetos/Clientes ativos. O Matheus pediu 12, sem
+mexer nas 8 atuais (projetos já gravaram as chaves).
+
+**Decision**
+Quatro chaves novas, com os mesmos três tokens por cor (`--project-<cor>-bg`, `-unit-bg`, `-fg`)
+nos dois temas. As 8 do ADR-068 não mudam de nome nem de valor. Os nomes sugeridos (`cyan`,
+`amber`, `red`) foram trocados: `cyan` repetiria o ciano de destaque (`accent`), e `amber`/`red`
+se confundiriam com `warn` e `err`. Cada nova difere das vizinhas em matiz **e** luminosidade do
+fundo, e todas são dessaturadas em relação às funcionais.
+
+| Chave | Nome | Claro bg / unit-bg / fg | Contraste fg (bg · unit) | Escuro bg / unit-bg / fg | Contraste fg (bg · unit) |
+|---|---|---|---|---|---|
+| `teal` | Verde-azulado | `#c9e6dc` / `#e7f4ef` / `#1b4d40` | 7,26 · 8,52 | `#1f4a3f` / `#1a302a` / `#b5e6d6` | 7,23 · 10,17 |
+| `sky` | Céu | `#c6e5f2` / `#e6f4fa` / `#14465c` | 7,71 · 9,07 | `#1c4557` / `#1a2d37` / `#b3e1f4` | 7,36 · 10,17 |
+| `terracotta` | Terracota | `#f5d0c0` / `#fbebe4` / `#76301a` | 6,64 · 8,20 | `#5c2c1c` / `#3a2219` / `#f6c9b6` | 7,61 · 9,80 |
+| `mustard` | Mostarda | `#ecdfae` / `#f7f1da` / `#584612` | 6,84 · 8,07 | `#4f4317` / `#332d17` / `#efe0a6` | 7,40 · 10,39 |
+
+- `teal` é verde-acinzentado e mais escuro no texto que o `accent` (`#008F95`), sem a saturação dele;
+  `sky` puxa para o azul-claro e tem fundo mais claro que `blue`.
+- `terracotta` é laranja-tijolo de fundo claro (o `err` é vermelho saturado e só aparece como
+  texto/ícone); `mustard` é amarelo-terroso, distinto do `warn` (laranja saturado) e do `olive`
+  (mais verde e mais claro).
+- Zod (`PROJECT_COLORS`), nomes em `PROJECT_COLOR_NAMES` e o seletor de amostras ganham as 4.
+  Sem migração: a coluna `projects.color` é texto validado no Zod.
+
+**Alternatives considered**
+- *Gerar cores por matiz a partir de uma fórmula:* rejeitado; a paleta fechada com contraste
+  medido é o que o ADR-068 escolheu.
+
+**Consequences**
+- O artefato do Design System precisa das 4 cores (Cowork).
+
+## ADR-076 — Exceção do advisory GHSA-fc5q-39xc-vjpf (`picomatch`) no gate do `npm audit`
+
+**Status:** Accepted
+**Date:** 2026-11-18
+**Module:** 16 — Ajustes de uso (ajuste da M-151)
+
+**Context**
+O Quality Check roda `npm audit --omit=dev --audit-level=high`. Em 17/11/2026 saiu o advisory
+alto GHSA-fc5q-39xc-vjpf (ReDoS no `picomatch` ≤ 4.0.7). A 4.0.7 é a última versão publicada:
+não há correção. O `picomatch` conta como dependência de produção só pelo caminho
+`better-auth@1.7.10 → vitest@5.0.5 → picomatch`, que não roda no app (vitest é ferramenta de
+teste). O CI da `develop` ficou vermelho só por isso (`f4988cf`).
+
+**Decision**
+- O passo do CI passa a ser `node scripts/audit.mjs`: roda `npm audit --omit=dev --json`, junta os
+  advisories `high` e `critical` e falha se sobrar algum fora da lista `IGNORED` do próprio script.
+- A lista tem só este advisory, com o motivo. O nível do gate continua `high`; qualquer outro
+  advisory high/critical derruba o CI (conferido trocando o id na lista: sai com 1).
+- **Remover a exceção** no que vier primeiro (M-153, M-155):
+  1. sair uma versão corrigida do `picomatch` (o Dependabot abre o PR) — a saída realista; ou
+  2. alternativa: sair um `better-auth` sem o `vitest` como peer, o que tira o `picomatch` da árvore
+     de produção.
+- **Por que o `vitest` conta como produção** (levantamento de 18/11/2026, M-153): o `better-auth` não
+  tem o `vitest` em `dependencies`. Ele é **peer opcional** (`peerDependencies.vitest`
+  `^2 || ^3 || ^4 || ^5`, `peerDependenciesMeta.vitest.optional: true`) em todas as versões
+  publicadas depois da 1.7.10 (1.7.11 a 1.7.25 e 1.8.0-beta.0 a beta.10). Como o projeto instala o
+  `vitest` (dev), o npm resolve o peer e o `npm audit --omit=dev` passa a contá-lo pelo caminho do
+  `better-auth`. O `@better-auth/api-key` não declara o `vitest` em nenhuma dessas versões. Hoje
+  **nenhuma versão publicada** atende a condição 2.
+- Issue no `better-auth`: **não abrir** (Matheus, M-155): a declaração do peer está correta; o efeito
+  é do cálculo do `npm audit`. As que existem tratam da faixa de versões
+  do peer, não disso: better-auth/better-auth#11166 (fechada) e better-auth/better-auth#6759 (fechada).
+
+**Alternatives considered**
+- *`--audit-level=critical`:* rejeitado pelo Matheus (M-151); afrouxaria o gate para tudo.
+- *`overrides` do `picomatch`:* não há versão corrigida para apontar.
+- *Tirar o `vitest` da árvore do `better-auth`:* exigiria mudar versões fixas do stack.
+
+**Consequences**
+- Um advisory novo no mesmo pacote, com outro id, não é ignorado.
+- Backlog (M-151): nome do envolvido único sem tratar acento (`unaccent`).

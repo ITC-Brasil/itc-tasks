@@ -11,7 +11,7 @@ import {
   workflowStatuses,
 } from "@/db/schema";
 import { glpiUrl } from "@/components/tasks/badges";
-import { todayISO } from "@/lib/dates";
+import { isOverdue } from "@/lib/dates";
 import { env } from "@/lib/env";
 import {
   type McpCreateTask,
@@ -20,7 +20,7 @@ import {
   createAgentKeySchema,
 } from "@/lib/validation/agents";
 import type { CreateTaskInput, UpdateTaskInput } from "@/lib/validation/tasks";
-import { type Actor, ForbiddenError, type Role, isAdmin } from "@/server/permissions";
+import { type Actor, ForbiddenError, type Role } from "@/server/permissions";
 import { auth } from "@/server/auth";
 import { listComments } from "./comments";
 import { activeCycle, getCycleByNumber, listCycles } from "./planning";
@@ -59,7 +59,7 @@ const ownerOf = (actor: Actor) => {
   return actor.userId;
 };
 
-/** Membro vê os próprios tokens; admin vê todos. */
+/** ADR-074: cada pessoa vê só os próprios tokens, inclusive o admin. */
 export async function listAgentKeys(actor: Actor) {
   const self = ownerOf(actor);
   const rows = await db
@@ -77,7 +77,7 @@ export async function listAgentKeys(actor: Actor) {
     })
     .from(apikey)
     .innerJoin(user, eq(user.id, apikey.referenceId))
-    .where(isAdmin(actor) ? undefined : eq(apikey.referenceId, self))
+    .where(eq(apikey.referenceId, self))
     .orderBy(desc(apikey.createdAt));
   return rows.map(({ permissions, ...r }) => ({
     ...r,
@@ -92,8 +92,7 @@ export const MAX_ACTIVE_AGENT_KEYS = 10;
 export async function createAgentKey(actor: Actor, input: unknown) {
   const self = ownerOf(actor);
   const data = createAgentKeySchema.parse(input);
-  const userId = data.userId ?? self;
-  if (userId !== self && !isAdmin(actor)) throw new ForbiddenError();
+  const userId = self; // ADR-074
   // o limite de 60/min é por token (ADR-009): sem teto, mais tokens = mais vazão (issue #25)
   const [{ active }] = await db
     .select({ active: count() })
@@ -122,14 +121,31 @@ export async function revokeAgentKey(actor: Actor, keyId: string) {
     .from(apikey)
     .where(eq(apikey.id, keyId));
   if (!row) throw new TaskError("NOT_FOUND", "Token não encontrado");
-  if (row.ownerId !== self && !isAdmin(actor)) throw new ForbiddenError();
+  if (row.ownerId !== self) throw new ForbiddenError(); // ADR-074: nem o admin
   await db
     .update(apikey)
     .set({ enabled: false, updatedAt: new Date() })
     .where(eq(apikey.id, keyId));
 }
 
-/** Últimas escritas feitas por tokens visíveis para a pessoa. */
+/**
+ * ADR-074: o admin corta todos os tokens ativos de um membro sem ver nenhum deles; devolve só a
+ * quantidade. Rastro no log do processo.
+ */
+export async function revokeAllAgentKeys(actor: Actor, userId: string) {
+  if (actor.kind !== "user" || actor.role !== "admin") throw new ForbiddenError();
+  const rows = await db
+    .update(apikey)
+    .set({ enabled: false, updatedAt: new Date() })
+    .where(and(eq(apikey.referenceId, userId), eq(apikey.enabled, true)))
+    .returning({ id: apikey.id });
+  console.info(
+    `[agents] tokens revogados userId=${userId} count=${rows.length} by=${actor.userId}`,
+  );
+  return { count: rows.length };
+}
+
+/** Últimas escritas feitas pelos tokens da própria pessoa (ADR-074). */
 export async function listAgentActivity(actor: Actor, limit = 20) {
   const self = ownerOf(actor);
   return (
@@ -146,7 +162,7 @@ export async function listAgentActivity(actor: Actor, limit = 20) {
       .innerJoin(apikey, eq(apikey.id, taskEvents.apiKeyId))
       .innerJoin(tasks, eq(tasks.id, taskEvents.taskId))
       // ADR-069: nem o admin vê a atividade de agente em tarefa pessoal de outra pessoa
-      .where(and(isAdmin(actor) ? undefined : eq(apikey.referenceId, self), visibleTo(actor)))
+      .where(and(eq(apikey.referenceId, self), visibleTo(actor)))
       .orderBy(desc(taskEvents.createdAt))
       .limit(limit)
   );
@@ -262,6 +278,7 @@ async function serviceFields(actor: AgentActor, input: Fields) {
     out.mobileUnitIds = await idsByCode(mobileUnits, input.mobileUnitIds, "Unidade Móvel");
   if (input.status) [out.statusId] = await idsByName(workflowStatuses, [input.status], "Status");
   if (input.labels) out.labelIds = await idsByName(labels, input.labels, "Etiqueta");
+  if (input.involvedIds) out.involvedIds = input.involvedIds; // ADR-073
   if (input.assignee !== undefined)
     out.assigneeId = input.assignee === null ? null : await personId(actor, input.assignee);
   if (input.description !== undefined)
@@ -269,6 +286,7 @@ async function serviceFields(actor: AgentActor, input: Fields) {
   if (input.priority) out.priority = input.priority;
   if (input.glpiTicket !== undefined) out.glpiTicket = input.glpiTicket;
   if (input.dueDate !== undefined) out.dueDate = input.dueDate;
+  if (input.dueTime !== undefined) out.dueTime = input.dueTime; // ADR-072
   return out;
 }
 
@@ -327,6 +345,7 @@ export async function getTaskSummary(actor: Actor, number: number) {
       glpiTicket: task.glpiTicket ?? undefined,
       assignee: (task.assigneeId && mail.get(task.assigneeId)) || undefined,
       dueDate: task.dueDate ?? undefined,
+      dueTime: task.dueTime ?? undefined,
       url: taskUrl(task.number),
     },
   };
@@ -345,10 +364,12 @@ export async function getTaskDetail(actor: Actor, number: number) {
       text: c.text,
       done: c.done,
       dueDate: c.dueDate ?? undefined,
+      dueTime: c.dueTime ?? undefined,
       assignee: (c.assigneeId && mail.get(c.assigneeId)) || undefined,
     })),
     links: task.links.map((l) => ({ kind: l.kind, id: `TI-${l.number}` })),
     labels: task.labels.map((l) => l.name),
+    involved: task.involved.map((p) => ({ id: p.id, name: p.name })),
     comments: allComments.slice(-20).map((c) => ({
       author: c.authorName,
       viaAgent: c.actorKind === "agent",
@@ -397,7 +418,6 @@ export async function listTasksForAgent(actor: AgentActor, input: McpListTasks) 
   };
   // ADR-069: sem `visibility`, só as da equipe; as pessoais são sempre as do dono do token
   const { tasks: rows } = await listTasks(actor, filters, { visibility: input.visibility });
-  const today = todayISO();
   const q = input.query?.trim().toLowerCase();
   const glpi = q?.match(/^#(\d+)$/)?.[1];
   const cursor = input.cursor ? Number(input.cursor) : Infinity;
@@ -409,7 +429,7 @@ export async function listTasksForAgent(actor: AgentActor, input: McpListTasks) 
         (input.assignee !== "none" || !t.assigneeId) &&
         (!input.category || input.category.includes(t.category)) &&
         (!input.dueBefore || (t.dueDate && t.dueDate < input.dueBefore)) &&
-        (!input.overdue || (t.category !== "done" && t.dueDate && t.dueDate < today)) &&
+        (!input.overdue || (t.category !== "done" && isOverdue(t.dueDate, t.dueTime))) &&
         (!q || (glpi ? String(t.glpiTicket) === glpi : t.title.toLowerCase().includes(q))),
     )
     .sort((a, b) => b.number - a.number);
@@ -431,6 +451,7 @@ export async function listTasksForAgent(actor: AgentActor, input: McpListTasks) 
       glpiTicket: t.glpiTicket ?? undefined,
       assignee: (t.assigneeId && mail.get(t.assigneeId)) || undefined,
       dueDate: t.dueDate ?? undefined,
+      dueTime: t.dueTime ?? undefined,
       url: taskUrl(t.number),
     })),
     nextCursor: matched.length > limit ? String(page.at(-1)!.number) : undefined,

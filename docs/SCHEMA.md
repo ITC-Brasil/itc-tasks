@@ -32,6 +32,8 @@ erDiagram
   tasks ||--o{ task_events : "histórico"
   tasks ||--o{ task_labels : etiquetada
   labels ||--o{ task_labels : aplica
+  tasks ||--o{ task_involved : envolve
+  involved_people ||--o{ task_involved : participa
   tasks ||--o{ task_links : "origem"
   tasks ||--o{ task_links : "destino"
   automation_rules ||--o{ automation_runs : executa
@@ -122,6 +124,14 @@ export const labels = pgTable('labels', {
   archivedAt: timestamp('archived_at', { withTimezone: true }),
   ...timestamps,
 }, (t) => [uniqueIndex('labels_name_uq').on(t.name)]);
+
+// ADR-073 (0020): pessoas de fora do app; só nome, arquivável, nunca excluída
+export const involvedPeople = pgTable('involved_people', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  archivedAt: timestamp('archived_at', { withTimezone: true }),
+  ...timestamps,
+}, (t) => [uniqueIndex('involved_people_name_uq').on(sql`lower(${t.name})`)]);
 ```
 
 ```ts
@@ -152,6 +162,7 @@ export const tasks = pgTable('tasks', {
   cycleId: uuid('cycle_id').references(() => cycles.id),
   milestoneId: uuid('milestone_id').references(() => milestones.id),
   dueDate: date('due_date'),
+  dueTime: time('due_time'),                    // ADR-072 (0019): hora opcional de Brasília; só com due_date
   position: text('position').notNull(),                           // índice fracionário (ADR-014)
   createdVia: actorKind('created_via').notNull().default('user'),
   completedAt: timestamp('completed_at', { withTimezone: true }),
@@ -181,6 +192,7 @@ export const checklistItems = pgTable('checklist_items', {          // "Subtaref
   done: boolean('done').notNull().default(false),
   assigneeId: text('assignee_id').references(() => user.id),
   dueDate: date('due_date'),                    // Módulo 15: prazo da subtarefa (0017); pode passar do prazo da tarefa
+  dueTime: time('due_time'),                    // ADR-072 (0019): hora opcional, só com due_date
   position: text('position').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
@@ -195,6 +207,12 @@ export const taskLabels = pgTable('task_labels', {
   taskId: uuid('task_id').notNull().references(() => tasks.id, { onDelete: 'cascade' }),
   labelId: uuid('label_id').notNull().references(() => labels.id),
 }, (t) => [primaryKey({ columns: [t.taskId, t.labelId] })]);
+
+// ADR-073 (0020): envolvidos da tarefa; evento involved_changed { from, to }
+export const taskInvolved = pgTable('task_involved', {
+  taskId: uuid('task_id').notNull().references(() => tasks.id, { onDelete: 'cascade' }),
+  involvedId: uuid('involved_id').notNull().references(() => involvedPeople.id),
+}, (t) => [primaryKey({ columns: [t.taskId, t.involvedId] }), index('task_involved_person_idx').on(t.involvedId)]);
 
 export const comments = pgTable('comments', {
   id: uuid('id').primaryKey().defaultRandom(),

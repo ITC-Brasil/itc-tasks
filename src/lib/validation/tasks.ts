@@ -39,6 +39,10 @@ const glpiTicket = z.coerce
   .positive("Chamado GLPI é um número positivo")
   .max(9_999_999, "Chamado GLPI tem até 7 dígitos");
 const dueDate = z.iso.date("Data inválida");
+// ADR-072: hora opcional de Brasília, "HH:MM"; só vale com a data
+export const DUE_TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+const dueTime = z.string().regex(DUE_TIME_RE, "Hora inválida (HH:MM)");
+export const DUE_TIME_NEEDS_DATE = "Defina a data antes da hora";
 // documento Tiptap; o service extrai o texto (ADR-042)
 // ADR-061: link só com href, sem class/style em attrs; tamanho e profundidade limitados
 const MAX_DOC_CHARS = 200_000;
@@ -86,8 +90,11 @@ const fields = {
   mobileUnitIds: uniqueIds(20).default([]),
   glpiTicket: optional(glpiTicket),
   dueDate: optional(dueDate),
+  dueTime: optional(dueTime),
   descriptionJson: optional(descriptionJson),
   labelIds: z.array(uuid).max(20).default([]),
+  // ADR-073: envolvidos (não são usuários); a lista enviada substitui a atual
+  involvedIds: z.array(uuid).max(20, "Até 20 envolvidos").default([]),
   // ADR-053: ciclo não encerrado; marco aberto de um dos Projetos/Clientes da tarefa
   cycleId: optional(uuid),
   milestoneId: optional(uuid),
@@ -122,6 +129,7 @@ export const updateTaskSchema = z
     mobileUnitIds: uniqueIds(20),
     priority: z.enum(PRIORITIES),
     labelIds: z.array(uuid).max(20),
+    involvedIds: z.array(uuid).max(20, "Até 20 envolvidos"),
   })
   .partial();
 export type UpdateTaskInput = z.input<typeof updateTaskSchema>;
@@ -158,7 +166,8 @@ export const checklistItemSchema = z
     text: checklistTextSchema,
     done: z.boolean(),
     assigneeId: optional(z.string()),
-    dueDate: optional(dueDate), // null limpa
+    dueDate: optional(dueDate), // null limpa (e limpa a hora)
+    dueTime: optional(dueTime),
   })
   .partial();
 
@@ -189,6 +198,7 @@ export const FILTER_PARAMS = {
   prioridade: "priorities",
   etiqueta: "labelIds",
   ciclo: "cycleIds",
+  envolvido: "involvedIds", // ADR-073
 } as const;
 const many = <T extends z.ZodType>(item: T) =>
   z
@@ -202,6 +212,7 @@ export const taskFiltersSchema = z.object({
   priorities: many(z.enum(PRIORITIES)),
   labelIds: many(uuid),
   cycleIds: many(uuid),
+  involvedIds: many(uuid),
 });
 export type TaskFilters = z.output<typeof taskFiltersSchema>;
 

@@ -104,3 +104,28 @@ test("Minhas preferências: campo Nome recusa vazio e salva", async ({ page }) =
   await axeBothThemes(page);
   await expect(page.getByText("Informe o nome")).toHaveCount(0);
 });
+
+test("admin revoga todos os tokens de um membro sem ver nenhum (ADR-074)", async ({ page }) => {
+  test.slow();
+  const run = Date.now();
+  await login(page);
+  await page.goto("/config/membros");
+  await page.getByRole("button", { name: "Criar membro" }).click();
+  const create = page.getByRole("dialog", { name: "Criar membro" });
+  await create.getByLabel("Nome").fill(`Tokens ${run}`);
+  await create.getByLabel("E-mail").fill(`tokens-${run}@t.test`);
+  await create.getByLabel("Senha inicial").fill("senha-de-teste-123");
+  await create.getByRole("button", { name: "Criar membro" }).click();
+  await expect(create).toBeHidden();
+
+  await page.getByRole("button", { name: `Ações de Tokens ${run}` }).click();
+  await page.getByRole("menuitem", { name: "Revogar todos os tokens" }).click();
+  const dialog = page.getByRole("dialog", { name: `Revogar todos os tokens de Tokens ${run}?` });
+  await axeBothThemes(page);
+  await dialog.getByRole("button", { name: "Revogar todos" }).click();
+  await expect(page.getByText(`Tokens ${run} não tinha tokens ativos`)).toBeVisible();
+
+  // Agentes e MCP do admin não tem coluna Dono nem tokens alheios
+  await page.goto("/config/agentes");
+  await expect(page.getByRole("columnheader", { name: "Dono" })).toHaveCount(0);
+});

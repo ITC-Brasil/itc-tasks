@@ -9,7 +9,13 @@ import {
   taskIdSchema,
 } from "@/lib/validation/tasks";
 import { ForbiddenError, requireActor } from "@/server/actor";
-import { listLabels, listMobileUnits, listProjects, listStatuses } from "@/server/services/catalog";
+import {
+  listInvolved,
+  listLabels,
+  listMobileUnits,
+  listProjects,
+  listStatuses,
+} from "@/server/services/catalog";
 import {
   TaskError,
   addChecklistItem,
@@ -51,16 +57,18 @@ const detail = (n: number) => `/tarefas/${n}`;
 /** Opções dos seletores da criação rápida e do detalhe: só cadastros ativos. */
 export async function getTaskFormOptionsAction() {
   const actor = await requireActor();
-  const [projects, units, statuses, labels, people, tpls, cycles, milestones] = await Promise.all([
-    listProjects(actor),
-    listMobileUnits(actor),
-    listStatuses(actor),
-    listLabels(actor),
-    listAssignees(),
-    listTaskTemplates(),
-    listCycles(),
-    listMilestones(),
-  ]);
+  const [projects, units, statuses, labels, people, tpls, cycles, milestones, involved] =
+    await Promise.all([
+      listProjects(actor),
+      listMobileUnits(actor),
+      listStatuses(actor),
+      listLabels(actor),
+      listAssignees(),
+      listTaskTemplates(),
+      listCycles(),
+      listMilestones(),
+      listInvolved(actor),
+    ]);
   return {
     projects: projects.map((p) => ({
       id: p.id,
@@ -71,6 +79,7 @@ export async function getTaskFormOptionsAction() {
     statuses: statuses.map((s) => ({ id: s.id, name: s.name, category: s.category })),
     labels: labels.map((l) => ({ id: l.id, name: l.name, colorToken: l.colorToken })),
     people,
+    involved: involved.map((p) => ({ id: p.id, name: p.name })), // ADR-073
     templates: tpls,
     // ADR-053: só ciclos não encerrados e marcos abertos são escolhidos
     cycles: cycles
@@ -111,7 +120,7 @@ export async function addChecklistItemAction(taskId: string, number: number, tex
 export async function updateChecklistItemAction(
   itemId: string,
   number: number,
-  input: { text?: string; done?: boolean; assigneeId?: string | null; dueDate?: string | null },
+  input: Parameters<typeof updateChecklistItem>[2],
 ) {
   const actor = await requireActor();
   return run(

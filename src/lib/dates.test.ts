@@ -1,5 +1,15 @@
 import { expect, it } from "vitest";
-import { addBusinessDays, dueBucket, monthGrid, relativeTime, shiftMonth, todayISO } from "./dates";
+import {
+  addBusinessDays,
+  dueBucket,
+  dueKey,
+  isOverdue,
+  monthGrid,
+  nowHM,
+  relativeTime,
+  shiftMonth,
+  todayISO,
+} from "./dates";
 
 it("agrupa prazos de Minhas tarefas", () => {
   const today = "2026-10-14"; // quarta
@@ -36,4 +46,33 @@ it("addBusinessDays pula sábado e domingo", () => {
   expect(addBusinessDays("2026-10-16", 1)).toBe("2026-10-19"); // sexta → segunda
   expect(addBusinessDays("2026-10-17", 5)).toBe("2026-10-23"); // sábado → sexta seguinte
   expect(addBusinessDays("2026-10-14", 0)).toBe("2026-10-14");
+});
+
+it("ADR-072: atraso com hora, no fuso de Brasília e na virada do dia", () => {
+  // 17/11 14:30 em Brasília = 17:30 UTC
+  const now = new Date("2026-11-17T17:30:00Z");
+  expect(nowHM(now)).toBe("14:30");
+  expect(isOverdue("2026-11-17", null, now)).toBe(false); // sem hora: fim do dia
+  expect(isOverdue("2026-11-17", "14:30", now)).toBe(true); // a partir do horário
+  expect(isOverdue("2026-11-17", "14:31", now)).toBe(false);
+  expect(isOverdue("2026-11-16", "23:59", now)).toBe(true);
+  expect(isOverdue(null, null, now)).toBe(false);
+  // 02:30 UTC de 18/11 ainda é 17/11 23:30 em Brasília
+  const late = new Date("2026-11-18T02:30:00Z");
+  expect(todayISO(late)).toBe("2026-11-17");
+  expect(isOverdue("2026-11-17", null, late)).toBe(false);
+  expect(isOverdue("2026-11-17", "23:00", late)).toBe(true);
+  expect(isOverdue("2026-11-18", "00:10", late)).toBe(false);
+  // virou o dia em Brasília (03:00 UTC = 00:00)
+  expect(isOverdue("2026-11-17", null, new Date("2026-11-18T03:00:00Z"))).toBe(true);
+});
+
+it("ADR-072: ordem por prazo leva a hora; sem hora no fim do dia; sem prazo por último", () => {
+  const keys = [
+    dueKey(null),
+    dueKey("2026-11-17", null),
+    dueKey("2026-11-17", "09:00"),
+    dueKey("2026-11-16", "18:00"),
+  ].sort();
+  expect(keys).toEqual(["2026-11-16T18:00", "2026-11-17T09:00", "2026-11-17T99:99", "9999"]);
 });

@@ -11,7 +11,13 @@ import {
   deleteSavedFilter,
   listSavedFilters,
 } from "@/server/services/saved-filters";
-import { completeTask, createTask, listTasks } from "@/server/services/tasks";
+import {
+  addChecklistItem,
+  completeTask,
+  createTask,
+  listTasks,
+  updateChecklistItem,
+} from "@/server/services/tasks";
 
 const system: Actor = { kind: "system" };
 const run = Date.now();
@@ -135,4 +141,16 @@ it("o limite corta só concluídas, nunca abertas (ADR-047)", async () => {
     `feita 2 ${run}`, // a concluída mais recente
   ]);
   expect((await listTasks(me, { projectIds: [p] })).truncated).toBe(false);
+});
+
+it("Módulo 16: progresso das subtarefas vem na consulta das visões", async () => {
+  const t = await createTask(me, { title: "Com subtarefas", projectIds: [a] });
+  const plain = await createTask(me, { title: "Sem subtarefas", projectIds: [a] });
+  const x = await addChecklistItem(me, t.id, "Um");
+  await addChecklistItem(me, t.id, "Dois");
+  await updateChecklistItem(me, x.id, { done: true });
+  const { tasks: rows } = await listTasks(me, { projectIds: [a] });
+  const row = (id: string) => rows.find((r) => r.id === id)!;
+  expect([row(t.id).checklistDone, row(t.id).checklistTotal]).toEqual([1, 2]);
+  expect([row(plain.id).checklistDone, row(plain.id).checklistTotal]).toEqual([0, 0]);
 });

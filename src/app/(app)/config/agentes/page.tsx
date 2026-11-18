@@ -3,9 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { relativeTime } from "@/lib/dates";
 import { mcpUrl } from "@/lib/env";
-import { isAdmin } from "@/server/actor";
 import { listAgentActivity, listAgentKeys } from "@/server/services/agents";
-import { listMembers } from "@/server/services/members";
 import { AdminConfigPage } from "../admin-only";
 import { AgentKeysTable, NewAgentKeyDialog } from "./agents-client";
 import { Card } from "@/components/ui/card";
@@ -30,7 +28,7 @@ const mcpConfig = () => `{
   }
 }`;
 
-// ADR-049: membro gerencia os próprios tokens; admin, os de qualquer pessoa
+// ADR-074: cada pessoa, inclusive o admin, vê e gerencia só os próprios tokens
 export default function AgentsPage() {
   return (
     <Suspense>
@@ -38,17 +36,12 @@ export default function AgentsPage() {
         title="Agentes e MCP"
         members
         render={async (actor) => {
-          const admin = isAdmin(actor);
-          const [keys, activity, people] = await Promise.all([
+          const [keys, activity] = await Promise.all([
             listAgentKeys(actor),
             listAgentActivity(actor),
-            admin ? listMembers(actor) : [],
           ]);
-          const owners = people
-            .filter((p) => !p.banned)
-            .map((p) => ({ value: p.id, label: p.name }));
           return {
-            actions: <NewAgentKeyDialog owners={owners} />,
+            actions: <NewAgentKeyDialog />,
             content: (
               <>
                 <p className="text-sm text-muted">
@@ -56,7 +49,7 @@ export default function AgentsPage() {
                   mesmas regras da tela. Tudo o que ele fizer aparece no histórico com o selo “via
                   MCP”.
                 </p>
-                <AgentKeysTable keys={keys} showOwner={admin} />
+                <AgentKeysTable keys={keys} />
                 <section className="flex flex-col gap-2">
                   <h2 className="text-h3 font-bold">Atividade recente</h2>
                   {activity.length === 0 ? (

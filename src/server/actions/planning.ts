@@ -9,6 +9,8 @@ import type { TaskResult } from "@/server/actions/tasks";
 import {
   closeCycle,
   createCycle,
+  deleteCycle,
+  deleteMilestone,
   saveMilestone,
   setMilestoneClosed,
   startCycle,
@@ -64,4 +66,19 @@ export async function setMilestoneClosedAction(milestoneId: string, closed: bool
   return run("/marcos", () =>
     setMilestoneClosed(actor, id.parse(milestoneId), z.boolean().parse(closed)),
   );
+}
+
+// ADR-071: só admin; o service recusa o resto
+export async function deleteCycleAction(cycleId: string) {
+  const actor = await requireActor();
+  return run("/ciclos", async () => {
+    await deleteCycle(actor, id.parse(cycleId));
+  });
+}
+
+export async function deleteMilestoneAction(milestoneId: string) {
+  const actor = await requireActor();
+  return run("/marcos", async () => {
+    await deleteMilestone(actor, id.parse(milestoneId));
+  });
 }

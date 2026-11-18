@@ -54,7 +54,8 @@ jobs:
         run: npm run test:coverage
       - run: npm run build
       # Só dependências de produção: as cadeias de dev (eslint-config-next, drizzle-kit, shadcn) não têm correção publicada
-      - run: npm audit --omit=dev --audit-level=high
+      # ADR-076: mesmo gate (high), com exceção por advisory listada em scripts/audit.mjs
+      - run: node scripts/audit.mjs
 
   # ADR-055: E2E contra o build de produção, com banco descartável e seed gerado por execução
   e2e:

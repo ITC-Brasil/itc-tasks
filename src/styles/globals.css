@@ -66,6 +66,19 @@
   --project-slate-bg: #d9e0e8;
   --project-slate-unit-bg: #eff2f5;
   --project-slate-fg: #3b454e;
+  /* ADR-075: quatro cores a mais */
+  --project-teal-bg: #c9e6dc;
+  --project-teal-unit-bg: #e7f4ef;
+  --project-teal-fg: #1b4d40;
+  --project-sky-bg: #c6e5f2;
+  --project-sky-unit-bg: #e6f4fa;
+  --project-sky-fg: #14465c;
+  --project-terracotta-bg: #f5d0c0;
+  --project-terracotta-unit-bg: #fbebe4;
+  --project-terracotta-fg: #76301a;
+  --project-mustard-bg: #ecdfae;
+  --project-mustard-unit-bg: #f7f1da;
+  --project-mustard-fg: #584612;
   --shadow-1: 0 1px 2px rgba(26, 32, 32, 0.06);
   --shadow-2: 0 10px 34px rgba(26, 32, 32, 0.09);
 }
@@ -127,6 +140,19 @@
   --project-slate-bg: #3a4046;
   --project-slate-unit-bg: #282b2e;
   --project-slate-fg: #ced9e4;
+  /* ADR-075: quatro cores a mais */
+  --project-teal-bg: #1f4a3f;
+  --project-teal-unit-bg: #1a302a;
+  --project-teal-fg: #b5e6d6;
+  --project-sky-bg: #1c4557;
+  --project-sky-unit-bg: #1a2d37;
+  --project-sky-fg: #b3e1f4;
+  --project-terracotta-bg: #5c2c1c;
+  --project-terracotta-unit-bg: #3a2219;
+  --project-terracotta-fg: #f6c9b6;
+  --project-mustard-bg: #4f4317;
+  --project-mustard-unit-bg: #332d17;
+  --project-mustard-fg: #efe0a6;
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.35);
   --shadow-2: 0 12px 42px rgba(0, 0, 0, 0.5);
 }
@@ -184,6 +210,18 @@
   --color-project-slate-bg: var(--project-slate-bg);
   --color-project-slate-unit-bg: var(--project-slate-unit-bg);
   --color-project-slate-fg: var(--project-slate-fg);
+  --color-project-teal-bg: var(--project-teal-bg);
+  --color-project-teal-unit-bg: var(--project-teal-unit-bg);
+  --color-project-teal-fg: var(--project-teal-fg);
+  --color-project-sky-bg: var(--project-sky-bg);
+  --color-project-sky-unit-bg: var(--project-sky-unit-bg);
+  --color-project-sky-fg: var(--project-sky-fg);
+  --color-project-terracotta-bg: var(--project-terracotta-bg);
+  --color-project-terracotta-unit-bg: var(--project-terracotta-unit-bg);
+  --color-project-terracotta-fg: var(--project-terracotta-fg);
+  --color-project-mustard-bg: var(--project-mustard-bg);
+  --color-project-mustard-unit-bg: var(--project-mustard-unit-bg);
+  --color-project-mustard-fg: var(--project-mustard-fg);
   --color-ok: var(--ok);
   --color-warn: var(--warn);
   --color-err: var(--err);

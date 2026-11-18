@@ -44,3 +44,60 @@ test("painel abre em Todos e o filtro de projeto mexe só no ?projeto= (M-139)",
   await expect(page).toHaveURL(/\/painel\?dias=7$/);
   await expect(page.getByText("Abertas por Projeto/Cliente")).toBeVisible();
 });
+
+test("encerra o ciclo ativo mesmo sem próximo ciclo (Módulo 16)", async ({ page }) => {
+  await login(page);
+  await page.goto("/ciclos");
+  await page.waitForLoadState("networkidle"); // hidratação antes dos cliques
+  if (!(await page.getByText("Ativo", { exact: true }).isVisible())) {
+    await page.getByRole("button", { name: "Novo ciclo" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Novo ciclo" });
+    await dialog.getByLabel("Início").fill("2097-03-02");
+    await dialog.getByLabel("Fim").fill("2097-03-13");
+    await dialog.getByRole("button", { name: "Criar ciclo" }).click();
+    await expect(dialog).toBeHidden();
+    await page.getByRole("button", { name: "Iniciar" }).first().click();
+    await expect(page.getByText("Ativo", { exact: true })).toBeVisible();
+  }
+  const dialog = page.getByRole("dialog", { name: /Encerrar Ciclo \d+/ });
+  await expect(async () => {
+    await page.getByRole("button", { name: "Encerrar ciclo" }).click();
+    await expect(dialog).toBeVisible({ timeout: 1000 });
+  }).toPass();
+  await expect(dialog.getByRole("button", { name: "Encerrar ciclo" })).toBeEnabled();
+  await dialog.getByRole("button", { name: "Encerrar ciclo" }).click();
+  await expect(page.getByText(/^Ciclo \d+ encerrado/)).toBeVisible();
+  await expect(page.getByText("Nenhum ciclo ativo. Inicie um ciclo planejado.")).toBeVisible();
+});
+
+test("admin exclui um ciclo planejado com confirmação (ADR-071)", async ({ page }) => {
+  await login(page);
+  await page.goto("/ciclos");
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("button", { name: "Novo ciclo" }).first().click();
+  const form = page.getByRole("dialog", { name: "Novo ciclo" });
+  await form.getByLabel("Início").fill("2096-06-01");
+  await form.getByLabel("Fim").fill("2096-06-12");
+  await form.getByRole("button", { name: "Criar ciclo" }).click();
+  await expect(form).toBeHidden();
+  const card = page.getByText("1 de jun – 12 de jun").first().locator("..");
+  const trigger = card.getByRole("button", { name: /^Excluir Ciclo \d+$/ });
+  await expect(trigger).toBeVisible();
+  const name = (await trigger.getAttribute("aria-label"))!.replace("Excluir ", "");
+  await trigger.click();
+  const dialog = page.getByRole("dialog", { name: `Excluir ${name}?` });
+  await expect(dialog).toContainText("Nenhuma tarefa está neste ciclo.");
+  await dialog.getByRole("button", { name: "Excluir" }).click();
+  await expect(page.getByText(`${name} excluído`)).toBeVisible();
+  await expect(page.getByRole("button", { name: `Excluir ${name}` })).toHaveCount(0);
+});
+
+test("painel mostra Concluídas por técnico com um card por membro (Módulo 16)", async ({
+  page,
+}) => {
+  await login(page);
+  await page.goto("/painel?dias=30");
+  const block = page.getByRole("region", { name: /Concluídas por técnico/ });
+  await expect(block).toBeVisible();
+  await expect(block.getByRole("listitem").first()).toContainText(/\d+ concluídas/);
+});

@@ -21,6 +21,7 @@ import {
   checklistItems,
   comments,
   cycles,
+  involvedPeople,
   labels,
   milestones,
   mobileUnits,
@@ -28,6 +29,7 @@ import {
   taskDeletions,
   taskEvents,
   templates,
+  taskInvolved,
   taskLabels,
   taskMobileUnits,
   taskProjects,
@@ -42,6 +44,7 @@ import {
   type UpdateTaskInput,
   bulkUpdateSchema,
   deleteTasksSchema,
+  DUE_TIME_NEEDS_DATE,
   checklistItemSchema,
   checklistTextSchema,
   PERSONAL_NO_PLANNING,
@@ -81,6 +84,7 @@ type EventType =
   | "assigned"
   | "field_changed"
   | "labels_changed"
+  | "involved_changed"
   | "checklist_changed"
   | "link_added"
   | "link_removed"
@@ -324,6 +328,16 @@ async function assertLabels(tx: Tx, ids: string[]) {
     throw new TaskError("ARCHIVED_REFERENCE", "Etiqueta arquivada");
 }
 
+/** ADR-073: envolvido existente; arquivado só se já estava na tarefa (quem chama passa os novos). */
+async function assertInvolved(tx: Tx, ids: string[]) {
+  if (ids.length === 0) return;
+  const rows = await tx.select().from(involvedPeople).where(inArray(involvedPeople.id, ids));
+  if (rows.length !== new Set(ids).size)
+    throw new TaskError("NOT_FOUND", "Envolvido não encontrado");
+  if (rows.some((p) => p.archivedAt))
+    throw new TaskError("ARCHIVED_REFERENCE", "Envolvido arquivado");
+}
+
 /** ADR-053: ciclo existente e não encerrado. */
 async function assertCycle(tx: Tx, id: string) {
   const [c] = await tx.select().from(cycles).where(eq(cycles.id, id));
@@ -455,6 +469,7 @@ export async function insertTask(
   const assigneeId = personal ? await creatorFor(tx, actor) : (data.assigneeId ?? null);
   if (assigneeId) await assertAssignee(tx, assigneeId);
   await assertLabels(tx, data.labelIds);
+  await assertInvolved(tx, data.involvedIds);
   if (data.cycleId) await assertCycle(tx, data.cycleId);
   if (data.milestoneId) await assertMilestone(tx, data.milestoneId, data.projectIds);
   const status = data.statusId
@@ -473,6 +488,7 @@ export async function insertTask(
       mobileUnitId: data.mobileUnitIds[0] ?? null,
       glpiTicket: data.glpiTicket,
       dueDate: data.dueDate,
+      dueTime: dueTimeFor(data.dueDate, data.dueTime),
       cycleId: data.cycleId ?? null,
       milestoneId: data.milestoneId ?? null,
       descriptionJson: data.descriptionJson,
@@ -489,6 +505,11 @@ export async function insertTask(
     await tx
       .insert(taskLabels)
       .values(data.labelIds.map((labelId) => ({ taskId: task.id, labelId })));
+  const involved = [...new Set(data.involvedIds)];
+  if (involved.length)
+    await tx
+      .insert(taskInvolved)
+      .values(involved.map((involvedId) => ({ taskId: task.id, involvedId })));
   let pos: string | null = null;
   for (const text of data.checklist) {
     pos = generateKeyBetween(pos, null);
@@ -500,7 +521,23 @@ export async function insertTask(
   return task;
 }
 
-const FIELDS = ["title", "priority", "glpiTicket", "dueDate"] as const;
+const FIELDS = ["title", "priority", "glpiTicket", "dueDate", "dueTime"] as const;
+
+/** ADR-072: hora só com data; sem data a hora some. */
+function dueTimeFor(date: string | null | undefined, time: string | null | undefined) {
+  if (time && !date) throw new TaskError("VALIDATION", DUE_TIME_NEEDS_DATE);
+  return date ? (time ?? null) : null;
+}
+/** No patch: limpar a data limpa a hora; hora nova exige data (a do patch ou a atual). */
+function patchDueTime<T extends { dueDate?: string | null; dueTime?: string | null }>(
+  data: T,
+  current: { dueDate: string | null },
+): T {
+  const date = "dueDate" in data ? data.dueDate : current.dueDate;
+  if ("dueTime" in data || ("dueDate" in data && !date))
+    return { ...data, dueTime: dueTimeFor(date, "dueTime" in data ? data.dueTime : null) };
+  return data;
+}
 
 /** Aplica a mudança já validada dentro da transação; devolve a tarefa nova. */
 async function applyUpdate(
@@ -509,6 +546,7 @@ async function applyUpdate(
   current: Task,
   data: ReturnType<typeof updateTaskSchema.parse>,
 ) {
+  data = patchDueTime(data, current);
   // ADR-045: confere a combinação resultante de projetos e UMs
   const linked = await linkedIds(tx, current.id);
   const projectsAfter = data.projectIds ?? linked.projectIds;
@@ -655,6 +693,27 @@ async function applyUpdate(
           .insert(taskLabels)
           .values(after.map((labelId) => ({ taskId: current.id, labelId })));
       events.push({ type: "labels_changed", payload: { from: before, to: after } });
+    }
+  }
+  if (data.involvedIds) {
+    const before = (
+      await tx
+        .select({ id: taskInvolved.involvedId })
+        .from(taskInvolved)
+        .where(eq(taskInvolved.taskId, current.id))
+    ).map((r) => r.id);
+    const after = [...new Set(data.involvedIds)];
+    await assertInvolved(
+      tx,
+      after.filter((id) => !before.includes(id)),
+    );
+    if (!sameSet(after, before)) {
+      await tx.delete(taskInvolved).where(eq(taskInvolved.taskId, current.id));
+      if (after.length)
+        await tx
+          .insert(taskInvolved)
+          .values(after.map((involvedId) => ({ taskId: current.id, involvedId })));
+      events.push({ type: "involved_changed", payload: { from: before, to: after } });
     }
   }
 
@@ -806,12 +865,19 @@ export async function addChecklistItem(actor: Actor, taskId: string, text: strin
 export async function updateChecklistItem(
   actor: Actor,
   itemId: string,
-  input: { text?: string; done?: boolean; assigneeId?: string | null; dueDate?: string | null },
+  input: {
+    text?: string;
+    done?: boolean;
+    assigneeId?: string | null;
+    dueDate?: string | null;
+    dueTime?: string | null;
+  },
 ) {
-  const data = checklistItemSchema.parse(input);
+  const parsed = checklistItemSchema.parse(input);
   return db.transaction(async (tx) => {
     const [item] = await tx.select().from(checklistItems).where(eq(checklistItems.id, itemId));
     if (!item) throw new TaskError("NOT_FOUND", "Subtarefa não encontrada");
+    const data = patchDueTime(parsed, item);
     await lockTask(tx, item.taskId, actor);
     if (data.assigneeId && data.assigneeId !== item.assigneeId)
       await assertAssignee(tx, data.assigneeId);
@@ -825,15 +891,20 @@ export async function updateChecklistItem(
         ? data.done
           ? "checked"
           : "unchecked"
-        : "dueDate" in data && data.dueDate !== item.dueDate
-          ? data.dueDate
+        : ("dueDate" in data && data.dueDate !== item.dueDate) ||
+            ("dueTime" in data && data.dueTime !== item.dueTime)
+          ? row.dueDate
             ? "due_set"
             : "due_cleared"
           : "edited";
     await record(tx, actor, item.taskId, [
       {
         type: "checklist_changed",
-        payload: { action, text: row.text, ...(action === "due_set" && { dueDate: row.dueDate }) },
+        payload: {
+          action,
+          text: row.text,
+          ...(action === "due_set" && { dueDate: row.dueDate, dueTime: row.dueTime }),
+        },
       },
     ]);
     return row;
@@ -924,76 +995,88 @@ export async function getTaskByNumber(actor: Actor, number: number) {
     .from(tasks)
     .where(and(eq(tasks.number, number), visibleTo(actor)));
   if (!task) return null;
-  const [labelRows, checklist, linkRows, [refs], projectRows, unitRows] = await Promise.all([
-    db
-      .select({ id: labels.id, name: labels.name, colorToken: labels.colorToken })
-      .from(taskLabels)
-      .innerJoin(labels, eq(labels.id, taskLabels.labelId))
-      .where(eq(taskLabels.taskId, task.id))
-      .orderBy(asc(labels.name)),
-    db
-      .select()
-      .from(checklistItems)
-      .where(eq(checklistItems.taskId, task.id))
-      .orderBy(asc(checklistItems.position)),
-    db
-      .select({
-        fromTaskId: taskLinks.fromTaskId,
-        kind: taskLinks.kind,
-        number: tasks.number,
-        title: tasks.title,
-        completedAt: tasks.completedAt,
-      })
-      .from(taskLinks)
-      .innerJoin(
-        tasks,
-        sql`${tasks.id} = CASE WHEN ${taskLinks.fromTaskId} = ${task.id} THEN ${taskLinks.toTaskId} ELSE ${taskLinks.fromTaskId} END`,
-      )
-      // `tasks` aqui é a outra ponta: vínculo com tarefa que o leitor não vê não aparece
-      .where(
-        and(
-          or(eq(taskLinks.fromTaskId, task.id), eq(taskLinks.toTaskId, task.id)),
-          visibleTo(actor),
-        ),
-      )
-      .orderBy(asc(tasks.number)),
-    // nomes atuais mesmo de cadastro arquivado ou pessoa desativada (não aparecem nos seletores)
-    db
-      .select({
-        statusName: workflowStatuses.name,
-        category: workflowStatuses.category,
-        creatorName: user.name,
-        assigneeName: assignee.name,
-        cycleNumber: cycles.number,
-        milestoneName: milestones.name,
-      })
-      .from(tasks)
-      .innerJoin(workflowStatuses, eq(workflowStatuses.id, tasks.statusId))
-      .innerJoin(user, eq(user.id, tasks.creatorId))
-      .leftJoin(assignee, eq(assignee.id, tasks.assigneeId))
-      .leftJoin(cycles, eq(cycles.id, tasks.cycleId))
-      .leftJoin(milestones, eq(milestones.id, tasks.milestoneId))
-      .where(eq(tasks.id, task.id)),
-    // ADR-045: o principal primeiro
-    db
-      .select({ id: projects.id, code: projects.code, name: projects.name, color: projects.color })
-      .from(taskProjects)
-      .innerJoin(projects, eq(projects.id, taskProjects.projectId))
-      .where(eq(taskProjects.taskId, task.id))
-      .orderBy(sql`${projects.id} = ${task.projectId} DESC`, asc(projects.code)),
-    db
-      .select({
-        id: mobileUnits.id,
-        code: mobileUnits.code,
-        projectId: mobileUnits.projectId,
-        color: projects.color, // ADR-068: a UM herda a cor do projeto dela
-      })
-      .from(taskMobileUnits)
-      .innerJoin(mobileUnits, eq(mobileUnits.id, taskMobileUnits.mobileUnitId))
-      .leftJoin(projects, eq(projects.id, mobileUnits.projectId))
-      .where(eq(taskMobileUnits.taskId, task.id))
-      .orderBy(asc(mobileUnits.code)),
-  ]);
+  const [labelRows, checklist, linkRows, [refs], projectRows, unitRows, involvedRows] =
+    await Promise.all([
+      db
+        .select({ id: labels.id, name: labels.name, colorToken: labels.colorToken })
+        .from(taskLabels)
+        .innerJoin(labels, eq(labels.id, taskLabels.labelId))
+        .where(eq(taskLabels.taskId, task.id))
+        .orderBy(asc(labels.name)),
+      db
+        .select()
+        .from(checklistItems)
+        .where(eq(checklistItems.taskId, task.id))
+        .orderBy(asc(checklistItems.position)),
+      db
+        .select({
+          fromTaskId: taskLinks.fromTaskId,
+          kind: taskLinks.kind,
+          number: tasks.number,
+          title: tasks.title,
+          completedAt: tasks.completedAt,
+        })
+        .from(taskLinks)
+        .innerJoin(
+          tasks,
+          sql`${tasks.id} = CASE WHEN ${taskLinks.fromTaskId} = ${task.id} THEN ${taskLinks.toTaskId} ELSE ${taskLinks.fromTaskId} END`,
+        )
+        // `tasks` aqui é a outra ponta: vínculo com tarefa que o leitor não vê não aparece
+        .where(
+          and(
+            or(eq(taskLinks.fromTaskId, task.id), eq(taskLinks.toTaskId, task.id)),
+            visibleTo(actor),
+          ),
+        )
+        .orderBy(asc(tasks.number)),
+      // nomes atuais mesmo de cadastro arquivado ou pessoa desativada (não aparecem nos seletores)
+      db
+        .select({
+          statusName: workflowStatuses.name,
+          category: workflowStatuses.category,
+          creatorName: user.name,
+          assigneeName: assignee.name,
+          cycleNumber: cycles.number,
+          milestoneName: milestones.name,
+        })
+        .from(tasks)
+        .innerJoin(workflowStatuses, eq(workflowStatuses.id, tasks.statusId))
+        .innerJoin(user, eq(user.id, tasks.creatorId))
+        .leftJoin(assignee, eq(assignee.id, tasks.assigneeId))
+        .leftJoin(cycles, eq(cycles.id, tasks.cycleId))
+        .leftJoin(milestones, eq(milestones.id, tasks.milestoneId))
+        .where(eq(tasks.id, task.id)),
+      // ADR-045: o principal primeiro
+      db
+        .select({
+          id: projects.id,
+          code: projects.code,
+          name: projects.name,
+          color: projects.color,
+        })
+        .from(taskProjects)
+        .innerJoin(projects, eq(projects.id, taskProjects.projectId))
+        .where(eq(taskProjects.taskId, task.id))
+        .orderBy(sql`${projects.id} = ${task.projectId} DESC`, asc(projects.code)),
+      db
+        .select({
+          id: mobileUnits.id,
+          code: mobileUnits.code,
+          projectId: mobileUnits.projectId,
+          color: projects.color, // ADR-068: a UM herda a cor do projeto dela
+        })
+        .from(taskMobileUnits)
+        .innerJoin(mobileUnits, eq(mobileUnits.id, taskMobileUnits.mobileUnitId))
+        .leftJoin(projects, eq(projects.id, mobileUnits.projectId))
+        .where(eq(taskMobileUnits.taskId, task.id))
+        .orderBy(asc(mobileUnits.code)),
+      db
+        .select({ id: involvedPeople.id, name: involvedPeople.name })
+        .from(taskInvolved)
+        .innerJoin(involvedPeople, eq(involvedPeople.id, taskInvolved.involvedId))
+        .where(eq(taskInvolved.taskId, task.id))
+        .orderBy(asc(involvedPeople.name)),
+    ]);
   const links = linkRows.map(({ fromTaskId, kind, ...other }) => ({
     ...other,
     kind:
@@ -1009,6 +1092,7 @@ export async function getTaskByNumber(actor: Actor, number: number) {
     labels: labelRows,
     projects: projectRows,
     units: unitRows,
+    involved: involvedRows,
     checklist,
     links,
   };
@@ -1079,6 +1163,10 @@ export async function listTasks(
         category: workflowStatuses.category,
         position: tasks.position,
         dueDate: tasks.dueDate,
+        dueTime: tasks.dueTime,
+        // Módulo 16: progresso das subtarefas no card, na mesma consulta (sem N+1)
+        checklistTotal: sql<number>`(SELECT count(*)::int FROM ${checklistItems} WHERE ${checklistItems.taskId} = ${tasks.id})`,
+        checklistDone: sql<number>`(SELECT count(*)::int FROM ${checklistItems} WHERE ${checklistItems.taskId} = ${tasks.id} AND ${checklistItems.done})`,
         glpiTicket: tasks.glpiTicket,
         assigneeId: tasks.assigneeId,
         assigneeName: assignee.name,
@@ -1118,6 +1206,16 @@ export async function listTasks(
                 .select({ id: taskMobileUnits.taskId })
                 .from(taskMobileUnits)
                 .where(inArray(taskMobileUnits.mobileUnitId, ids)),
+            ),
+          ),
+          // ADR-073: qualquer um dos envolvidos escolhidos
+          any(f.involvedIds, (ids) =>
+            inArray(
+              tasks.id,
+              db
+                .select({ id: taskInvolved.taskId })
+                .from(taskInvolved)
+                .where(inArray(taskInvolved.involvedId, ids)),
             ),
           ),
           any(f.labelIds, (ids) =>
@@ -1219,6 +1317,7 @@ export async function listChecklistDue(actor: Actor, taskIds: string[]) {
       id: checklistItems.id,
       text: checklistItems.text,
       dueDate: sql<string>`${checklistItems.dueDate}`,
+      dueTime: checklistItems.dueTime,
       number: tasks.number,
     })
     .from(checklistItems)

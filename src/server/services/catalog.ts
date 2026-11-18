@@ -1,11 +1,13 @@
 import { and, asc, eq, isNull, max } from "drizzle-orm";
 import { db } from "@/db";
-import { labels, mobileUnits, projects, workflowStatuses } from "@/db/schema";
+import { involvedPeople, labels, mobileUnits, projects, workflowStatuses } from "@/db/schema";
 import {
+  type InvolvedInput,
   type LabelInput,
   type MobileUnitInput,
   type ProjectInput,
   type StatusInput,
+  involvedSchema,
   labelSchema,
   mobileUnitSchema,
   projectSchema,
@@ -184,6 +186,48 @@ export async function setLabelArchived(actor: Actor, id: string, archived: boole
     .where(eq(labels.id, id))
     .returning({ id: labels.id });
   found(row, "Etiqueta");
+}
+
+// ── Envolvidos (ADR-073) ────────────────────────────────────────────
+
+export async function listInvolved(_actor: Actor, { includeArchived }: ListOptions = {}) {
+  return db
+    .select()
+    .from(involvedPeople)
+    .where(includeArchived ? undefined : isNull(involvedPeople.archivedAt))
+    .orderBy(asc(involvedPeople.name));
+}
+
+const duplicateInvolved = (name: string) => `Já existe o envolvido ${name}`;
+
+export async function createInvolved(actor: Actor, input: InvolvedInput) {
+  assertAdmin(actor);
+  const data = involvedSchema.parse(input);
+  const [row] = await unique(
+    () => db.insert(involvedPeople).values(data).returning(),
+    duplicateInvolved(data.name),
+  );
+  return row;
+}
+
+export async function updateInvolved(actor: Actor, id: string, input: InvolvedInput) {
+  assertAdmin(actor);
+  const data = involvedSchema.parse(input);
+  const [row] = await unique(
+    () => db.update(involvedPeople).set(data).where(eq(involvedPeople.id, id)).returning(),
+    duplicateInvolved(data.name),
+  );
+  return found(row, "Envolvido");
+}
+
+export async function setInvolvedArchived(actor: Actor, id: string, archived: boolean) {
+  assertAdmin(actor);
+  const [row] = await db
+    .update(involvedPeople)
+    .set({ archivedAt: archivedAt(archived) })
+    .where(eq(involvedPeople.id, id))
+    .returning({ id: involvedPeople.id });
+  found(row, "Envolvido");
 }
 
 // ── Workflow (ADR-022: categoria fixa por status) ───────────────────

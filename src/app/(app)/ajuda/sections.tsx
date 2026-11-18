@@ -158,17 +158,13 @@ function PrimeiroAcesso() {
 
 function TelaPrincipal() {
   return (
-    <Section
-      id="tela-principal"
-      n="02"
-      kicker="A tela principal"
-      title="Minhas tarefas e o menu lateral"
-    >
+    <Section id="tela-principal" n="02" kicker="A tela principal" title="Início e o menu lateral">
       <p>
-        Ao entrar você cai em Minhas tarefas: o que está com você, agrupado por prazo (vencidas,
-        hoje, esta semana). As abas e os modos Cards, Lista e Calendário estão em{" "}
+        Ao entrar você cai no <b>Início</b>, na aba <b>Hoje</b>: as suas tarefas e subtarefas que
+        vencem hoje e as atrasadas, as atrasadas primeiro. As outras abas e os modos Kanban, Lista e
+        Calendário estão em{" "}
         <a href="#pessoais" className="text-accent-text underline">
-          Tarefas pessoais e Minhas tarefas
+          Tarefas pessoais e o Início
         </a>
         .
       </p>
@@ -177,7 +173,7 @@ function TelaPrincipal() {
           [
             "Menu lateral",
             <>
-              Minhas tarefas, Tarefas, Ciclos, Marcos, Painel, Notificações e Templates; abaixo,
+              Início, Tarefas, Ciclos, Marcos, Painel, Notificações e Templates; abaixo,
               Configurações (administrador) ou Agentes e MCP e Minhas preferências (membro). Recolha
               ou expanda com <Kbd>[</Kbd>.
             </>,
@@ -537,7 +533,7 @@ function Mcp() {
       <Note>
         O token é uma senha. Não cole em chat, e-mail, chamado nem repositório. Um token por agente
         ou máquina; se vazar ou não for mais usado, clique em <b>Revogar</b>. Cada pessoa tem até 10
-        tokens.
+        tokens. Só você vê os seus tokens, nem o administrador.
       </Note>
       <h3 className="text-h3">2. Endereço e cabeçalho</h3>
       <p>
@@ -649,7 +645,7 @@ function Papeis() {
           ],
           [
             <b key="a">Administrador</b>,
-            "Tudo do membro, mais: membros, workflow, cadastros, automações, excluir qualquer tarefa da equipe e gerenciar tokens de qualquer pessoa. Não vê tarefas pessoais de outras pessoas",
+            "Tudo do membro, mais: membros, workflow, cadastros, automações, excluir qualquer tarefa da equipe, excluir ciclos e marcos, cadastrar Envolvidos e revogar todos os tokens de um membro (sem ver nenhum). Não vê tarefas pessoais nem tokens de outras pessoas",
           ],
           [
             <b key="g">Agente</b>,
@@ -672,7 +668,7 @@ function Pessoais() {
     <Section
       id="pessoais"
       n="14"
-      kicker="Tarefas pessoais e Minhas tarefas"
+      kicker="Tarefas pessoais e o Início"
       title="O que é só seu e tudo o que está com você"
     >
       <p>
@@ -715,10 +711,14 @@ function Pessoais() {
           ],
         ]}
       />
-      <h3 className="text-h3">Abas de Minhas tarefas</h3>
+      <h3 className="text-h3">Abas do Início</h3>
       <Table
         head={["Aba", "Mostra"]}
         rows={[
+          [
+            <b key="h">Hoje</b>,
+            "Padrão. As suas tarefas e subtarefas com prazo hoje e as atrasadas (a hora do prazo conta)",
+          ],
           [
             <b key="m">Minhas tarefas</b>,
             "Tudo o que você tem de resolver: as pessoais e as da equipe atribuídas a você",
@@ -730,10 +730,20 @@ function Pessoais() {
         ]}
       />
       <p>
-        Em qualquer aba, escolha <b>Cards</b>, <b>Lista</b> ou <b>Calendário</b> no canto direito,
-        ou use <Kbd>V</Kbd> <Kbd>K</Kbd>, <Kbd>V</Kbd> <Kbd>L</Kbd> e <Kbd>V</Kbd> <Kbd>C</Kbd>. A
-        aba e o modo ficam no endereço da página. No Calendário aparecem também as subtarefas
-        abertas com prazo.
+        Em qualquer aba, escolha <b>Kanban</b>, <b>Lista</b> ou <b>Calendário</b> no canto direito,
+        ou use <Kbd>V</Kbd> <Kbd>K</Kbd>, <Kbd>V</Kbd> <Kbd>L</Kbd> e <Kbd>V</Kbd> <Kbd>C</Kbd>. No
+        Kanban, arrastar o card entre colunas muda o status, como em Tarefas. A aba e o modo ficam
+        no endereço da página. No Calendário aparecem também as subtarefas abertas com prazo. Para
+        chegar ao Início de qualquer tela: <Kbd>G</Kbd> <Kbd>I</Kbd> (ou o antigo <Kbd>G</Kbd>{" "}
+        <Kbd>M</Kbd>).
+      </p>
+      <h3 className="text-h3">Prazo com horário e envolvidos</h3>
+      <p>
+        O prazo da tarefa e o de cada subtarefa aceitam um <b>horário</b> opcional (de Brasília), no
+        campo ao lado da data. Sem horário, vence no fim do dia; com horário, fica atrasada a partir
+        dele. <b>Envolvidos</b> são pessoas de fora do app (motorista, contato no cliente) ligadas à
+        tarefa: o administrador as cadastra em Configurações › Envolvidos, e as visões filtram por
+        elas. Elas não recebem avisos nem podem ser mencionadas.
       </p>
     </Section>
   );
@@ -753,5 +763,5 @@ export const SECTIONS = [
   { id: "celular", title: "No celular", C: Celular },
   { id: "atalhos", title: "Atalhos de teclado", C: Atalhos },
   { id: "papeis", title: "Papéis e cadastros", C: Papeis },
-  { id: "pessoais", title: "Tarefas pessoais e Minhas tarefas", C: Pessoais },
+  { id: "pessoais", title: "Tarefas pessoais e o Início", C: Pessoais },
 ];

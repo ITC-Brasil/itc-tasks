@@ -314,7 +314,12 @@ async function reminders(now: Date) {
   const today = todayISO(now);
   const since = new Date(now.getTime() - 20 * 3600_000);
   const due = await db
-    .select({ id: tasks.id, assigneeId: tasks.assigneeId, dueDate: tasks.dueDate })
+    .select({
+      id: tasks.id,
+      assigneeId: tasks.assigneeId,
+      dueDate: tasks.dueDate,
+      dueTime: tasks.dueTime,
+    })
     .from(tasks)
     .innerJoin(workflowStatuses, eq(workflowStatuses.id, tasks.statusId))
     .where(
@@ -330,6 +335,7 @@ async function reminders(now: Date) {
       id: tasks.id,
       assigneeId: tasks.assigneeId,
       dueDate: checklistItems.dueDate,
+      dueTime: checklistItems.dueTime,
       subtask: checklistItems.text,
     })
     .from(checklistItems)
@@ -364,7 +370,15 @@ async function reminders(now: Date) {
         );
       if (!dup)
         await deliver(tx, t.id, "Prazo", [
-          { userId: t.assigneeId!, event, data: t.subtask === null ? {} : { subtask: t.subtask } },
+          {
+            userId: t.assigneeId!,
+            event,
+            // ADR-072: o worker só roda às 08:00; o aviso do dia leva a hora, se houver
+            data: {
+              ...(t.subtask !== null && { subtask: t.subtask }),
+              ...(event === "due_today" && t.dueTime && { dueTime: t.dueTime }),
+            },
+          },
         ]);
     });
   }
