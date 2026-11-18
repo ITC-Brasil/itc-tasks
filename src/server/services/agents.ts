@@ -20,7 +20,7 @@ import {
   createAgentKeySchema,
 } from "@/lib/validation/agents";
 import type { CreateTaskInput, UpdateTaskInput } from "@/lib/validation/tasks";
-import { type Actor, ForbiddenError, type Role, isAdmin } from "@/server/permissions";
+import { type Actor, ForbiddenError, type Role } from "@/server/permissions";
 import { auth } from "@/server/auth";
 import { listComments } from "./comments";
 import { activeCycle, getCycleByNumber, listCycles } from "./planning";
@@ -59,7 +59,7 @@ const ownerOf = (actor: Actor) => {
   return actor.userId;
 };
 
-/** Membro vê os próprios tokens; admin vê todos. */
+/** ADR-074: cada pessoa vê só os próprios tokens, inclusive o admin. */
 export async function listAgentKeys(actor: Actor) {
   const self = ownerOf(actor);
   const rows = await db
@@ -77,7 +77,7 @@ export async function listAgentKeys(actor: Actor) {
     })
     .from(apikey)
     .innerJoin(user, eq(user.id, apikey.referenceId))
-    .where(isAdmin(actor) ? undefined : eq(apikey.referenceId, self))
+    .where(eq(apikey.referenceId, self))
     .orderBy(desc(apikey.createdAt));
   return rows.map(({ permissions, ...r }) => ({
     ...r,
@@ -92,8 +92,7 @@ export const MAX_ACTIVE_AGENT_KEYS = 10;
 export async function createAgentKey(actor: Actor, input: unknown) {
   const self = ownerOf(actor);
   const data = createAgentKeySchema.parse(input);
-  const userId = data.userId ?? self;
-  if (userId !== self && !isAdmin(actor)) throw new ForbiddenError();
+  const userId = self; // ADR-074
   // o limite de 60/min é por token (ADR-009): sem teto, mais tokens = mais vazão (issue #25)
   const [{ active }] = await db
     .select({ active: count() })
@@ -122,14 +121,14 @@ export async function revokeAgentKey(actor: Actor, keyId: string) {
     .from(apikey)
     .where(eq(apikey.id, keyId));
   if (!row) throw new TaskError("NOT_FOUND", "Token não encontrado");
-  if (row.ownerId !== self && !isAdmin(actor)) throw new ForbiddenError();
+  if (row.ownerId !== self) throw new ForbiddenError(); // ADR-074: nem o admin
   await db
     .update(apikey)
     .set({ enabled: false, updatedAt: new Date() })
     .where(eq(apikey.id, keyId));
 }
 
-/** Últimas escritas feitas por tokens visíveis para a pessoa. */
+/** Últimas escritas feitas pelos tokens da própria pessoa (ADR-074). */
 export async function listAgentActivity(actor: Actor, limit = 20) {
   const self = ownerOf(actor);
   return (
@@ -146,7 +145,7 @@ export async function listAgentActivity(actor: Actor, limit = 20) {
       .innerJoin(apikey, eq(apikey.id, taskEvents.apiKeyId))
       .innerJoin(tasks, eq(tasks.id, taskEvents.taskId))
       // ADR-069: nem o admin vê a atividade de agente em tarefa pessoal de outra pessoa
-      .where(and(isAdmin(actor) ? undefined : eq(apikey.referenceId, self), visibleTo(actor)))
+      .where(and(eq(apikey.referenceId, self), visibleTo(actor)))
       .orderBy(desc(taskEvents.createdAt))
       .limit(limit)
   );

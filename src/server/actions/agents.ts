@@ -25,8 +25,10 @@ async function run<T extends object>(fn: () => Promise<T>): Promise<Result<T>> {
 export async function createApiKeyAction(form: FormData) {
   const actor = await requireActor();
   return run(async () => {
-    const input = Object.fromEntries(form);
-    const { key } = await createAgentKey(actor, { ...input, userId: input.userId || undefined });
+    const { key } = await createAgentKey(actor, {
+      name: form.get("name"),
+      access: form.get("access"),
+    });
     return { key };
   });
 }

@@ -4,10 +4,10 @@ import { DUE_TIME_RE, PRIORITIES, VISIBILITIES, taskNumberSchema } from "./tasks
 
 // ── Tokens (ADR-049) ────────────────────────────────────────────────
 
-export const createAgentKeySchema = z.object({
+// ADR-074: token só para a própria pessoa; campo a mais (ex.: userId) é recusado
+export const createAgentKeySchema = z.strictObject({
   name: z.string().trim().min(1, "Informe o nome").max(60, "Até 60 caracteres"),
   access: z.enum(["read", "write"]), // write inclui read
-  userId: z.string().min(1).optional(), // admin cria para outra pessoa
 });
 
 // ── Entradas das ferramentas MCP (docs/API.md §1) ───────────────────
