@@ -5,8 +5,10 @@ import {
   check,
   customType,
   date,
+  type AnyPgColumn,
   index,
   integer,
+  smallint,
   jsonb,
   pgTable,
   primaryKey,
@@ -57,6 +59,10 @@ export const tasks = pgTable(
     milestoneId: uuid("milestone_id").references(() => milestones.id),
     dueDate: date("due_date"),
     dueTime: time("due_time"), // ADR-072: hora opcional de Brasília; só com due_date
+    // ADR-077: regra que criou a tarefa (o selo); excluir a regra só solta o vínculo
+    recurrenceId: uuid("recurrence_id").references((): AnyPgColumn => taskRecurrences.id, {
+      onDelete: "set null",
+    }),
     position: position("position").notNull(),
     createdVia: actorKind("created_via").notNull().default("user"),
     completedAt: timestamp("completed_at", { withTimezone: true }),
@@ -264,3 +270,52 @@ export const taskDeletions = pgTable("task_deletions", {
     .references(() => user.id),
   deletedAt: timestamp("deleted_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ADR-077: regra de recorrência; cada execução cria uma tarefa nova a partir do `payload` (cópia)
+export const taskRecurrences = pgTable(
+  "task_recurrences",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    visibility: taskVisibility("visibility").notNull().default("team"),
+    ownerId: text("owner_id")
+      .notNull()
+      .references(() => user.id),
+    frequency: text("frequency").notNull(), // RECURRENCE_FREQUENCIES
+    weekdays: smallint("weekdays").array(), // weekly: 0 = domingo … 6 = sábado
+    monthDay: smallint("month_day"), // monthly: 1–31; 0 = último dia do mês
+    intervalMonths: smallint("interval_months").notNull().default(1),
+    startDate: date("start_date").notNull(),
+    dueInDays: smallint("due_in_days").notNull().default(0),
+    dueTime: time("due_time"),
+    payload: jsonb("payload").notNull(), // recurrencePayloadSchema
+    pausedAt: timestamp("paused_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (t) => [
+    check(
+      "task_recurrences_frequency_ck",
+      sql`${t.frequency} IN ('weekdays', 'weekly', 'monthly')`,
+    ),
+    check("task_recurrences_interval_ck", sql`${t.intervalMonths} BETWEEN 1 AND 12`),
+    index("task_recurrences_owner_idx").on(t.ownerId),
+  ],
+);
+
+// ADR-077: uma execução por regra e data; a chave garante a idempotência do job
+export const taskRecurrenceRuns = pgTable(
+  "task_recurrence_runs",
+  {
+    recurrenceId: uuid("recurrence_id")
+      .notNull()
+      .references(() => taskRecurrences.id, { onDelete: "cascade" }),
+    runOn: date("run_on").notNull(),
+    taskId: uuid("task_id").references(() => tasks.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.recurrenceId, t.runOn] })],
+);
