@@ -23,6 +23,11 @@ export const PROJECT_COLORS = [
   "brown",
   "olive",
   "slate",
+  // ADR-075
+  "teal",
+  "sky",
+  "terracotta",
+  "mustard",
 ] as const;
 export type ProjectColor = (typeof PROJECT_COLORS)[number];
 // Map evita indexação dinâmica de objeto
@@ -35,6 +40,10 @@ export const PROJECT_COLOR_NAMES = new Map<ProjectColor, string>([
   ["brown", "Marrom"],
   ["olive", "Oliva"],
   ["slate", "Cinza-azulado"],
+  ["teal", "Verde-azulado"],
+  ["sky", "Céu"],
+  ["terracotta", "Terracota"],
+  ["mustard", "Mostarda"],
 ]);
 
 export const projectSchema = z.object({
