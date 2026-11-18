@@ -24,6 +24,7 @@ import { type Actor, canDeleteTask } from "@/server/permissions";
 import type { TaskRow } from "@/server/services/tasks";
 import { DeleteTasksDialog } from "./delete-tasks-dialog";
 import { PersonalMark, PriorityIcon, ProjectChip, StatusIcon, priorityLabel } from "./badges";
+import { useWaitingPrompt } from "./waiting";
 import { Pick, optionItems } from "./fields";
 import { dueKey, isOverdue } from "@/lib/dates";
 import { DueDate } from "./task-card";
@@ -150,6 +151,8 @@ export function TaskTable({
   const canDelete = selectedRows.every((t) => canDeleteTask(viewer, t));
   const items = optionItems(options);
 
+  const [askWaiting, waitingDialog] = useWaitingPrompt();
+
   function bulk(patch: UpdateTaskInput) {
     start(async () => {
       const r = await bulkUpdateTasksAction({ taskIds: selected, patch });
@@ -162,6 +165,7 @@ export function TaskTable({
 
   return (
     <div className="p-4 md:p-6">
+      {waitingDialog}
       {selected.length > 0 && (
         <div
           role="toolbar"
@@ -177,7 +181,13 @@ export function TaskTable({
               label="Mover para…"
               items={items.statuses}
               value=""
-              onChange={(v) => bulk({ statusId: v })}
+              onChange={async (v) => {
+                // ADR-078: em massa também pede motivo e previsão
+                if (options.statuses.find((x) => x.id === v)?.category !== "waiting")
+                  return bulk({ statusId: v });
+                const waiting = await askWaiting();
+                if (waiting) bulk({ statusId: v, ...waiting });
+              }}
             />
           </div>
           <div className="w-44" key={`a${pending}`}>

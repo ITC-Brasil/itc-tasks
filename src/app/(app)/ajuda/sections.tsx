@@ -424,7 +424,9 @@ function TemplatesAutomacoes() {
       <p>
         <b>Automações</b> são regras do tipo “quando acontecer isto, faça aquilo”, como avisar quem
         criou quando a tarefa for concluída ou lembrar de atualizar o GLPI. Elas valem para tarefas
-        criadas pela tela e por agentes. Só o administrador cria e liga as regras.
+        criadas pela tela e por agentes. Só o administrador cria e liga as regras. Uma regra que
+        move a tarefa para Aguardando também guarda o motivo e a previsão, contada em dias a partir
+        do dia em que ela roda.
       </p>
     </Section>
   );
@@ -749,6 +751,53 @@ function Pessoais() {
   );
 }
 
+function Rotinas() {
+  return (
+    <Section
+      id="rotinas"
+      n="15"
+      kicker="Recorrências, Aguardando e dependências"
+      title="Rotinas, esperas e o que trava o quê"
+    >
+      <Items
+        items={[
+          [
+            "Recorrências",
+            <>
+              Em <b>Recorrências</b> (menu lateral) uma regra cria uma tarefa nova sozinha: todo dia
+              útil, nos dias da semana marcados ou num dia do mês (ou no último), a cada N meses. A
+              tarefa sai às 06:00, com o prazo &quot;vence em N dias&quot; contado do dia. Comece do
+              zero, de um template ou pelo link <b>Repetir esta tarefa</b> no detalhe. Pausar guarda
+              a regra; excluir não apaga as tarefas já criadas. O ícone de setas circulares marca as
+              tarefas recorrentes.
+            </>,
+          ],
+          [
+            "Aguardando",
+            <>
+              Ao mover para <b>Aguardando</b> (detalhe, Kanban ou em massa), informe o motivo
+              (Compra, Fornecedor, Terceiro, Cliente ou Outro) e a data prevista. Cancelar não muda
+              nada. Na data prevista o responsável recebe um aviso às 08:00; depois dela, o ícone do
+              relógio fica laranja (previsão vencida). Sair do Aguardando limpa os dois campos, e o
+              histórico guarda o que eram. As visões filtram por motivo.
+            </>,
+          ],
+          [
+            "Dependências",
+            <>
+              No detalhe, a seção <b>Dependências</b> registra &quot;bloqueada por&quot; e
+              &quot;bloqueia&quot;, buscando a outra tarefa pelo título ou TI-n. Só entre tarefas da
+              equipe, ou entre as suas pessoais. Não impede mover nem concluir: o card mostra o
+              ícone de corrente quebrada e concluir pede confirmação. Quando a última bloqueadora é
+              concluída, o responsável é avisado. O filtro <b>Bloqueadas</b> mostra só as travadas.
+            </>,
+          ],
+        ]}
+      />
+    </Section>
+  );
+}
+
 export const SECTIONS = [
   { id: "primeiro-acesso", title: "Primeiro acesso", C: PrimeiroAcesso },
   { id: "tela-principal", title: "A tela principal", C: TelaPrincipal },
@@ -764,4 +813,5 @@ export const SECTIONS = [
   { id: "atalhos", title: "Atalhos de teclado", C: Atalhos },
   { id: "papeis", title: "Papéis e cadastros", C: Papeis },
   { id: "pessoais", title: "Tarefas pessoais e o Início", C: Pessoais },
+  { id: "rotinas", title: "Recorrências, Aguardando e dependências", C: Rotinas },
 ];

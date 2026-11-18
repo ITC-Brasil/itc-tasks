@@ -20,9 +20,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { FILTER_PARAMS, type TaskFilters, filtersQuery } from "@/lib/validation/tasks";
+import {
+  FILTER_PARAMS,
+  type TaskFilters,
+  WAITING_REASONS,
+  filtersQuery,
+  waitingReasonLabel,
+} from "@/lib/validation/tasks";
 import {
   type TaskFormOptions,
   createSavedFilterAction,
@@ -138,6 +145,20 @@ export function FilterBar({
       {pick("Etiqueta", "labelIds", items.labels)}
       {pick("Ciclo", "cycleIds", items.cycles.slice(1))}
       {items.involved.length > 0 && pick("Envolvido", "involvedIds", items.involved)}
+      {pick(
+        "Motivo do Aguardando",
+        "waitingReasons",
+        WAITING_REASONS.map((r) => ({ value: r, label: waitingReasonLabel(r)! })),
+      )}
+      {/* ADR-079 */}
+      <label className="flex items-center gap-1.5 text-sm">
+        <Checkbox
+          aria-label="Bloqueadas"
+          checked={filters.blocked.length > 0}
+          onCheckedChange={(on) => apply({ blocked: on ? ["1"] : [] })}
+        />
+        Bloqueadas
+      </label>
       {current && (
         <Button variant="ghost" size="sm" onClick={() => router.replace(pathname)}>
           <X aria-hidden="true" /> Limpar filtros

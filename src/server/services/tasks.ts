@@ -14,6 +14,7 @@ import {
   sql,
 } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
+import type { z } from "zod";
 import { generateKeyBetween } from "fractional-indexing";
 import { db } from "@/db";
 import {
@@ -34,6 +35,7 @@ import {
   taskMobileUnits,
   taskProjects,
   taskLinks,
+  taskRecurrences,
   tasks,
   user,
   workflowStatuses,
@@ -57,7 +59,12 @@ import {
   taskTemplatePayloadSchema,
   taskFiltersSchema,
   updateTaskSchema,
+  WAITING_NEEDED,
+  WAITING_NOTE_NEEDED,
+  WAITING_ONLY,
+  WAITING_PAST,
 } from "@/lib/validation/tasks";
+import { todayISO } from "@/lib/dates";
 import { type Actor, ForbiddenError, canDeleteTask } from "@/server/permissions";
 import { type EvaluateJob, triggerOf } from "@/lib/validation/automations";
 import { type FanoutJob, QUEUES, enqueue } from "@/server/jobs";
@@ -88,6 +95,9 @@ type EventType =
   | "checklist_changed"
   | "link_added"
   | "link_removed"
+  | "dependency_added" // ADR-079
+  | "dependency_removed"
+  | "unblocked"
   | "projects_changed"
   | "mobile_units_changed"
   | "commented"
@@ -433,6 +443,58 @@ export async function unitTitle(tx: Tx, title: string, unitIds: string[]) {
   return out;
 }
 
+// ── Aguardando (ADR-078) ────────────────────────────────────────────
+
+type Waiting = {
+  waitingReason: Task["waitingReason"];
+  waitingNote: string | null;
+  waitingUntil: string | null;
+};
+const NO_WAITING: Waiting = { waitingReason: null, waitingNote: null, waitingUntil: null };
+type WaitingInput = Partial<{
+  waitingReason: Task["waitingReason"] | null;
+  waitingNote: string | null;
+  waitingUntil: string | null;
+}>;
+const touchesWaiting = (d: WaitingInput) =>
+  d.waitingReason != null || !!d.waitingNote || d.waitingUntil != null;
+
+/** Motivo e data prevista completos; data nova não pode ser passada; nota só com "Outro". */
+function checkWaiting(w: Waiting, before: Waiting | null): Waiting {
+  if (!w.waitingReason || !w.waitingUntil) throw new TaskError("VALIDATION", WAITING_NEEDED);
+  const note = w.waitingReason === "other" ? w.waitingNote?.trim() || null : null;
+  if (w.waitingReason === "other" && !note) throw new TaskError("VALIDATION", WAITING_NOTE_NEEDED);
+  if (w.waitingUntil !== before?.waitingUntil && w.waitingUntil < todayISO())
+    throw new TaskError("VALIDATION", WAITING_PAST);
+  return { waitingReason: w.waitingReason, waitingNote: note, waitingUntil: w.waitingUntil };
+}
+
+const waitingOf = (t: Waiting): Waiting => ({
+  waitingReason: t.waitingReason,
+  waitingNote: t.waitingNote,
+  waitingUntil: t.waitingUntil,
+});
+const hasWaiting = (t: Waiting) => !!(t.waitingReason || t.waitingUntil || t.waitingNote);
+
+/** ADR-077: confere as referências de uma tarefa a criar sem criá-la (regra de recorrência). */
+export async function assertTaskRefs(
+  tx: Tx,
+  d: {
+    projectIds: string[];
+    mobileUnitIds: string[];
+    labelIds: string[];
+    involvedIds: string[];
+    assigneeId?: string | null;
+  },
+) {
+  await assertActive(tx, projects, d.projectIds, "Projeto/Cliente");
+  await assertActive(tx, mobileUnits, d.mobileUnitIds, "Unidade Móvel");
+  await assertUnitsFit(tx, d.mobileUnitIds, d.projectIds, []);
+  await assertLabels(tx, d.labelIds);
+  await assertInvolved(tx, d.involvedIds);
+  if (d.assigneeId) await assertAssignee(tx, d.assigneeId);
+}
+
 // ── Escrita ─────────────────────────────────────────────────────────
 
 export async function createTask(actor: Actor, input: CreateTaskInput) {
@@ -445,7 +507,13 @@ export async function insertTask(
   tx: Tx,
   actor: Actor,
   data: ReturnType<typeof createTaskSchema.parse>,
-  opts: { silent?: boolean; events?: Parameters<typeof record>[3] } = {},
+  opts: {
+    silent?: boolean;
+    events?: Parameters<typeof record>[3];
+    // ADR-077: a recorrência cria em nome do dono da regra e liga a tarefa a ela
+    creatorId?: string;
+    recurrence?: { id: string; name: string };
+  } = {},
 ) {
   if (data.templateId) {
     await countTemplateUse(tx, data.templateId, "task");
@@ -459,14 +527,16 @@ export async function insertTask(
   // ADR-069: a pessoal é de uma pessoa (ou do agente dela), sempre atribuída a quem criou
   const personal = data.visibility === "personal";
   if (personal) {
-    if (actor.kind !== "user" && actor.kind !== "agent")
+    if (actor.kind !== "user" && actor.kind !== "agent" && !opts.creatorId)
       throw new TaskError("VALIDATION", "Tarefa pessoal só é criada por uma pessoa");
-    if (data.assigneeId && data.assigneeId !== actor.userId)
+    const owner = opts.creatorId ?? (actor as { userId: string }).userId;
+    if (data.assigneeId && data.assigneeId !== owner)
       throw new TaskError("VALIDATION", PERSONAL_OWNER);
     if (data.cycleId || data.milestoneId) throw new TaskError("VALIDATION", PERSONAL_NO_PLANNING);
   }
   // ADR-045: sem responsável automático; omitido = sem responsável
-  const assigneeId = personal ? await creatorFor(tx, actor) : (data.assigneeId ?? null);
+  const creatorId = opts.creatorId ?? (await creatorFor(tx, actor));
+  const assigneeId = personal ? creatorId : (data.assigneeId ?? null);
   if (assigneeId) await assertAssignee(tx, assigneeId);
   await assertLabels(tx, data.labelIds);
   await assertInvolved(tx, data.involvedIds);
@@ -475,6 +545,15 @@ export async function insertTask(
   const status = data.statusId
     ? await assertStatus(tx, data.statusId)
     : await firstStatus(tx, "todo");
+  // ADR-078: criar já em Aguardando exige motivo e previsão
+  const waiting =
+    status.category === "waiting"
+      ? checkWaiting({ ...NO_WAITING, ...data } as Waiting, null)
+      : touchesWaiting(data)
+        ? (() => {
+            throw new TaskError("VALIDATION", WAITING_ONLY);
+          })()
+        : NO_WAITING;
 
   const [task] = await tx
     .insert(tasks)
@@ -493,10 +572,12 @@ export async function insertTask(
       milestoneId: data.milestoneId ?? null,
       descriptionJson: data.descriptionJson,
       descriptionText: docText(data.descriptionJson),
-      creatorId: await creatorFor(tx, actor),
+      creatorId,
       createdVia: actor.kind,
+      recurrenceId: opts.recurrence?.id ?? null,
       position: await lastPosition(tx, status.id),
       completedAt: status.category === "done" ? new Date() : null,
+      ...waiting,
     })
     .returning();
 
@@ -515,9 +596,18 @@ export async function insertTask(
     pos = generateKeyBetween(pos, null);
     await tx.insert(checklistItems).values({ taskId: task.id, text, position: pos });
   }
-  await record(tx, actor, task.id, [{ type: "created" }, ...(opts.events ?? [])], {
-    silent: opts.silent,
-  });
+  const created = opts.recurrence
+    ? { recurrenceId: opts.recurrence.id, recurrence: opts.recurrence.name }
+    : undefined;
+  await record(
+    tx,
+    actor,
+    task.id,
+    [{ type: "created", payload: created }, ...(opts.events ?? [])],
+    {
+      silent: opts.silent,
+    },
+  );
   return task;
 }
 
@@ -586,6 +676,19 @@ async function applyUpdate(
   const set: Partial<typeof tasks.$inferInsert> = {};
   const events: Parameters<typeof record>[3] = [];
   if (toTeam) {
+    // ADR-079: dependência pessoal não vira dependência da equipe em silêncio
+    const [dep] = await tx
+      .select({ k: taskLinks.kind })
+      .from(taskLinks)
+      .where(
+        and(
+          eq(taskLinks.kind, "blocks"),
+          or(eq(taskLinks.fromTaskId, current.id), eq(taskLinks.toTaskId, current.id)),
+        ),
+      )
+      .limit(1);
+    if (dep)
+      throw new TaskError("VALIDATION", "Remova as dependências antes de mover para a equipe");
     // antes do record(): o evento da conversão já sai como tarefa da equipe (SSE e notificações)
     // o projeto principal vai junto: o CHECK do banco não aceita tarefa da equipe sem projeto
     await tx
@@ -666,15 +769,53 @@ async function applyUpdate(
         },
       });
   }
-  if (data.statusId && data.statusId !== current.statusId) {
-    const [status, from] = await Promise.all([
-      assertStatus(tx, data.statusId),
-      tx.select().from(workflowStatuses).where(eq(workflowStatuses.id, current.statusId)),
-    ]);
-    set.statusId = status.id;
-    set.position = await lastPosition(tx, status.id, current.id);
-    Object.assign(set, completion(from[0]?.category, status.category, current.completedAt));
-    events.push({ type: "status_changed", payload: { from: current.statusId, to: status.id } });
+  const statusChanged = !!data.statusId && data.statusId !== current.statusId;
+  const [fromStatus] = await tx
+    .select()
+    .from(workflowStatuses)
+    .where(eq(workflowStatuses.id, current.statusId));
+  const toStatus = statusChanged ? await assertStatus(tx, data.statusId!) : fromStatus;
+  // ADR-078: entrar no Aguardando exige motivo e previsão; sair limpa; dentro dele, edita
+  const wasWaiting = fromStatus?.category === "waiting";
+  const before = waitingOf(current);
+  const statusExtra: Record<string, unknown> = {};
+  if (toStatus.category === "waiting") {
+    const touched = "waitingReason" in data || "waitingNote" in data || "waitingUntil" in data;
+    if (!wasWaiting || touched) {
+      const after = checkWaiting(
+        {
+          waitingReason:
+            "waitingReason" in data ? (data.waitingReason ?? null) : before.waitingReason,
+          waitingNote: "waitingNote" in data ? (data.waitingNote ?? null) : before.waitingNote,
+          waitingUntil: "waitingUntil" in data ? (data.waitingUntil ?? null) : before.waitingUntil,
+        },
+        wasWaiting ? before : null,
+      );
+      Object.assign(set, after);
+      if (!wasWaiting) statusExtra.waiting = after;
+      else if (stable(after) !== stable(before))
+        events.push({
+          type: "field_changed",
+          payload: { field: "waiting", from: before, to: after },
+        });
+    }
+  } else {
+    if (touchesWaiting(data)) throw new TaskError("VALIDATION", WAITING_ONLY);
+    if (hasWaiting(before)) {
+      Object.assign(set, NO_WAITING);
+      statusExtra.waitingCleared = before;
+    }
+  }
+  if (statusChanged && toStatus.category === "done" && fromStatus?.category !== "done")
+    await releaseBlocked(tx, actor, current);
+  if (statusChanged) {
+    set.statusId = toStatus.id;
+    set.position = await lastPosition(tx, toStatus.id, current.id);
+    Object.assign(set, completion(fromStatus?.category, toStatus.category, current.completedAt));
+    events.push({
+      type: "status_changed",
+      payload: { from: current.statusId, to: toStatus.id, ...statusExtra },
+    });
   }
   if (data.labelIds) {
     const before = (
@@ -745,12 +886,12 @@ export async function updateTask(actor: Actor, taskId: string, input: UpdateTask
 export async function moveTask(
   actor: Actor,
   taskId: string,
-  input: { statusId: string; afterTaskId: string | null },
+  input: z.input<typeof moveTaskSchema>,
 ) {
-  const { statusId, afterTaskId } = moveTaskSchema.parse(input);
+  const { statusId, afterTaskId, ...waiting } = moveTaskSchema.parse(input);
   return db.transaction(async (tx) => {
     const current = await lockTask(tx, taskId, actor);
-    let task = await applyUpdate(tx, actor, current, { statusId });
+    let task = await applyUpdate(tx, actor, current, { statusId, ...waiting });
     const [prev] = afterTaskId
       ? await tx
           .select({ p: tasks.position })
@@ -829,12 +970,67 @@ export async function deleteTasks(actor: Actor, input: { taskIds: string[] }) {
         deletedBy: actor.userId,
       })),
     );
+    // ADR-079: a tarefa do outro lado de uma dependência registra que ela sumiu
+    const deps = await tx
+      .select()
+      .from(taskLinks)
+      .where(
+        and(
+          eq(taskLinks.kind, "blocks"),
+          or(inArray(taskLinks.fromTaskId, taskIds), inArray(taskLinks.toTaskId, taskIds)),
+        ),
+      );
+    const others = deps.length
+      ? await tx
+          .select({ id: tasks.id, visibility: tasks.visibility })
+          .from(tasks)
+          .where(inArray(tasks.id, [...new Set(deps.flatMap((d) => [d.fromTaskId, d.toTaskId]))]))
+      : [];
+    for (const d of deps) {
+      const fromGone = taskIds.includes(d.fromTaskId);
+      const [gone, other] = fromGone ? [d.fromTaskId, d.toTaskId] : [d.toTaskId, d.fromTaskId];
+      if (taskIds.includes(other)) continue;
+      const goneTask = rows.find((r) => r.id === gone)!;
+      // vínculo antigo entre pessoal e equipe não registra (nem vaza) o número (M-158)
+      if (others.find((o) => o.id === other)?.visibility !== goneTask.visibility) continue;
+      const number = goneTask.number;
+      await record(tx, actor, other, [
+        {
+          type: "dependency_removed",
+          payload: { kind: fromGone ? "blocked_by" : "blocks", target: number, deleted: true },
+        },
+      ]);
+    }
     // ADR-048: a aba com a tarefa aberta recarrega e cai no 404
     for (const t of rows)
       await tx.execute(
         sql`SELECT pg_notify('task_changed', json_build_object('id', ${t.id}::text, 'number', ${t.number}::int, 'fields', '["deleted"]'::json, 'by', ${actor.userId}::text, 'owner', ${t.visibility === "personal" ? t.creatorId : null}::text)::text)`,
       );
+    // M-158: excluir a última bloqueadora aberta libera como concluir (ADR-079)
+    const ids = sql`(${sql.join(
+      taskIds.map((id) => sql`${id}::uuid`),
+      sql`, `,
+    )})`;
+    const { rows: candidates } = await tx.execute<{ id: string; by: number }>(sql`
+      SELECT DISTINCT ON (t.id) t.id, b.number AS by FROM task_links l
+      JOIN tasks b ON b.id = l.from_task_id
+      JOIN workflow_statuses bs ON bs.id = b.status_id
+      JOIN tasks t ON t.id = l.to_task_id
+      JOIN workflow_statuses ts ON ts.id = t.status_id
+      WHERE l.kind = 'blocks' AND l.from_task_id IN ${ids}
+        AND t.id NOT IN ${ids}
+        AND bs.category <> 'done' AND ts.category <> 'done' AND b.visibility = t.visibility
+      ORDER BY t.id, b.number`);
     await tx.delete(tasks).where(inArray(tasks.id, taskIds));
+    for (const c of candidates) {
+      const { rows: still } = await tx.execute(
+        sql`SELECT 1 WHERE ${openBlocker(sql`${c.id}::uuid`)}`,
+      );
+      if (!still.length)
+        await record(tx, actor, c.id, [
+          { type: "unblocked", payload: { by: Number(c.by), deleted: true } },
+        ]);
+    }
     return files.map((f) => f.key);
   });
   await removeStoredFiles(keys);
@@ -923,29 +1119,77 @@ export async function removeChecklistItem(actor: Actor, itemId: string) {
   });
 }
 
-// ── Vínculos ────────────────────────────────────────────────────────
+// ── Vínculos e dependências (ADR-079) ───────────────────────────────
+
+const DEPENDENCY_SCOPE = "Dependência só entre tarefas da equipe, ou entre tarefas pessoais suas";
+const INVERSE = { blocks: "blocked_by", blocked_by: "blocks" } as const;
 
 async function linkRow(
   tx: Tx,
   actor: Actor,
-  taskId: string,
+  current: Task,
   input: { kind: string; target: unknown },
 ) {
   const { kind, target } = linkSchema.parse(input);
-  // ADR-069: só se vincula ao que o ator vê
+  // ADR-069: só se vincula ao que o ator vê; pessoal de outra pessoa = não existe
   const [other] = await tx
-    .select({ id: tasks.id })
+    .select({ id: tasks.id, number: tasks.number, visibility: tasks.visibility })
     .from(tasks)
     .where(and(eq(tasks.number, target), visibleTo(actor)));
   if (!other) throw new TaskError("NOT_FOUND", `TI-${target} não encontrada`);
-  if (other.id === taskId)
+  if (other.id === current.id)
     throw new TaskError("VALIDATION", "Uma tarefa não se vincula a ela mesma");
+  const dependency = kind !== "relates";
+  // ADR-079: equipe com equipe; pessoal com pessoal (as duas visíveis = do mesmo dono)
+  if (dependency && other.visibility !== current.visibility)
+    throw new TaskError("VALIDATION", DEPENDENCY_SCOPE);
   // "bloqueada por" é o mesmo vínculo `blocks` visto do outro lado
   const row =
     kind === "blocked_by"
-      ? { fromTaskId: other.id, toTaskId: taskId, kind: "blocks" as const }
-      : { fromTaskId: taskId, toTaskId: other.id, kind: kind as "blocks" | "relates" };
-  return { row, payload: { kind, target } };
+      ? { fromTaskId: other.id, toTaskId: current.id, kind: "blocks" as const }
+      : { fromTaskId: current.id, toTaskId: other.id, kind: kind as "blocks" | "relates" };
+  return { row, kind, other, dependency };
+}
+
+/** A partir de `start`, seguindo "bloqueia", chega em `target`? */
+async function reaches(tx: Tx, start: string, target: string) {
+  // só pela mesma visibilidade: vínculo antigo entre pessoal e equipe não conta (M-158)
+  const { rows } = await tx.execute(sql`
+    WITH RECURSIVE reach(id) AS (
+      SELECT l.to_task_id FROM task_links l
+      JOIN tasks a ON a.id = l.from_task_id JOIN tasks b ON b.id = l.to_task_id
+      WHERE l.from_task_id = ${start} AND l.kind = 'blocks' AND a.visibility = b.visibility
+      UNION
+      SELECT l.to_task_id FROM task_links l JOIN reach r ON l.from_task_id = r.id
+      JOIN tasks a ON a.id = l.from_task_id JOIN tasks b ON b.id = l.to_task_id
+      WHERE l.kind = 'blocks' AND a.visibility = b.visibility
+    )
+    SELECT 1 FROM reach WHERE id = ${target} LIMIT 1`);
+  return rows.length > 0;
+}
+
+/** Eventos nos dois lados: `dependency_*` para bloqueio, `link_*` para "relacionada a". */
+async function recordLink(
+  tx: Tx,
+  actor: Actor,
+  current: Task,
+  link: Awaited<ReturnType<typeof linkRow>>,
+  action: "added" | "removed",
+) {
+  if (!link.dependency)
+    return record(tx, actor, current.id, [
+      {
+        type: action === "added" ? "link_added" : "link_removed",
+        payload: { kind: link.kind, target: link.other.number },
+      },
+    ]);
+  const type = action === "added" ? "dependency_added" : "dependency_removed";
+  const kind = link.kind as keyof typeof INVERSE;
+  await record(tx, actor, current.id, [{ type, payload: { kind, target: link.other.number } }]);
+  const inverse = kind === "blocks" ? INVERSE.blocks : INVERSE.blocked_by;
+  await record(tx, actor, link.other.id, [
+    { type, payload: { kind: inverse, target: current.number } },
+  ]);
 }
 
 export async function addLink(
@@ -954,10 +1198,19 @@ export async function addLink(
   input: { kind: string; target: unknown },
 ) {
   return db.transaction(async (tx) => {
-    await lockTask(tx, taskId, actor);
-    const { row, payload } = await linkRow(tx, actor, taskId, input);
-    const inserted = await tx.insert(taskLinks).values(row).onConflictDoNothing().returning();
-    if (inserted.length) await record(tx, actor, taskId, [{ type: "link_added", payload }]);
+    const current = await lockTask(tx, taskId, actor);
+    const link = await linkRow(tx, actor, current, input);
+    if (link.dependency) {
+      // ponytail: um lock para toda escrita de dependência (time de 4); por par se crescer
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('task_dependencies'))`);
+      if (await reaches(tx, link.row.toTaskId, link.row.fromTaskId))
+        throw new TaskError(
+          "VALIDATION",
+          `TI-${link.other.number} e TI-${current.number} já dependem uma da outra: criaria um ciclo`,
+        );
+    }
+    const inserted = await tx.insert(taskLinks).values(link.row).onConflictDoNothing().returning();
+    if (inserted.length) await recordLink(tx, actor, current, link, "added");
   });
 }
 
@@ -967,8 +1220,9 @@ export async function removeLink(
   input: { kind: string; target: unknown },
 ) {
   return db.transaction(async (tx) => {
-    await lockTask(tx, taskId, actor);
-    const { row, payload } = await linkRow(tx, actor, taskId, input);
+    const current = await lockTask(tx, taskId, actor);
+    const link = await linkRow(tx, actor, current, input);
+    const { row } = link;
     const removed = await tx
       .delete(taskLinks)
       .where(
@@ -979,8 +1233,39 @@ export async function removeLink(
         ),
       )
       .returning();
-    if (removed.length) await record(tx, actor, taskId, [{ type: "link_removed", payload }]);
+    if (removed.length) await recordLink(tx, actor, current, link, "removed");
   });
+}
+
+/** Há bloqueadora aberta (não concluída) da tarefa, fora `except`? Só da mesma visibilidade (ADR-069). */
+const openBlocker = (taskId: SQL, except?: string) => sql`EXISTS (
+  SELECT 1 FROM task_links bl
+  JOIN tasks b ON b.id = bl.from_task_id
+  JOIN workflow_statuses bs ON bs.id = b.status_id
+  JOIN tasks bt ON bt.id = bl.to_task_id
+  WHERE bl.to_task_id = ${taskId} AND bl.kind = 'blocks' AND bs.category <> 'done'
+    AND b.visibility = bt.visibility
+  ${except ? sql`AND bl.from_task_id <> ${except}` : sql``})`;
+
+/** Ao concluir: avisa as tarefas que ficaram sem bloqueadora aberta (ADR-079). */
+async function releaseBlocked(tx: Tx, actor: Actor, current: Task) {
+  const freed = await tx
+    .select({ id: tasks.id })
+    .from(taskLinks)
+    .innerJoin(tasks, eq(tasks.id, taskLinks.toTaskId))
+    .innerJoin(workflowStatuses, eq(workflowStatuses.id, tasks.statusId))
+    .where(
+      and(
+        eq(taskLinks.fromTaskId, current.id),
+        eq(taskLinks.kind, "blocks"),
+        // vínculo antigo entre pessoal e equipe (antes do ADR-079) não avisa nem vaza o número
+        eq(tasks.visibility, current.visibility),
+        ne(workflowStatuses.category, "done"),
+        sql`NOT ${openBlocker(sql`${tasks.id}`, current.id)}`,
+      ),
+    );
+  for (const t of freed)
+    await record(tx, actor, t.id, [{ type: "unblocked", payload: { by: current.number } }]);
 }
 
 // ── Leitura ─────────────────────────────────────────────────────────
@@ -1038,6 +1323,7 @@ export async function getTaskByNumber(actor: Actor, number: number) {
           assigneeName: assignee.name,
           cycleNumber: cycles.number,
           milestoneName: milestones.name,
+          recurrenceName: taskRecurrences.name, // ADR-077
         })
         .from(tasks)
         .innerJoin(workflowStatuses, eq(workflowStatuses.id, tasks.statusId))
@@ -1045,6 +1331,7 @@ export async function getTaskByNumber(actor: Actor, number: number) {
         .leftJoin(assignee, eq(assignee.id, tasks.assigneeId))
         .leftJoin(cycles, eq(cycles.id, tasks.cycleId))
         .leftJoin(milestones, eq(milestones.id, tasks.milestoneId))
+        .leftJoin(taskRecurrences, eq(taskRecurrences.id, tasks.recurrenceId))
         .where(eq(tasks.id, task.id)),
       // ADR-045: o principal primeiro
       db
@@ -1164,6 +1451,11 @@ export async function listTasks(
         position: tasks.position,
         dueDate: tasks.dueDate,
         dueTime: tasks.dueTime,
+        recurrenceId: tasks.recurrenceId, // ADR-077: selo no card
+        blocked: sql<boolean>`${openBlocker(sql`${tasks.id}`)}`, // ADR-079
+        waitingReason: tasks.waitingReason, // ADR-078
+        waitingNote: tasks.waitingNote,
+        waitingUntil: tasks.waitingUntil,
         // Módulo 16: progresso das subtarefas no card, na mesma consulta (sem N+1)
         checklistTotal: sql<number>`(SELECT count(*)::int FROM ${checklistItems} WHERE ${checklistItems.taskId} = ${tasks.id})`,
         checklistDone: sql<number>`(SELECT count(*)::int FROM ${checklistItems} WHERE ${checklistItems.taskId} = ${tasks.id} AND ${checklistItems.done})`,
@@ -1189,6 +1481,8 @@ export async function listTasks(
           any(f.assigneeIds, (ids) => inArray(tasks.assigneeId, ids)),
           any(f.priorities, (ids) => inArray(tasks.priority, ids)),
           any(f.cycleIds, (ids) => inArray(tasks.cycleId, ids)),
+          any(f.waitingReasons, (ids) => inArray(tasks.waitingReason, ids)),
+          f.blocked.length ? openBlocker(sql`${tasks.id}`) : undefined,
           // ADR-045: qualquer vínculo, não só o principal
           any(f.projectIds, (ids) =>
             inArray(

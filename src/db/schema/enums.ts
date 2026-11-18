@@ -26,3 +26,6 @@ export const notificationEvent = pgEnum("notification_event", [
   "agent_action",
   "automation",
 ]);
+// ADR-078: motivo do Aguardando
+export const WAITING_REASONS = ["purchase", "supplier", "third_party", "client", "other"] as const;
+export const waitingReason = pgEnum("waiting_reason", WAITING_REASONS);

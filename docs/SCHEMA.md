@@ -385,6 +385,18 @@ export const pushSubscriptions = pgTable('push_subscriptions', {
 }, (t) => [uniqueIndex('push_subscriptions_endpoint_uq').on(t.endpoint)]);
 ```
 
+### Módulo 17
+
+- `task_recurrences` (ADR-077): `id`, `name`, `visibility`, `owner_id` → `user`, `frequency`
+  (`CHECK` weekdays/weekly/monthly), `weekdays smallint[]`, `month_day` (0 = último dia),
+  `interval_months` (`CHECK` 1–12), `start_date`, `due_in_days`, `due_time`, `payload jsonb`,
+  `paused_at`, `created_at`, `updated_at`. Migração `0021`.
+- `task_recurrence_runs`: PK `(recurrence_id, run_on)`, `task_id` (`SET NULL`); cascade da regra.
+- `tasks.recurrence_id` (`SET NULL`); `tasks.waiting_reason` (enum `waiting_reason`),
+  `waiting_note`, `waiting_until` (ADR-078, `0022`).
+- `task_links`: `CHECK task_links_no_self_ck` e índice `task_links_to_idx` (ADR-079, `0023`);
+  `kind = 'blocks'` é a dependência.
+
 ## SQL fora do Drizzle (primeira migração customizada)
 
 O Drizzle não gera estes objetos; eles entram numa migração `--custom` do drizzle-kit no Módulo 00:

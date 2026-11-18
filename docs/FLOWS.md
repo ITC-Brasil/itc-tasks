@@ -213,3 +213,15 @@ flowchart LR
 - **Excluir ciclo ou marco (admin, ADR-071):** lixeira → diálogo com o número de tarefas → cada tarefa perde o vínculo e grava "removeu do Ciclo N, que foi excluído" → linha apagada, log `[planning]`.
 - **Revogar todos os tokens (admin, ADR-074):** Membros → menu da linha → "Revogar todos os tokens" → confirmação → tokens ativos do membro desativados; toast só com a contagem.
 - **Início › Hoje:** entrar no app → aba Hoje → tarefas e subtarefas da pessoa com prazo até hoje (a hora conta) → arrastar no Kanban muda o status.
+
+## 12. Módulo 17
+
+- **Recorrência:** 06:00 → `recurrence.daily` → para cada regra ativa, ocorrência mais recente
+  pendente (≥ dia da última edição) → linha em `task_recurrence_runs` (PK regra + data) → `insertTask`
+  com ator automação e criador = dono → fanout `assigned`. Criar/retomar uma regra roda a de hoje.
+- **Aguardando:** mudar para status `waiting` → diálogo (motivo, data) → `applyUpdate` confere →
+  `status_changed` com `waiting`. Sair → campos limpos, `waitingCleared` no evento. 08:00 → aviso
+  `due_today` com `data.waiting` no dia da previsão.
+- **Dependência:** "Bloqueada por" + busca → `addLink` (visibilidade, ciclo sob advisory lock) →
+  `dependency_added` nos dois lados. Concluir a última bloqueadora → `unblocked` na bloqueada →
+  aviso `status_changed` (`unblockedBy`) ao responsável.

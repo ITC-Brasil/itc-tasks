@@ -14,6 +14,7 @@ import type { TaskRow } from "@/server/services/tasks";
 import { type Category, StatusIcon } from "./badges";
 import { openQuickCreate } from "./quick-create";
 import { TaskCard } from "./task-card";
+import { useWaitingPrompt } from "./waiting";
 
 type Status = { id: string; name: string; category: Category };
 type Columns = Record<string, TaskRow[]>; // formato do `move` do @dnd-kit/helpers
@@ -86,14 +87,17 @@ function Column({ status, tasks, today }: { status: Status; tasks: TaskRow[]; to
           <Card key={t.id} task={t} index={i} column={status.id} today={today} />
         ))}
       </ul>
-      <Button
-        variant="ghost"
-        size="sm"
-        className="m-2 mt-0 justify-start text-muted"
-        onClick={() => openQuickCreate({ statusId: status.id })}
-      >
-        <Plus aria-hidden="true" /> Nova tarefa
-      </Button>
+      {/* ADR-078: no Aguardando a tarefa entra arrastando (com motivo e previsão) */}
+      {status.category !== "waiting" && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="m-2 mt-0 justify-start text-muted"
+          onClick={() => openQuickCreate({ statusId: status.id })}
+        >
+          <Plus aria-hidden="true" /> Nova tarefa
+        </Button>
+      )}
     </section>
   );
 }
@@ -117,6 +121,8 @@ export function Board({
     setColumns(group(statuses, tasks));
   }
   const snapshot = useRef(columns);
+  const [askWaiting, waitingDialog] = useWaitingPrompt();
+  const categoryOf = (id: string) => statuses.find((s) => s.id === id)?.category;
 
   return (
     <DragDropProvider
@@ -142,13 +148,20 @@ export function Board({
         if (from.statusId === to.statusId && from.index === to.index) return;
         setColumns(after);
         const afterTaskId = to.index > 0 ? to.list[to.index - 1].id : null;
-        moveTaskAction(id, { statusId: to.statusId, afterTaskId }).then((r) => {
+        void (async () => {
+          // ADR-078: entrar no Aguardando pede motivo e previsão; cancelar devolve o card
+          const entering =
+            categoryOf(to.statusId) === "waiting" && categoryOf(from.statusId) !== "waiting";
+          const waiting = entering ? await askWaiting() : {};
+          if (!waiting) return setColumns(before);
+          const r = await moveTaskAction(id, { statusId: to.statusId, afterTaskId, ...waiting });
           if (r.ok) return router.refresh();
           setColumns(before);
           toast.error(r.error);
-        });
+        })();
       }}
     >
+      {waitingDialog}
       {/* < 768 px: uma coluna por vez, com snap (UI.md §6) */}
       <div className="flex flex-1 snap-x snap-mandatory gap-3 overflow-x-auto p-4 md:snap-none md:p-6">
         {statuses.map((s) => (

@@ -147,10 +147,7 @@ export async function setLinkAction(
   }, detail(number));
 }
 
-export async function moveTaskAction(
-  taskId: string,
-  input: { statusId: string; afterTaskId: string | null },
-) {
+export async function moveTaskAction(taskId: string, input: Parameters<typeof moveTask>[2]) {
   const actor = await requireActor();
   return run(() => moveTask(actor, taskIdSchema.parse(taskId), input).then(() => undefined));
 }

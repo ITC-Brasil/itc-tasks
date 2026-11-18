@@ -2484,3 +2484,189 @@ teste). O CI da `develop` ficou vermelho só por isso (`f4988cf`).
 **Consequences**
 - Um advisory novo no mesmo pacote, com outro id, não é ignorado.
 - Backlog (M-151): nome do envolvido único sem tratar acento (`unaccent`).
+
+---
+
+## ADR-077 — Tarefas recorrentes (regra própria, job diário, uma ocorrência por data)
+
+**Status:** Accepted
+**Date:** 2026-11-18
+**Module:** 17 — Recorrência, Aguardando com motivo e dependências (item 1)
+
+**Context**
+Rotinas da TI (backup semanal, conferência mensal, troca de senha trimestral) são recriadas à mão.
+O Matheus aprovou (12/11/2026) que passem a se recriar sozinhas.
+
+**Decision**
+- **Regra, não tarefa.** Tabela `task_recurrences` com nome, visibilidade (`team`/`personal`),
+  dono (`owner_id`, quem criou), frequência, `due_in_days` (0–60, dias corridos a partir da data
+  da ocorrência), `due_time` opcional (ADR-072), `paused_at` e um `payload` com os campos da
+  tarefa a criar (título, descrição, prioridade, responsável, Projetos/Clientes, UMs, etiquetas,
+  envolvidos, subtarefas). O payload é uma **cópia**: criar a partir de um template (Módulo 09)
+  ou de uma tarefa ("Repetir esta tarefa") só preenche o formulário; mudar o template ou a tarefa
+  depois não muda a regra, e editar a regra só afeta as próximas criações.
+- **Frequências:** `weekdays` (segunda a sexta), `weekly` (dias da semana marcados) e `monthly`
+  (dia fixo 1–31 ou "último dia", a cada N meses, 1–12, contados a partir do mês da `start_date`).
+  Dia 31 num mês de 30 dias (ou 29/30/31 em fevereiro) cai no último dia do mês. Sem cron livre.
+- **Job `recurrence.daily`** às 06:00 de `APP_TIMEZONE`, antes do lembrete das 08:00. Para cada
+  regra ativa, acha a ocorrência mais recente com data ≤ hoje, ≥ `start_date` e depois da última
+  já criada. **Worker parado:** ao voltar, cria **só a mais recente** pendente, não todas as
+  perdidas (criar 10 backups atrasados de uma vez só polui a lista).
+- **Idempotência:** `task_recurrence_runs (recurrence_id, run_on)` com chave primária nas duas
+  colunas; a tarefa e a linha da execução entram na mesma transação, com `ON CONFLICT DO NOTHING`
+  antes de criar. Dois workers ou um retry não criam duas.
+- A ocorrência anterior aberta não impede a nova; a anterior fica aberta e atrasada.
+- **Ator automação** (`automationId` = id da regra, profundidade 0), como no ADR-052; o evento
+  `created` leva `{ recurrenceId, recurrence: nome }`, que fica no histórico mesmo se a regra for
+  excluída. `tasks.recurrence_id` (FK `ON DELETE SET NULL`) liga a tarefa à regra para o selo no
+  card e o "Criada pela recorrência X" no detalhe.
+- **Criador** da tarefa = dono da regra (não o primeiro admin do `creatorFor`). Regra pessoal gera
+  tarefa pessoal do dono (`insertTask` aceita o criador vindo da regra só para esse caso).
+- **Permissões:** pessoas (membros e admin) criam, editam, pausam e excluem regras da equipe;
+  regra pessoal só o dono vê e mexe (mesma regra do `visibleTo`, ADR-069). Agente só lista
+  (`list_recurrences`, `tasks:read`); sem ferramenta de escrita neste módulo.
+- **Excluir** a regra é definitivo (é planejamento, como ciclos, não cadastro) e não apaga as
+  tarefas criadas; elas perdem o selo e o histórico continua dizendo de onde vieram.
+- Fanout normal para o responsável da tarefa criada (`created` → `assigned`), sem aviso extra.
+- Erro numa regra (responsável desativado, projeto arquivado) é registrado no log do worker e não
+  impede as outras; a regra tenta de novo no dia seguinte.
+
+**Alternatives considered**
+- *Tarefa modelo que se clona:* editar a tarefa mudaria as próximas e misturaria regra com
+  execução; rejeitada pelo prompt.
+- *Criar todas as ocorrências perdidas:* rejeitada (lista poluída depois de uma parada).
+- *Expressão cron na UI:* rejeitada pelo prompt.
+- *Ligar a regra ao template por id:* arquivar ou editar o template mudaria a regra em silêncio.
+
+**Consequences**
+- Migração `0021_task_recurrences` (só aditiva).
+- Sem feriados: "dias úteis" é segunda a sexta, como o `dueInDays` dos templates.
+
+---
+
+## ADR-078 — Motivo e previsão no Aguardando
+
+**Status:** Accepted
+**Date:** 2026-11-18
+**Module:** 17 — Recorrência, Aguardando com motivo e dependências (item 2)
+
+**Context**
+"Aguardando" (ADR-067) não diz o quê nem até quando. O Matheus aprovou (12/11/2026) pedir motivo
+e data prevista ao entrar no Aguardando.
+
+**Decision**
+- Colunas aditivas em `tasks`: `waiting_reason` (enum `waiting_reason`: `purchase` Compra,
+  `supplier` Fornecedor, `third_party` Terceiro, `client` Cliente, `other` Outro),
+  `waiting_note` (texto até 120, obrigatório só com "Outro") e `waiting_until` (data prevista).
+- **Toda entrada** numa categoria `waiting` passa pelo `tasksService` (`insertTask`/`applyUpdate`)
+  e exige motivo e data prevista, hoje ou futura no fuso de Brasília. Vale para o detalhe, o
+  Kanban (`moveTask`), a ação em massa, `complete_task` (não entra), o MCP (`update_task` →
+  `VALIDATION`) e as automações (a ação "mudar status" para um status `waiting` falha e fica no
+  registro da regra, como qualquer erro de ação).
+- **Sair** do Aguardando limpa as três colunas; o evento `status_changed` leva
+  `waitingCleared` com os valores de antes. Entrar leva `waiting` com os novos.
+- Em Aguardando, os campos podem ser editados (inclusive para completar as tarefas **legadas**,
+  que ficam sem motivo e sem previsão: não há preenchimento retroativo). A edição exige o par
+  completo e grava `field_changed` `{ field: "waiting" }`. Mandar os campos para tarefa fora do
+  Aguardando é `VALIDATION`.
+- **Lembrete** no job das 08:00, no dia da previsão, para o responsável: tipo `due_today` com
+  `data.waiting` (rótulo do motivo), como o `data.subtask` do Módulo 15; não repete no dia.
+- **Previsão vencida** (data < hoje e ainda em Aguardando): ícone `CalendarClock` em `warn` no card
+  e no detalhe, com texto para leitor de tela. Não conta como "atrasada", que continua sendo do
+  prazo.
+- **Filtro** `?motivo=` (vários = qualquer um) nas visões e nos filtros salvos.
+- UI: o arrasto para a coluna Aguardando, a troca de status no detalhe e a ação em massa abrem um
+  diálogo com os dois campos; cancelar não muda nada (o card volta).
+
+**Alternatives considered**
+- *Motivo livre:* rejeitado no prompt (lista fechada filtra melhor).
+- *Exigir também nas legadas:* rejeitado no prompt.
+- *Tipo de aviso novo:* mais uma linha nas preferências por um caso que o `due_today` cobre.
+
+**Consequences**
+- Migração `0022_waiting_fields` (enum novo + três colunas, sem reescrita).
+- Uma automação que move para Aguardando passa a falhar até ter motivo e data (não tem como
+  informar); fica registrado em "Decisões a confirmar" do módulo.
+
+---
+
+## ADR-079 — Dependências entre tarefas ("bloqueada por")
+
+**Status:** Accepted
+**Date:** 2026-11-18
+**Module:** 17 — Recorrência, Aguardando com motivo e dependências (item 3)
+
+**Context**
+O Matheus aprovou (12/11/2026) registrar que uma tarefa está bloqueada por outra. O schema já tem
+`task_links` (Módulo 04, ADR-042) com `kind = 'blocks'` (`from` bloqueia `to`), chave
+`(from, to, kind)` e cascade nas duas pontas, usado pela seção "Vínculos" do detalhe.
+
+**Decision**
+- **Reaproveitar `task_links`** em vez de criar `task_dependencies`: a tabela já é a relação
+  "bloqueia" com a chave e o cascade pedidos, e os vínculos `blocks` existentes passam a valer
+  como dependência sem cópia de dados. "Bloqueada por" é o mesmo registro visto do outro lado.
+  Migração aditiva `0023_task_links_no_self`: `CHECK (from_task_id <> to_task_id)` e índice em
+  `to_task_id` (as bloqueadoras de uma tarefa).
+- **Sem ciclo** (A→B→A, ou mais longo): conferido no service, numa consulta recursiva dentro da
+  transação, sob um `pg_advisory_xact_lock` único para escrita de dependência (duas inclusões
+  cruzadas ao mesmo tempo não fecham um ciclo). Sem auto-dependência (service e `CHECK`).
+- **Visibilidade (ADR-069):** só entre tarefas da equipe, ou entre tarefas pessoais do mesmo
+  dono. A outra ponta é procurada com `visibleTo(actor)`: pessoal de outra pessoa dá o mesmo
+  `NOT_FOUND` de tarefa inexistente ("TI-n não encontrada"), sem dizer que existe. Equipe × pessoal
+  do próprio ator é recusada com mensagem que só fala de tarefas que ele vê.
+- **Mover pessoal → equipe** com dependência é **recusado** ("Remova as dependências antes de
+  mover para a equipe"): conservador, não apaga nada em silêncio.
+- **Não bloqueia o fluxo:** mover e concluir continuam livres. O card mostra "Bloqueada" (ícone
+  `Link2Off`, `warn` só no ícone) enquanto houver bloqueadora aberta; concluir no detalhe com
+  bloqueadora aberta pede confirmação.
+- **Eventos nos dois lados:** `dependency_added`/`dependency_removed` com `{ kind: "blocked_by" |
+  "blocks", target }`. O vínculo `relates` continua com `link_added`/`link_removed`.
+- **Desbloqueio:** ao concluir uma tarefa, cada tarefa que ela bloqueava e ficou sem bloqueadora
+  aberta ganha o evento `unblocked` `{ by }`; o fanout avisa o responsável com o tipo
+  `status_changed` e `data.unblockedBy` ("Ana concluiu TI-12 e desbloqueou TI-15"), pelas
+  preferências desse tipo. Sem tipo de aviso novo.
+- **Exclusão (ADR-063):** o cascade leva os vínculos; antes, cada tarefa do outro lado ganha
+  `dependency_removed` com `deleted: true` (o número fica; o título de pessoal não aparece).
+- **MCP:** `get_task` devolve `blockedBy` e `blocks` (`[{ id: "TI-n", title, done }]`);
+  `update_task` aceita `blockedByAdd`/`blockedByRemove` (números ou `TI-n`).
+- **Filtro** `?bloqueada=1` nas visões e nos filtros salvos.
+
+**Alternatives considered**
+- *Tabela nova `task_dependencies`:* duplicaria `task_links.blocks` e exigiria migrar ou conviver
+  com os vínculos já gravados.
+- *Impedir concluir com bloqueadora aberta:* rejeitado no prompt (só avisa).
+- *Converter pessoal → equipe removendo as dependências com evento:* possível, mas some com
+  informação sem a pessoa pedir.
+
+**Consequences**
+- O tipo de vínculo "bloqueia/bloqueada por" da seção Vínculos vira a seção "Dependências";
+  "Vínculos" fica só com "relacionada a".
+
+## ADR-080 — Automação "Mover para o status" com destino Aguardando
+
+**Status:** Accepted
+**Date:** 2026-11-18
+**Module:** 17 — ajuste 1 da revisão (M-158); substitui a decisão a confirmar 8
+
+**Context**
+O ADR-078 exige motivo e data prevista para entrar no Aguardando, em toda entrada. A ação
+`setStatus` de uma automação (ADR-052) só guarda o `statusId`; com destino `waiting` ela falharia
+sempre, com registro em `automation_runs`.
+
+**Decision**
+- A ação `setStatus` ganha `waiting?: { reason, note?, inDays }`: motivo da lista do ADR-078,
+  texto obrigatório com "Outro" (até 120), previsão "daqui a N dias" (`0..60`).
+- Ao rodar, a previsão é `addDays(todayISO(), inDays)`, no fuso de Brasília (a data do dia em
+  que a automação roda, não a da criação da regra).
+- Zod no servidor (`src/lib/validation/automations.ts`); `saveRule` recusa salvar ação com
+  destino da categoria `waiting` sem `waiting`. Destino de outra categoria descarta `waiting`.
+- A tela de Automações mostra os três campos só quando o status escolhido é da categoria
+  `waiting`.
+- Regra antiga sem os campos continua falhando com registro, como hoje (sem migração de dados).
+
+**Alternatives considered**
+- Data fixa na regra: vence e passa a falhar sozinha. Recusada.
+- Deixar falhar (decisão 8 original): o Matheus pediu a mudança na revisão.
+
+**Consequences**
+- `automation_rules.actions` é JSON; o campo novo não pede migração.

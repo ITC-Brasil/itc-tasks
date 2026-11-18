@@ -27,11 +27,14 @@ import {
 } from "@/server/services/agents";
 import { listInvolved, listMobileUnits, listProjects } from "@/server/services/catalog";
 import { addComment } from "@/server/services/comments";
+import { listRecurrences } from "@/server/services/recurrences";
 import {
   TaskError,
   addChecklistItem,
+  addLink,
   completeTask,
   createTask,
+  removeLink,
   updateChecklistItem,
   updateTask,
 } from "@/server/services/tasks";
@@ -136,6 +139,38 @@ export function createMcpServer(actor: AgentActor, access: Access[]) {
       involved: (await listInvolved(actor)).map((p) => ({ id: p.id, name: p.name })),
     }),
   );
+  // ADR-077: só leitura; regra pessoal só a do dono do token
+  tool(
+    "list_recurrences",
+    "read",
+    "Regras de tarefas recorrentes (rotinas): frequência, próxima data e a tarefa que criam.",
+    {},
+    async () => {
+      const [rules, projects] = await Promise.all([
+        listRecurrences(actor),
+        listProjects(actor, { includeArchived: true }),
+      ]);
+      return {
+        recurrences: rules.map((r) => ({
+          id: r.id,
+          name: r.name,
+          visibility: r.visibility,
+          schedule: r.summary,
+          paused: !!r.pausedAt,
+          nextOn: r.nextOn,
+          lastRunOn: r.lastRunOn,
+          dueInDays: r.dueInDays,
+          dueTime: r.dueTime,
+          owner: r.ownerName,
+          task: {
+            title: r.payload.title,
+            priority: r.payload.priority,
+            projects: r.payload.projectIds.map((id) => projects.find((p) => p.id === id)?.code),
+          },
+        })),
+      };
+    },
+  );
   tool("list_cycles", "read", "Ciclos com progresso.", mcpListCycles, async (i) => ({
     cycles: await listCyclesForAgent(i.state),
   }));
@@ -154,13 +189,15 @@ export function createMcpServer(actor: AgentActor, access: Access[]) {
   tool(
     "update_task",
     "write",
-    "Altera só os campos enviados. checklist acrescenta itens; checklistToggle.index e checklistDue.index contam sobre o checklist de antes desta chamada.",
+    "Altera só os campos enviados. checklist acrescenta itens; checklistToggle.index e checklistDue.index contam sobre o checklist de antes desta chamada. Status 'waiting' exige waitingReason e waitingUntil. blockedByAdd/blockedByRemove mudam as dependências.",
     mcpUpdateTask,
     async ({
       id,
       checklist = [],
       checklistToggle: toggles = [],
       checklistDue: dues = [],
+      blockedByAdd = [],
+      blockedByRemove = [],
       ...rest
     }) => {
       // M-044: tudo resolvido e validado antes da primeira escrita; índices = checklist de antes
@@ -191,6 +228,10 @@ export function createMcpServer(actor: AgentActor, access: Access[]) {
           ...(dueTime !== undefined && { dueTime }),
         });
       }
+      for (const target of blockedByAdd)
+        await addLink(actor, taskId, { kind: "blocked_by", target });
+      for (const target of blockedByRemove)
+        await removeLink(actor, taskId, { kind: "blocked_by", target });
       return (await getTaskSummary(actor, id)).summary;
     },
   );

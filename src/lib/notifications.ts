@@ -64,6 +64,9 @@ export type NotificationData = {
   rule?: string;
   subtask?: string; // Módulo 15: lembrete de prazo de uma subtarefa
   dueTime?: string; // ADR-072: hora do prazo no aviso "vence hoje"
+  waiting?: string; // ADR-078: motivo do Aguardando no aviso da data prevista
+  unblockedBy?: string; // ADR-079: "TI-n" concluída que desbloqueou a tarefa
+  unblockedDeleted?: boolean; // M-158: a bloqueadora foi excluída, não concluída
 };
 
 /** "Ana mencionou você em" — o que vem antes de "TI-149 Título". */
@@ -76,12 +79,15 @@ export function verb(event: NotificationEvent, data: NotificationData) {
     case "commented":
       return "comentou em";
     case "due_today":
+      if (data.waiting) return `previsão do Aguardando (${data.waiting}) é hoje em`;
       if (data.subtask)
         return `subtarefa “${data.subtask}” vence hoje${data.dueTime ? ` às ${data.dueTime}` : ""} em`;
       return data.dueTime ? `vence hoje às ${data.dueTime}:` : "vence hoje:";
     case "overdue":
       return data.subtask ? `subtarefa “${data.subtask}” venceu em` : "venceu:";
     case "status_changed":
+      if (data.unblockedBy)
+        return `${data.unblockedDeleted ? "excluiu" : "concluiu"} ${data.unblockedBy} e desbloqueou`;
       return data.to ? `mudou para ${data.to}` : "mudou o status de";
     case "agent_action":
       return "alterou";

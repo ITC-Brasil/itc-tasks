@@ -148,6 +148,27 @@
       "when": 1794964914795,
       "tag": "0020_involved_people",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1795014542037,
+      "tag": "0021_task_recurrences",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1795015541390,
+      "tag": "0022_waiting_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1795017669081,
+      "tag": "0023_task_links_no_self",
+      "breakpoints": true
     }
   ]
 }

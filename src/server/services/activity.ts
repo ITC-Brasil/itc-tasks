@@ -13,7 +13,7 @@ import {
   workflowStatuses,
 } from "@/db/schema";
 import { priorityLabel } from "@/components/tasks/badges";
-import type { Priority } from "@/lib/validation/tasks";
+import { type Priority, waitingReasonLabel } from "@/lib/validation/tasks";
 import type { Actor } from "@/server/permissions";
 import { assertVisible } from "./tasks";
 
@@ -33,6 +33,14 @@ type Payload = {
   key?: string;
   sourceId?: string;
   deleted?: string;
+  recurrence?: string;
+  by?: number;
+  waiting?: WaitingPayload;
+};
+type WaitingPayload = {
+  waitingReason?: string;
+  waitingNote?: string | null;
+  waitingUntil?: string;
 };
 type Names = Map<string, string>;
 
@@ -53,6 +61,12 @@ const CHECK = new Map([
 const ids = (v: unknown) => (Array.isArray(v) ? (v as string[]) : []);
 const name = (names: Names, id: unknown) => names.get(String(id)) ?? "(removido)";
 const brDate = (iso: string) => iso.split("-").reverse().join("/");
+
+/** ADR-078: "Compra (nota), previsão 20/11" */
+const waitingText = (w: WaitingPayload | undefined) =>
+  w
+    ? `${waitingReasonLabel(w.waitingReason) ?? "sem motivo"}${w.waitingNote ? ` — ${w.waitingNote}` : ""}, previsão ${w.waitingUntil ? brDate(w.waitingUntil) : "não informada"}`
+    : "";
 
 /** "etiquetas: adicionou A, B; removeu C" */
 function listChange(what: string, p: Payload, names: Names) {
@@ -94,6 +108,8 @@ function fieldChange(p: Payload, names: Names) {
       return "moveu para o topo da coluna";
     case "visibility":
       return "moveu a tarefa pessoal para a equipe"; // ADR-069
+    case "waiting":
+      return `mudou o Aguardando para ${waitingText(p.to as WaitingPayload)}`;
     default:
       return `alterou ${p.field ?? "um campo"}`;
   }
@@ -101,10 +117,10 @@ function fieldChange(p: Payload, names: Names) {
 
 export function describe(type: string, p: Payload, names: Names): string | null {
   switch (type) {
-    case "created":
-      return "criou a tarefa";
+    case "created": // ADR-077: o nome da regra fica no evento, mesmo se ela for excluída
+      return p.recurrence ? `criou a tarefa pela recorrência “${p.recurrence}”` : "criou a tarefa";
     case "status_changed":
-      return `mudou o status de ${name(names, p.from)} para ${name(names, p.to)}`;
+      return `mudou o status de ${name(names, p.from)} para ${name(names, p.to)}${p.waiting ? ` (${waitingText(p.waiting)})` : ""}`;
     case "assigned":
       return p.to ? `atribuiu a ${name(names, p.to)}` : "removeu o responsável";
     case "field_changed":
@@ -125,6 +141,13 @@ export function describe(type: string, p: Payload, names: Names): string | null 
       return `vinculou: ${LINK.get(p.kind ?? "") ?? p.kind} TI-${p.target}`;
     case "link_removed":
       return `desfez o vínculo: ${LINK.get(p.kind ?? "") ?? p.kind} TI-${p.target}`;
+    case "dependency_added": // ADR-079
+      return `${p.kind === "blocks" ? "passou a bloquear" : "ficou bloqueada por"} TI-${p.target}`;
+    case "dependency_removed":
+      if (p.deleted) return `deixou de depender de TI-${p.target}, que foi excluída`;
+      return `${p.kind === "blocks" ? "deixou de bloquear" : "deixou de ser bloqueada por"} TI-${p.target}`;
+    case "unblocked":
+      return `foi desbloqueada: TI-${p.by} ${p.deleted ? "excluída" : "concluída"}`;
     case "attachment_added":
       return `anexou ${p.fileName ?? "um arquivo"}`;
     case "imported":

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { STATUS_CATEGORIES } from "./catalog";
-import { DUE_TIME_RE, PRIORITIES, VISIBILITIES, taskNumberSchema } from "./tasks";
+import { DUE_TIME_RE, PRIORITIES, VISIBILITIES, WAITING_REASONS, taskNumberSchema } from "./tasks";
 
 // ── Tokens (ADR-049) ────────────────────────────────────────────────
 
@@ -69,6 +69,15 @@ const taskFields = {
     .optional()
     .describe("ids de list_involved; a lista substitui a atual ([] limpa)"),
   checklist: z.array(z.string().trim().min(1).max(200)).max(50).optional(),
+  // ADR-078: obrigatórios ao mover para um status da categoria waiting
+  waitingReason: z
+    .enum(WAITING_REASONS)
+    .optional()
+    .describe("motivo do Aguardando; obrigatório ao entrar em status 'waiting'"),
+  waitingNote: z.string().max(120).optional().describe("obrigatório com waitingReason 'other'"),
+  waitingUntil: date
+    .optional()
+    .describe("data prevista (YYYY-MM-DD), hoje ou futura; obrigatória ao entrar em 'waiting'"),
   cycle: z
     .union([z.literal("current"), z.number().int().positive()])
     .optional()
@@ -105,6 +114,16 @@ export const mcpUpdateTask = {
     .max(50)
     .optional()
     .describe("prazo da subtarefa pelo índice; null limpa"),
+  // ADR-079: dependências por número (TI-n); só entre tarefas da equipe ou pessoais do dono
+  blockedByAdd: z
+    .array(z.union([z.string(), z.number()]).pipe(taskNumberSchema))
+    .max(20)
+    .optional()
+    .describe("tarefas que bloqueiam esta (TI-12 ou 12); recusa ciclo"),
+  blockedByRemove: z
+    .array(z.union([z.string(), z.number()]).pipe(taskNumberSchema))
+    .max(20)
+    .optional(),
 };
 export const mcpCompleteTask = { ...mcpTaskId, comment: z.string().max(10_000).optional() };
 export const mcpAddComment = { ...mcpTaskId, body: z.string().min(1).max(10_000) };

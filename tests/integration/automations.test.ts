@@ -34,7 +34,7 @@ const run = Date.now();
 type U = Actor & { kind: "user" };
 let ana: U, bia: U;
 let projectId: string;
-const status = {} as Record<"backlog" | "todo" | "in_progress" | "done", string>;
+const status = {} as Record<"backlog" | "todo" | "in_progress" | "waiting" | "done", string>;
 
 const person = async (name: string, role: "admin" | "member"): Promise<U> => {
   const u = await createMember(system, {
@@ -75,7 +75,7 @@ beforeAll(async () => {
   const code = `A${String(run).slice(-6)}`;
   projectId = (await createProject(system, { code, name: `Auto ${run}`, kind: "client" })).id;
   const existing = await listStatuses(system);
-  for (const category of ["backlog", "todo", "in_progress", "done"] as const)
+  for (const category of ["backlog", "todo", "in_progress", "waiting", "done"] as const)
     status[category] =
       existing.find((x) => x.category === category)?.id ??
       (await createStatus(system, { name: `${category} ${run}`, category })).id;
@@ -272,4 +272,57 @@ it("só admin lista e altera regras", async () => {
   await expect(setRuleEnabled(bia, r.id, false)).rejects.toBeInstanceOf(ForbiddenError);
   await setRuleEnabled(ana, r.id, false);
   expect((await listRules(ana)).find((x) => x.id === r.id)?.enabled).toBe(false);
+});
+
+it("ADR-080: mover para Aguardando grava motivo e previsão a partir do dia em que roda", async () => {
+  const toWaiting = { type: "setStatus" as const, statusId: status.waiting };
+  await expect(
+    rule({ name: "Sem campos", trigger: "task.created", conditions: {}, actions: [toWaiting] }),
+  ).rejects.toThrow("Para Aguardando, informe o motivo e a data prevista");
+  await expect(
+    rule({
+      name: "Outro sem texto",
+      trigger: "task.created",
+      conditions: {},
+      actions: [{ ...toWaiting, waiting: { reason: "other", inDays: 3 } }],
+    }),
+  ).rejects.toThrow();
+  const r = await rule({
+    name: "Aguardar compra",
+    trigger: "task.created",
+    conditions: {},
+    actions: [{ ...toWaiting, waiting: { reason: "purchase", note: "some", inDays: 5 } }],
+  });
+  const t = await task();
+  await drain();
+  const [after] = await db.select().from(tasks).where(eq(tasks.id, t.id));
+  expect(after).toMatchObject({
+    statusId: status.waiting,
+    waitingReason: "purchase",
+    waitingNote: null,
+    waitingUntil: addDays(todayISO(), 5),
+  });
+  expect((await runsOf(r.id))[0].ok).toBe(true);
+
+  // regra antiga, gravada sem os campos, falha com registro
+  await setRuleEnabled(ana, r.id, false);
+  const [old] = await db
+    .insert(automationRules)
+    .values({ name: "Antiga", trigger: "task.created", conditions: {}, actions: [toWaiting] })
+    .returning();
+  await task();
+  await drain();
+  expect((await runsOf(old.id))[0]).toMatchObject({ ok: false });
+
+  // destino de outra categoria descarta os campos
+  const other = await rule({
+    name: "Fazer",
+    trigger: "task.created",
+    conditions: {},
+    actions: [
+      { type: "setStatus", statusId: status.todo, waiting: { reason: "client", inDays: 1 } },
+    ],
+  });
+  expect(other.actions).toEqual([{ type: "setStatus", statusId: status.todo }]);
+  await setRuleEnabled(ana, other.id, false);
 });

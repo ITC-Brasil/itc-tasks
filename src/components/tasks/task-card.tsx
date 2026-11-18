@@ -1,10 +1,12 @@
-import { Calendar, ListChecks } from "lucide-react";
+import { Calendar, ListChecks, Repeat } from "lucide-react";
 import Link from "next/link";
 import { Avatar } from "@/components/ui/avatar";
 import { isOverdue, shortDate } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import type { TaskRow } from "@/server/services/tasks";
 import { LabelChip, PersonalMark, PriorityIcon, ProjectChip, UnitChip } from "./badges";
+import { BlockedMark } from "./dependencies";
+import { WaitingInfo } from "./waiting";
 
 /** Prazo com ícone; vencido em `err` (ícone) e texto normal (contraste). */
 export function DueDate({
@@ -50,6 +52,20 @@ function ChecklistProgress({ done, total }: { done: number; total: number }) {
   );
 }
 
+/** ADR-077: selo de tarefa criada por recorrência (ícone neutro, nome no leitor de tela). */
+export function RecurringMark({ className }: { className?: string }) {
+  return (
+    <span
+      role="img"
+      aria-label="Recorrente"
+      title="Recorrente"
+      className={cn("text-muted", className)}
+    >
+      <Repeat className="size-3.5" strokeWidth={1.75} aria-hidden="true" />
+    </span>
+  );
+}
+
 /** TaskCard do Design System: ID, título, chips e rodapé com prazo, prioridade e responsável. */
 export function TaskCard({
   task,
@@ -81,12 +97,22 @@ export function TaskCard({
           ))}
         </div>
       )}
+      {task.category === "waiting" && (
+        <WaitingInfo
+          className="mt-2"
+          reason={task.waitingReason}
+          note={task.waitingNote}
+          until={task.waitingUntil}
+        />
+      )}
       <div className="mt-2 flex items-center gap-2">
         <PriorityIcon priority={task.priority} />
         {task.dueDate && <DueDate due={task.dueDate} time={task.dueTime} overdue={overdue} />}
         {task.checklistTotal > 0 && (
           <ChecklistProgress done={task.checklistDone} total={task.checklistTotal} />
         )}
+        {task.blocked && task.category !== "done" && <BlockedMark />}
+        {task.recurrenceId && <RecurringMark />}
         <span className="flex-1" />
         {task.assigneeInitials && (
           <span title={task.assigneeName ?? undefined}>

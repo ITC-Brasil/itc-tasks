@@ -228,3 +228,17 @@ Não são rotas públicas; listadas para mapear UI → service.
 - **Saídas:** `TaskSummary.dueTime`; `get_task` devolve `involved: { id, name }[]` e `checklist[].dueTime`.
 - **Tokens (ADR-074):** a UI e os services só mostram os tokens do próprio dono, inclusive para o admin; `/api/auth/api-key/*` continua 404 (ADR-058). Server Action `revokeAllApiKeysAction(userId)` (admin).
 - **Planejamento (ADR-071):** Server Actions `deleteCycleAction(cycleId)` e `deleteMilestoneAction(milestoneId)` (admin); `closeCycleAction` aceita encerrar sem próximo ciclo.
+
+## 9. Módulo 17
+
+- **`list_recurrences`** (`tasks:read`, sem parâmetros): `{ recurrences: [{ id, name, visibility,
+  schedule, paused, nextOn, lastRunOn, dueInDays, dueTime, owner, task: { title, priority, projects } }] }`.
+  Pessoal só a do dono do token. Sem ferramenta de escrita.
+- **`update_task`/`create_task`:** `waitingReason` (`purchase|supplier|third_party|client|other`),
+  `waitingNote` (≤ 120, obrigatório com `other`), `waitingUntil` (YYYY-MM-DD, ≥ hoje). Entrar num
+  status `waiting` sem eles → `VALIDATION`. Saída inclui os três campos.
+- **`update_task`:** `blockedByAdd`/`blockedByRemove` (até 20 números ou `TI-n`); ciclo, a própria
+  tarefa ou equipe × pessoal → `VALIDATION`; pessoal de outra pessoa → `NOT_FOUND`.
+- **`get_task`:** `blockedBy` e `blocks`: `[{ id: "TI-n", title, done }]`.
+- Filtros de URL novos: `?motivo=` e `?bloqueada=1`. Server Actions: `saveRecurrenceAction`,
+  `setRecurrencePausedAction`, `deleteRecurrenceAction`; `moveTaskAction` aceita os campos do Aguardando.

@@ -287,6 +287,10 @@ async function serviceFields(actor: AgentActor, input: Fields) {
   if (input.glpiTicket !== undefined) out.glpiTicket = input.glpiTicket;
   if (input.dueDate !== undefined) out.dueDate = input.dueDate;
   if (input.dueTime !== undefined) out.dueTime = input.dueTime; // ADR-072
+  // ADR-078: o service confere (VALIDATION sem os dois ao entrar no Aguardando)
+  if (input.waitingReason !== undefined) out.waitingReason = input.waitingReason;
+  if (input.waitingNote !== undefined) out.waitingNote = input.waitingNote;
+  if (input.waitingUntil !== undefined) out.waitingUntil = input.waitingUntil;
   return out;
 }
 
@@ -304,7 +308,10 @@ export async function toCreateInput(actor: AgentActor, input: McpCreateTask) {
 
 export async function toUpdateInput(
   actor: AgentActor,
-  input: Omit<McpUpdateTask, "id" | "checklist" | "checklistToggle" | "checklistDue">,
+  input: Omit<
+    McpUpdateTask,
+    "id" | "checklist" | "checklistToggle" | "checklistDue" | "blockedByAdd" | "blockedByRemove"
+  >,
 ) {
   const { title, visibility, ...rest } = input;
   const fields: UpdateTaskInput = await serviceFields(actor, rest);
@@ -346,6 +353,9 @@ export async function getTaskSummary(actor: Actor, number: number) {
       assignee: (task.assigneeId && mail.get(task.assigneeId)) || undefined,
       dueDate: task.dueDate ?? undefined,
       dueTime: task.dueTime ?? undefined,
+      waitingReason: task.waitingReason ?? undefined, // ADR-078
+      waitingNote: task.waitingNote ?? undefined,
+      waitingUntil: task.waitingUntil ?? undefined,
       url: taskUrl(task.number),
     },
   };
@@ -368,6 +378,13 @@ export async function getTaskDetail(actor: Actor, number: number) {
       assignee: (c.assigneeId && mail.get(c.assigneeId)) || undefined,
     })),
     links: task.links.map((l) => ({ kind: l.kind, id: `TI-${l.number}` })),
+    // ADR-079: só as que o dono do token vê (o getTaskByNumber já filtra)
+    blockedBy: task.links
+      .filter((l) => l.kind === "blocked_by")
+      .map((l) => ({ id: `TI-${l.number}`, title: l.title, done: !!l.completedAt })),
+    blocks: task.links
+      .filter((l) => l.kind === "blocks")
+      .map((l) => ({ id: `TI-${l.number}`, title: l.title, done: !!l.completedAt })),
     labels: task.labels.map((l) => l.name),
     involved: task.involved.map((p) => ({ id: p.id, name: p.name })),
     comments: allComments.slice(-20).map((c) => ({
