@@ -2257,3 +2257,41 @@ O `deploy.yml` passa a disparar por `workflow_run` do workflow `CI` (`types: [co
   terminar. Risco aceito pelo Cowork e pelo Matheus (M-148, 12/11/2026): só pesa com dois merges muito
   próximos; merges na `main` são raros e manuais, e o deploy do segundo roda depois.
 - `workflow_run` só vale com o `deploy.yml` na branch padrão (`main`): passa a valer no próximo merge.
+
+## ADR-071 — Excluir ciclos e marcos (só admin; tarefas ficam e perdem o vínculo)
+
+**Status:** Accepted
+**Date:** 2026-11-17
+**Module:** 16 — Ajustes de uso (item 3)
+
+**Context**
+Ciclos e marcos criados por engano ou de teste não tinham como sair: o ADR-053 só previa encerrar
+o ciclo e concluir o marco. A regra "cadastros nunca são excluídos" (ADR-018) vale para Projetos/
+Clientes, UMs, Workflow, Etiquetas e Envolvidos, que outras telas e o MCP referenciam por nome. Ciclo
+e marco **não são cadastros**: são planejamento, com vida curta, e o único vínculo forte é
+`tasks.cycle_id`/`tasks.milestone_id`.
+
+**Decision**
+- `deleteCycle(actor, id)` e `deleteMilestone(actor, id)` em `src/server/services/planning.ts`. Só
+  `user` com papel `admin` exclui; agente (mesmo de admin), automação e sistema são recusados.
+- Numa transação: cada tarefa ligada (de qualquer estado, inclusive concluída ou arquivada) é
+  travada com `lockTask`, perde o vínculo (`cycle_id`/`milestone_id = null`) e grava
+  `field_changed` `{ field: "cycle" | "milestone", from, to: null, deleted: "<nome>" }`, lido no
+  histórico como "removeu do Ciclo N, que foi excluído". Depois a linha do ciclo/marco é apagada.
+- O nome vai no payload porque o id deixa de existir e o histórico não conseguiria mais resolvê-lo.
+- Rastro da exclusão: o evento em cada tarefa e uma linha `[planning] ciclo excluído …` no log do
+  processo, como a troca de senha (ADR-062). **Sem tabela nova** como o `task_deletions` (ADR-063):
+  um ciclo ou marco sem tarefas não tem o que preservar além do número/nome, e a migração só
+  acrescentaria escrita. Se o Matheus quiser auditoria consultável, vira item próprio.
+- Confirmação na UI com o número de tarefas afetadas.
+
+**Alternatives considered**
+- *Arquivar (`archivedAt`) em vez de excluir:* rejeitado. O pedido é tirar o ciclo/marco de vista e
+  das tarefas; arquivar deixaria o vínculo e exigiria filtrar em todas as leituras.
+- *Recusar a exclusão com tarefas ligadas:* rejeitado pelo Matheus no prompt do Módulo 16.
+- *Tabela `planning_deletions`:* adiada (acima).
+
+**Consequences**
+- Números de ciclo não são reaproveitados enquanto houver um maior (`max + 1`); excluir o último
+  libera o número dele.
+- As tarefas perdem a referência; o histórico conta o que aconteceu.
