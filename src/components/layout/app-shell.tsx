@@ -152,7 +152,7 @@ export function AppShell({
       <nav
         aria-label="Navegação principal"
         className={cn(
-          "hidden h-dvh flex-none flex-col gap-0.5 overflow-y-auto border-r bg-surface px-2.5 py-3.5 md:flex",
+          "hidden h-dvh flex-none flex-col gap-0.5 overflow-x-hidden overflow-y-auto [scrollbar-width:thin] border-r bg-surface px-2.5 py-3.5 md:flex",
           "max-lg:fixed max-lg:inset-y-0 max-lg:left-0 max-lg:z-40 lg:sticky lg:top-0",
           overlay ? "w-sidebar-width shadow-2" : "max-lg:w-sidebar-collapsed",
           !overlay && (collapsed ? "lg:w-sidebar-collapsed" : "lg:w-sidebar-width"),
@@ -197,7 +197,7 @@ export function AppShell({
                   title={expanded || item.about ? undefined : item.label}
                   className={cn(
                     "relative flex h-[34px] items-center gap-2.5 rounded-md px-2 text-sm hover:bg-muted",
-                    !expanded && "h-10 w-11 justify-center px-0",
+                    !expanded && "h-10 w-full justify-center px-0",
                     active &&
                       "bg-accent-light font-semibold text-accent-text hover:bg-accent-light",
                   )}
@@ -259,7 +259,7 @@ export function AppShell({
           aria-keyshortcuts="["
           className={cn(
             "flex h-[34px] items-center gap-2.5 rounded-md px-2 text-left text-sm text-muted hover:bg-muted hover:text-base",
-            !expanded && "h-10 w-11 justify-center px-0",
+            !expanded && "h-10 w-full justify-center px-0",
           )}
         >
           {expanded ? (
@@ -284,7 +284,7 @@ export function AppShell({
               title={expanded ? undefined : profile.name}
               className={cn(
                 "flex h-11 items-center gap-2.5 rounded-md px-2 text-left hover:bg-muted",
-                !expanded && "w-11 justify-center px-0",
+                !expanded && "w-full justify-center px-0",
               )}
             >
               <Avatar initials={profile.initials} size="lg" />
