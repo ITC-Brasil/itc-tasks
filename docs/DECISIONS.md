@@ -2793,3 +2793,31 @@ O `npm audit` aponta advisories moderados no Next.js 16.4.2 e no nodemailer 10.1
 **Consequences**
 - Patch e minor sem mudança de API usada no app; conferido o envio de e-mail no Mailpit.
 - CLAUDE.md atualizado.
+
+---
+
+## ADR-085 — SDK do MCP declarado e advisories altos transitivos
+
+**Status:** Accepted
+**Date:** 2026-11-19
+**Module:** 18 — itens 8 e 9 da M-173
+
+**Context**
+O `@modelcontextprotocol/sdk` é usado em produção (`src/app/mcp/route.ts`, `src/server/mcp*`), mas
+nunca esteve no `package.json`: resolvia só porque o `shadcn` (dev) o traz. O `npm audit` aponta dois
+advisories altos transitivos: `body-parser` 2.3.0 (via `express` do SDK) e `systeminformation`
+5.33.15 (via `@dotenvx/dotenvx` do `shadcn`).
+
+**Decision**
+- `@modelcontextprotocol/sdk` 1.32.1 em `dependencies`, versão exata (a do CLAUDE.md).
+- `body-parser` e `systeminformation` sobem no `package-lock.json` dentro das faixas que os pais já
+  aceitam (`npm update`), sem `overrides` nem troca de versão maior.
+- Advisories moderados de dev (`drizzle-kit`, `eslint`, `shadcn`) ficam, listados no PROGRESS.
+
+**Alternatives considered**
+- `overrides` com versão exata: desnecessário, as faixas atuais já aceitam a correção. Recusada.
+- Subir o SDK para 1.32.2: sem ganho de segurança para o app. Recusada.
+
+**Consequences**
+- `npm ls --omit=dev @modelcontextprotocol/sdk` mostra o SDK na raiz; trocar o `shadcn` não mexe no MCP.
+- `npm audit` sem advisory alto ou crítico.

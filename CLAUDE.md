@@ -16,7 +16,7 @@ Chamado GLPI (opcionais), e agentes operam o app por um servidor MCP embutido em
 | PostgreSQL / Drizzle / drizzle-kit / pg | 18.6 / 0.45.4 / 0.31.11 / 8.23.1 |
 | Zod | 4.6.7 |
 | Better Auth / Argon2 | 1.7.10 / `@node-rs/argon2` 2.2.2 |
-| MCP SDK | `@modelcontextprotocol/sdk` 1.32.1 |
+| MCP SDK | `@modelcontextprotocol/sdk` 1.32.1 (em `dependencies`, ADR-085) |
 | pg-boss | 12.38.0 |
 | TanStack Query / Table | 5.104.3 / 9.3.1 |
 | dnd-kit / cmdk / Tiptap / Recharts | `@dnd-kit/react` 0.5.1 / 1.1.1 / 3.32.0 / 3.10.1 |

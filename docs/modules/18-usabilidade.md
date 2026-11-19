@@ -2,7 +2,7 @@
 
 Onze ajustes aprovados pelo Matheus em 18/11/2026 (`PROMPT_MODULO_18.md`), mais os itens 12 a 21
 acrescentados no mesmo dia pelas mensagens M-163 a M-169. Branch `feat/18-usabilidade` a partir da
-`develop` atualizada com a `main` (PR #44 mergeado). ADR-081 a ADR-084. **Sem migração.**
+`develop` atualizada com a `main` (PR #44 mergeado). ADR-081 a ADR-085. **Sem migração.**
 Aprovado com ajustes em 19/11/2026 (M-171): decisões aceitas, com a 10 substituída e a antiga 11
 retirada; ajustes na seção "Ajustes da revisão (M-171)".
 
@@ -109,6 +109,8 @@ Escolhas feitas sem o Matheus, sempre a mais conservadora. Cada uma diz onde mud
 | 5 | Barra em uma linha no desktop, busca em ícone com abas | `ec23a2d` |
 | 6 | Textos das abas da M-164; decisão 11 retirada | `862828f` |
 | 7 | Next.js 16.4.6 e nodemailer 10.6.0 (ADR-084) | `7fdcbd0`, `a7f7da4` |
+| 8 | SDK do MCP declarado em `dependencies` (M-173) | `0c17ba6` |
+| 9 | `body-parser` e `systeminformation` sem advisory alto (ADR-085) | `4f9dbb4`, `b1dceed` |
 
 Também: `a725798` (teste de automações não avalia jobs antigos do banco de teste) e `4c3887f`
 (E2E `usability.spec.ts`).
