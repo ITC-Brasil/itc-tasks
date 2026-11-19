@@ -178,3 +178,16 @@ test("nomes novos na navegação: Minhas Tarefas e Equipe", async ({ page }) => 
   await nav.getByRole("link", { name: "Equipe", exact: true }).click();
   await expect(page).toHaveTitle("Equipe · ITC Tasks");
 });
+
+test("explicação das abas: tooltip ao focar a aba e o item do menu (item 14)", async ({ page }) => {
+  await login(page);
+  await page.getByRole("link", { name: "Pessoais" }).focus();
+  await expect(page.getByText("Tarefas só suas. Ninguém mais vê, nem o admin.")).toBeVisible();
+  await page
+    .getByRole("navigation", { name: "Navegação principal" })
+    .getByRole("link", { name: "Minhas Tarefas", exact: true })
+    .focus();
+  await expect(
+    page.getByText(/Suas tarefas pessoais e as da equipe atribuídas a você\./),
+  ).toBeVisible();
+});

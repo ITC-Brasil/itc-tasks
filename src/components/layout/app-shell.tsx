@@ -15,6 +15,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { QuickCreate, openQuickCreate } from "@/components/tasks/quick-create";
 import { Avatar } from "@/components/ui/avatar";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { setSidebarCollapsedAction } from "@/server/actions/preferences";
 import { NAV, type NavItem, isActive } from "./nav";
@@ -193,7 +194,7 @@ export function AppShell({
                   key={item.href}
                   href={item.href}
                   aria-current={active ? "page" : undefined}
-                  title={expanded ? undefined : item.label}
+                  title={expanded || item.about ? undefined : item.label}
                   className={cn(
                     "relative flex h-[34px] items-center gap-2.5 rounded-md px-2 text-sm hover:bg-muted",
                     !expanded && "h-10 w-11 justify-center px-0",
@@ -220,11 +221,21 @@ export function AppShell({
                   )}
                 </Link>
               );
-              if (!lateCount) return link;
+              const tipped = item.about ? (
+                <Tooltip key={item.href}>
+                  <TooltipTrigger render={link} />
+                  <TooltipContent side="right">
+                    {expanded ? item.about : `${item.label}: ${item.about}`}
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                link
+              );
+              if (!lateCount) return tipped;
               // o selo é link próprio (filtro Atrasadas), irmão do item
               return (
                 <div key={item.href} className="relative">
-                  {link}
+                  {tipped}
                   <LateBadge
                     href={item.href}
                     count={lateCount}

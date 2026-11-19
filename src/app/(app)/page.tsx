@@ -7,6 +7,7 @@ import { CreateTaskButton } from "@/components/tasks/quick-create";
 import { MonthCalendar } from "@/components/tasks/calendar";
 import { Board } from "@/components/tasks/board";
 import { NoResults } from "@/components/tasks/no-results";
+import { ViewTabs } from "@/components/tasks/view-tabs";
 import { OverdueToggle, ViewToolbar } from "@/components/tasks/view-toolbar";
 import { TaskTable } from "@/components/tasks/task-table";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -19,13 +20,26 @@ import { listChecklistDue, listTasks } from "@/server/services/tasks";
 import { mineScope } from "@/server/views";
 
 // ADR-069: a aba vai na URL (?aba=); Módulo 16: sem o parâmetro, "Hoje"
+// Módulo 18, item 14: `about` explica a aba (tooltip no desktop, "i" no celular)
 const TABS = [
-  { aba: "", label: "Hoje" },
-  { aba: "minhas", label: "Minhas tarefas" },
-  { aba: "pessoais", label: "Pessoais" },
-  { aba: "atribuidas", label: "Atribuídas" },
-  { aba: "criadas", label: "Criadas" },
-  { aba: "mencoes", label: "Menções" },
+  { aba: "", label: "Hoje", about: "Tarefas com prazo para hoje e atrasadas." },
+  {
+    aba: "minhas",
+    label: "Minhas tarefas",
+    about: "Tudo o que você tem a resolver: as pessoais e as da equipe atribuídas a você.",
+  },
+  { aba: "pessoais", label: "Pessoais", about: "Tarefas só suas. Ninguém mais vê, nem o admin." },
+  {
+    aba: "atribuidas",
+    label: "Atribuídas",
+    about: "Tarefas da equipe em que você é o responsável.",
+  },
+  { aba: "criadas", label: "Criadas", about: "Tarefas da equipe que você criou." },
+  {
+    aba: "mencoes",
+    label: "Menções",
+    about: "Tarefas em que alguém mencionou você nos comentários.",
+  },
 ];
 
 // Módulo 16: o modo vai na URL (?visao=); sem o parâmetro, Kanban (substitui os Cards por prazo)
@@ -83,23 +97,14 @@ async function Mine({ searchParams }: PageProps<"/">) {
   const nav = (
     <ViewToolbar
       tabs={
-        <nav aria-label="Abas" className="flex flex-wrap gap-1">
-          {TABS.map((t) => (
-            <Link
-              key={t.label}
-              href={hrefOf(t.aba, visao, search, late)}
-              aria-current={t.aba === aba ? "page" : undefined}
-              className={cn(
-                "-mb-px border-b-2 px-3 py-2 text-sm",
-                t.aba === aba
-                  ? "border-accent font-medium text-accent-text"
-                  : "border-transparent text-muted",
-              )}
-            >
-              {t.label}
-            </Link>
-          ))}
-        </nav>
+        <ViewTabs
+          tabs={TABS.map((t) => ({
+            label: t.label,
+            about: t.about,
+            href: hrefOf(t.aba, visao, search, late),
+            active: t.aba === aba,
+          }))}
+        />
       }
       views={VIEWS.map((v) => ({
         label: v.label,
