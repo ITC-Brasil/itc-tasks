@@ -2,21 +2,32 @@ import { SearchX } from "lucide-react";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { type TaskFilters, filtersQuery } from "@/lib/validation/tasks";
 import { LIST_LIMIT } from "@/server/services/tasks";
 
-/** UI.md §3: filtro sem resultado. */
-export function NoResults({ href }: { href: string }) {
+/** Mesma visão e filtros, sem a busca. */
+export function clearSearch(path: string, filters: TaskFilters) {
+  const q = filtersQuery({ ...filters, q: [] });
+  return q ? `${path}?${q}` : path;
+}
+
+/** UI.md §3: filtro sem resultado; com busca (`query`, Módulo 18), o texto dela. */
+export function NoResults({ href, query }: { href: string; query?: string }) {
   return (
     <EmptyState
       icon={SearchX}
-      title="Nenhuma tarefa com esses filtros"
+      title={
+        query ? `Nenhuma tarefa encontrada para “${query}”` : "Nenhuma tarefa com esses filtros"
+      }
       action={
         <Link href={href} className={buttonVariants({ variant: "outline" })}>
-          Limpar filtros
+          {query ? "Limpar busca" : "Limpar filtros"}
         </Link>
       }
     >
-      Mude ou limpe os filtros para ver mais tarefas.
+      {query
+        ? "Confira o texto ou o número da tarefa."
+        : "Mude ou limpe os filtros para ver mais tarefas."}
     </EmptyState>
   );
 }

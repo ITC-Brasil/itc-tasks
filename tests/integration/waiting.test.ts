@@ -52,9 +52,7 @@ it("exige motivo e previsão em todas as entradas: detalhe, Kanban, massa e cria
   const t = await fresh();
   const need = { code: "VALIDATION" };
   await expect(updateTask(ana, t.id, { statusId: waitingId })).rejects.toMatchObject(need);
-  await expect(
-    moveTask(ana, t.id, { statusId: waitingId }),
-  ).rejects.toMatchObject(need);
+  await expect(moveTask(ana, t.id, { statusId: waitingId })).rejects.toMatchObject(need);
   await expect(
     bulkUpdateTasks(ana, { taskIds: [t.id], patch: { statusId: waitingId } }),
   ).rejects.toMatchObject(need);

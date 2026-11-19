@@ -23,6 +23,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { SearchField } from "./search-field";
 import {
   FILTER_PARAMS,
   type TaskFilters,
@@ -115,6 +116,7 @@ export function FilterBar({
 
   return (
     <div className="flex flex-wrap items-center gap-2 border-b bg-surface px-4 py-2 md:px-6">
+      <SearchField />
       <nav aria-label="Visões" className="flex rounded-md border p-0.5">
         {VIEW_TABS.map((t) => (
           <Link

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Topbar } from "@/components/layout/topbar";
 import { FilterBar } from "@/components/tasks/filter-bar";
-import { LimitNotice, NoResults } from "@/components/tasks/no-results";
+import { LimitNotice, NoResults, clearSearch } from "@/components/tasks/no-results";
 import { CreateTaskButton } from "@/components/tasks/quick-create";
 import { TaskTable } from "@/components/tasks/task-table";
 import { requireActor } from "@/server/actor";
@@ -22,7 +22,10 @@ async function View({ searchParams }: PageProps<"/tarefas/lista">) {
       {tasks.length ? (
         <TaskTable tasks={tasks} options={options} today={today} viewer={actor} />
       ) : (
-        <NoResults href="/tarefas/lista" />
+        <NoResults
+          href={filters.q.length ? clearSearch("/tarefas/lista", filters) : "/tarefas/lista"}
+          query={filters.q[0]}
+        />
       )}
     </main>
   );

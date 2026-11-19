@@ -12,6 +12,7 @@ export const SHORTCUTS: { keys: string[]; label: string }[] = [
   { keys: ["V", "K"], label: "Minhas Tarefas e Equipe: visão Kanban" },
   { keys: ["V", "L"], label: "Minhas Tarefas e Equipe: visão Lista" },
   { keys: ["V", "C"], label: "Minhas Tarefas e Equipe: visão Calendário" },
+  { keys: ["/"], label: "Minhas Tarefas e Equipe: buscar na tela" },
   { keys: ["["], label: "Recolher/expandir menu" },
   { keys: ["?"], label: "Mostrar atalhos" },
   { keys: ["Esc"], label: "Fechar modal/painel" },

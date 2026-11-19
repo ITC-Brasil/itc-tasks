@@ -1428,7 +1428,10 @@ export async function listTasks(
         createdAt: tasks.createdAt, // ADR-081: ordem do Kanban
         completedAt: tasks.completedAt,
         // Módulo 18: card compacto do Concluído mostra quem concluiu (último status_changed)
-        completedBy: sql<{ name: string; initials: string } | null>`CASE WHEN ${workflowStatuses.category} = 'done' THEN (
+        completedBy: sql<{
+          name: string;
+          initials: string;
+        } | null>`CASE WHEN ${workflowStatuses.category} = 'done' THEN (
           SELECT json_build_object('name', u.name, 'initials', u.initials)
           FROM ${taskEvents} e JOIN ${user} u ON u.id = e.actor_user_id
           WHERE e.task_id = ${tasks.id} AND e.type = 'status_changed'
@@ -1465,6 +1468,8 @@ export async function listTasks(
           any(f.cycleIds, (ids) => inArray(tasks.cycleId, ids)),
           any(f.waitingReasons, (ids) => inArray(tasks.waitingReason, ids)),
           f.blocked.length ? openBlocker(sql`${tasks.id}`) : undefined,
+          // Módulo 18: a busca do ⌘K como filtro; texto sem critério não acha nada
+          f.q.length ? (searchCriteria(f.q[0])?.where ?? sql`false`) : undefined,
           // ADR-045: qualquer vínculo, não só o principal
           any(f.projectIds, (ids) =>
             inArray(
@@ -1617,17 +1622,43 @@ export function prefixQuery(q: string) {
   return words.map((w) => `${w}:*`).join(" & ");
 }
 
-/** Título/descrição, `TI-142`, `#48213` (GLPI) e código de UM; abertas primeiro, até 20. */
-export async function searchTasks(actor: Actor, input: string) {
+/**
+ * Critério da busca: título/descrição, `TI-142` (ou `ti142`, `142`), `#48213` (GLPI) e código de
+ * UM. Usado pelo ⌘K e pelo `?q=` das visões (Módulo 18). `undefined` = sem critério.
+ */
+function searchCriteria(input: string) {
   const q = input.trim().slice(0, 100);
-  if (!q) return [];
+  if (!q) return undefined;
   const bare = q.replace(/^TI-?/i, "");
   const number = /^\d{1,9}$/.test(bare) ? bare : undefined;
   const glpi = /^#(\d{1,7})$/.exec(q)?.[1];
   const unit = q.replace(/^UM-/i, "").replace(/[\\%_]/g, "\\$&");
   const words = prefixQuery(q);
   const tsq = words ? sql`to_tsquery('portuguese', unaccent_immutable(${words}))` : null;
-  if (!number && !glpi && !tsq && unit.length < 2) return []; // sem critério, sem resultado
+  if (!number && !glpi && !tsq && unit.length < 2) return undefined;
+  const where = or(
+    number ? eq(tasks.number, Number(number)) : undefined,
+    glpi ? eq(tasks.glpiTicket, Number(glpi)) : undefined,
+    tsq ? sql`${tasks.search} @@ ${tsq}` : undefined,
+    unit.length >= 2
+      ? inArray(
+          tasks.id,
+          db
+            .select({ id: taskMobileUnits.taskId })
+            .from(taskMobileUnits)
+            .innerJoin(mobileUnits, eq(mobileUnits.id, taskMobileUnits.mobileUnitId))
+            .where(sql`${mobileUnits.code} ILIKE ${unit + "%"}`),
+        )
+      : undefined,
+  );
+  return { tsq, where };
+}
+
+/** ⌘K: o critério acima; abertas primeiro, até 20. */
+export async function searchTasks(actor: Actor, input: string) {
+  const c = searchCriteria(input);
+  if (!c) return []; // sem critério, sem resultado
+  const { tsq } = c;
   return db
     .select({
       id: tasks.id,
@@ -1643,21 +1674,7 @@ export async function searchTasks(actor: Actor, input: string) {
       and(
         isNull(tasks.archivedAt),
         visibleTo(actor), // ADR-069: a busca acha as pessoais só de quem busca
-        or(
-          number ? eq(tasks.number, Number(number)) : undefined,
-          glpi ? eq(tasks.glpiTicket, Number(glpi)) : undefined,
-          tsq ? sql`${tasks.search} @@ ${tsq}` : undefined,
-          unit.length >= 2
-            ? inArray(
-                tasks.id,
-                db
-                  .select({ id: taskMobileUnits.taskId })
-                  .from(taskMobileUnits)
-                  .innerJoin(mobileUnits, eq(mobileUnits.id, taskMobileUnits.mobileUnitId))
-                  .where(sql`${mobileUnits.code} ILIKE ${unit + "%"}`),
-              )
-            : undefined,
-        ),
+        c.where,
       ),
     )
     .orderBy(

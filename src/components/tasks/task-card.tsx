@@ -108,11 +108,7 @@ export function TaskCard({
     );
   return (
     <article
-      className={cn(
-        "rounded-md border bg-surface p-3 shadow-1",
-        late && "border-err",
-        className,
-      )}
+      className={cn("rounded-md border bg-surface p-3 shadow-1", late && "border-err", className)}
     >
       {title}
       {task.visibility === "personal" && <PersonalMark className="ml-1.5 align-middle" />}

@@ -6,6 +6,8 @@ import { Topbar } from "@/components/layout/topbar";
 import { CreateTaskButton } from "@/components/tasks/quick-create";
 import { MonthCalendar } from "@/components/tasks/calendar";
 import { Board } from "@/components/tasks/board";
+import { NoResults } from "@/components/tasks/no-results";
+import { SearchField } from "@/components/tasks/search-field";
 import { TaskTable } from "@/components/tasks/task-table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { dueKey, isOverdue, shortDate, todayISO } from "@/lib/dates";
@@ -49,10 +51,14 @@ const VIEWS = [
 ] as const;
 type Visao = (typeof VIEWS)[number]["visao"];
 
-/** `/?aba=…&visao=…`, sem os valores padrão. */
-const hrefOf = (aba: string, visao: string) => {
-  const q = [aba && `aba=${aba}`, visao && `visao=${visao}`].filter(Boolean).join("&");
-  return q ? `/?${q}` : "/";
+/** `/?aba=…&visao=…&q=…`, sem os valores padrão; a busca (Módulo 18) segue entre abas e visões. */
+const hrefOf = (aba: string, visao: string, search = "") => {
+  const q = new URLSearchParams();
+  if (aba) q.set("aba", aba);
+  if (visao) q.set("visao", visao);
+  if (search) q.set("q", search);
+  const s = q.toString();
+  return s ? `/?${s}` : "/";
 };
 
 async function Mine({ searchParams }: PageProps<"/">) {
@@ -61,27 +67,28 @@ async function Mine({ searchParams }: PageProps<"/">) {
   const aba = TABS.find((t) => t.aba === params.aba)?.aba ?? "";
   const visao: Visao = VIEWS.find((v) => v.visao === params.visao)?.visao ?? "";
   const today = todayISO();
+  const search = typeof params.q === "string" ? params.q.trim().slice(0, 100) : "";
   // Kanban e Lista: só o que falta resolver; o Calendário mostra também o que já foi concluído
-  const { tasks: scoped } = await listTasks(
-    actor,
-    {},
-    { ...scopeOf(aba, actor.userId), openOnly: visao !== "calendario" },
-  );
+  const { tasks: scoped } = await listTasks(actor, search ? { q: [search] } : {}, {
+    ...scopeOf(aba, actor.userId),
+    openOnly: visao !== "calendario",
+  });
   // Módulo 16, aba Hoje: com prazo até hoje (atrasadas e de hoje) e as subtarefas abertas idem
   const hoje = aba === "";
   const tasks = hoje
     ? scoped.filter((t) => t.category !== "done" && t.dueDate && t.dueDate <= today)
     : scoped;
-  const todaySubtasks = hoje
-    ? (
-        await listChecklistDue(
-          actor,
-          scoped.filter((t) => t.category !== "done").map((t) => t.id),
+  const todaySubtasks =
+    hoje && !search
+      ? (
+          await listChecklistDue(
+            actor,
+            scoped.filter((t) => t.category !== "done").map((t) => t.id),
+          )
         )
-      )
-        .filter((s) => s.dueDate <= today)
-        .sort((a, b) => dueKey(a.dueDate, a.dueTime).localeCompare(dueKey(b.dueDate, b.dueTime)))
-    : [];
+          .filter((s) => s.dueDate <= today)
+          .sort((a, b) => dueKey(a.dueDate, a.dueTime).localeCompare(dueKey(b.dueDate, b.dueTime)))
+      : [];
   tasks.sort((a, b) => dueKey(a.dueDate, a.dueTime).localeCompare(dueKey(b.dueDate, b.dueTime)));
 
   const nav = (
@@ -90,7 +97,7 @@ async function Mine({ searchParams }: PageProps<"/">) {
         {TABS.map((t) => (
           <Link
             key={t.label}
-            href={hrefOf(t.aba, visao)}
+            href={hrefOf(t.aba, visao, search)}
             aria-current={t.aba === aba ? "page" : undefined}
             className={cn(
               "-mb-px border-b-2 px-3 py-2 text-sm",
@@ -104,11 +111,14 @@ async function Mine({ searchParams }: PageProps<"/">) {
         ))}
       </nav>
       <span className="flex-1" />
+      <div className="mb-1.5">
+        <SearchField />
+      </div>
       <nav aria-label="Visões" className="mb-1.5 flex gap-1">
         {VIEWS.map((v) => (
           <Link
             key={v.label}
-            href={hrefOf(aba, v.visao)}
+            href={hrefOf(aba, v.visao, search)}
             aria-current={v.visao === visao ? "page" : undefined}
             className={cn(
               "inline-flex h-7 items-center gap-1.5 rounded-sm px-2 text-sm",
@@ -142,13 +152,15 @@ async function Mine({ searchParams }: PageProps<"/">) {
           subtasks={subtasks}
           today={today}
           path="/"
-          query={hrefOf(aba, visao).slice(2)}
+          query={hrefOf(aba, visao, search).slice(2)}
         />
       </main>
     );
   }
 
-  const empty = hoje ? (
+  const empty = search ? (
+    <NoResults href={hrefOf(aba, visao)} query={search} />
+  ) : hoje ? (
     <EmptyState icon={Sun} title="Nada para hoje" action={<CreateTaskButton />}>
       Nenhuma tarefa ou subtarefa sua vence hoje ou está atrasada.
     </EmptyState>

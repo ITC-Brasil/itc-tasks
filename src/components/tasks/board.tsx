@@ -23,10 +23,7 @@ type Columns = Record<string, TaskRow[]>; // formato do `move` do @dnd-kit/helpe
 // ADR-081: a ordem da coluna é calculada (compareKanban), nunca a do arraste
 const group = (statuses: Status[], tasks: TaskRow[]): Columns =>
   Object.fromEntries(
-    statuses.map((s) => [
-      s.id,
-      tasks.filter((t) => t.statusId === s.id).sort(compareKanban),
-    ]),
+    statuses.map((s) => [s.id, tasks.filter((t) => t.statusId === s.id).sort(compareKanban)]),
   );
 
 function Card({
@@ -178,7 +175,12 @@ export function Board({
           completedAt: target.category === "done" ? new Date() : null,
         };
         setColumns(
-          group(statuses, [...Object.values(before).flat().filter((t) => t.id !== id), moved]),
+          group(statuses, [
+            ...Object.values(before)
+              .flat()
+              .filter((t) => t.id !== id),
+            moved,
+          ]),
         );
         void (async () => {
           // ADR-078: entrar no Aguardando pede motivo e previsão; cancelar devolve o card
