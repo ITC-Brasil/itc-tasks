@@ -286,7 +286,7 @@ export function TaskDetail({
                   }}
                 />
                 <Button
-                  variant="ghost"
+                  variant="ghost-destructive"
                   size="icon-sm"
                   className="group-hover:opacity-100 focus-visible:opacity-100 md:opacity-0"
                   aria-label={`Remover ${c.text}`}
@@ -659,7 +659,7 @@ function Links({ task }: { task: Task }) {
                     </span>
                   </Link>
                   <Button
-                    variant="ghost"
+                    variant="ghost-destructive"
                     size="icon-sm"
                     className="ml-auto"
                     disabled={pending}

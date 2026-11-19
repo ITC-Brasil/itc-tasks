@@ -43,7 +43,9 @@ export function DeletePlanningDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
-        render={<Button variant="ghost" size="icon-sm" aria-label={`Excluir ${name}`} />}
+        render={
+          <Button variant="ghost-destructive" size="icon-sm" aria-label={`Excluir ${name}`} />
+        }
       >
         <Trash2 strokeWidth={1.75} aria-hidden="true" />
       </DialogTrigger>
