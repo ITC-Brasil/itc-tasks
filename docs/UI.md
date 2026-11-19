@@ -186,7 +186,7 @@ filtro "Motivo do Aguardando" na barra. Detalhes e tokens: `docs/modules/17-reco
 ## 13. Módulo 18 (usabilidade do Kanban e da navegação)
 
 - **Nomes:** "Minhas Tarefas" (`/`) e "Equipe" (`/tarefas`) na sidebar, trilho, barra inferior, títulos e atalhos.
-- **Barra das visões** (`ViewToolbar`), igual nas duas telas e sobre `bg-base`: linha 1 [abas] … [seletor de visão]; linha 2 [busca 280 px] [Filtros · n]; linha 3 com os filtros, recolhida (localStorage, `F`). Campos com fundo `bg-base`.
+- **Barra das visões** (`ViewToolbar`), igual nas duas telas e sobre `bg-base`: no desktop uma linha [abas] [busca] [Filtros · n] … [seletor de visão]; abaixo, os filtros, recolhida (localStorage, `F`). Com abas (Minhas Tarefas) a busca é um botão de ícone (`Buscar`) que abre o campo; `/` abre e foca; Esc ou sair vazio fecha; com `?q=` fica aberto. No celular a linha quebra e as abas vão para baixo. Campos com `tone="page"` (Input, Select, `PickMany`).
 - **Abas de Minhas Tarefas:** tooltip com a explicação (mouse e foco); no celular, uma linha com rolagem, fade na borda e `Info` com popover.
 - **Kanban:** ordem automática (ADR-081); card atrasado com borda `err`; Concluído com cards compactos (chevron), 14 dias e "Ver concluídas anteriores".
 - **Toast:** opaco, `--radius-lg`, um por vez; mudar status traz "Desfazer" (6 s), concluir traz também "Adicionar comentário" (`/tarefas/<n>#comentar`).
