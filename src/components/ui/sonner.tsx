@@ -30,7 +30,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
           "--normal-bg": "var(--bg-surface)",
           "--normal-text": "var(--text-base)",
           "--normal-border": "var(--border)",
-          "--border-radius": "var(--radius-md)",
+          "--border-radius": "var(--radius-lg)", // o mesmo dos menus (Módulo 18, item 17)
         } as React.CSSProperties
       }
       // um toast por vez: o novo substitui o anterior (e encerra o Desfazer dele)
