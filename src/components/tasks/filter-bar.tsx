@@ -161,6 +161,15 @@ export function FilterBar({
         />
         Bloqueadas
       </label>
+      {/* Módulo 18: o contador da navegação aplica este filtro */}
+      <label className="flex items-center gap-1.5 text-sm">
+        <Checkbox
+          aria-label="Atrasadas"
+          checked={filters.overdue.length > 0}
+          onCheckedChange={(on) => apply({ overdue: on ? ["1"] : [] })}
+        />
+        Atrasadas
+      </label>
       {current && (
         <Button variant="ghost" size="sm" onClick={() => router.replace(pathname)}>
           <X aria-hidden="true" /> Limpar filtros

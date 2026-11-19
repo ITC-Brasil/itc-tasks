@@ -64,7 +64,7 @@ import {
   WAITING_ONLY,
   WAITING_PAST,
 } from "@/lib/validation/tasks";
-import { addDays, todayISO } from "@/lib/dates";
+import { addDays, nowHM, todayISO } from "@/lib/dates";
 import { type Actor, ForbiddenError, canDeleteTask } from "@/server/permissions";
 import { type EvaluateJob, triggerOf } from "@/lib/validation/automations";
 import { type FanoutJob, QUEUES, enqueue } from "@/server/jobs";
@@ -1448,6 +1448,32 @@ export async function listTaskTemplates() {
   });
 }
 
+// ── Atrasadas (Módulo 18) ───────────────────────────────────────────
+
+/** A regra do `isLate` (src/lib/dates.ts) em SQL: prazo vencido, fora de Concluído e Aguardando. */
+function lateSql(now = new Date()) {
+  const today = todayISO(now);
+  return sql`(${workflowStatuses.category} NOT IN ('done', 'waiting') AND (${tasks.dueDate} < ${today}
+    OR (${tasks.dueDate} = ${today} AND ${tasks.dueTime} <= ${nowHM(now)})))`;
+}
+
+/**
+ * Contador da navegação: minhas atrasadas (responsável sou eu, pessoais incluídas) e as da
+ * equipe (teamOnly). Uma contagem agregada; vale o visibleTo(actor).
+ */
+export async function countLate(actor: Actor) {
+  const mine = actor.kind === "user" || actor.kind === "agent" ? actor.userId : null;
+  const [row] = await db
+    .select({
+      mine: sql<number>`count(*) FILTER (WHERE ${tasks.assigneeId} = ${mine})::int`,
+      team: sql<number>`count(*) FILTER (WHERE ${teamOnly})::int`,
+    })
+    .from(tasks)
+    .innerJoin(workflowStatuses, eq(workflowStatuses.id, tasks.statusId))
+    .where(and(isNull(tasks.archivedAt), visibleTo(actor), lateSql()));
+  return { mine: row?.mine ?? 0, team: row?.team ?? 0 };
+}
+
 // ── Visões (ADR-046) ────────────────────────────────────────────────
 
 export const LIST_LIMIT = 1000;
@@ -1536,6 +1562,7 @@ export async function listTasks(
           any(f.cycleIds, (ids) => inArray(tasks.cycleId, ids)),
           any(f.waitingReasons, (ids) => inArray(tasks.waitingReason, ids)),
           f.blocked.length ? openBlocker(sql`${tasks.id}`) : undefined,
+          f.overdue.length ? lateSql() : undefined, // Módulo 18
           // Módulo 18: a busca do ⌘K como filtro; texto sem critério não acha nada
           f.q.length ? (searchCriteria(f.q[0])?.where ?? sql`false`) : undefined,
           // ADR-045: qualquer vínculo, não só o principal

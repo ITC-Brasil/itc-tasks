@@ -21,6 +21,7 @@ import {
   addChecklistItem,
   addLink,
   bulkUpdateTasks,
+  countLate,
   createTask,
   deleteTasks,
   listAssignees,
@@ -161,6 +162,12 @@ export async function moveTaskAction(taskId: string, input: Parameters<typeof mo
     await moveTask(actor, id, input);
     return lastStatusEventId(actor, id); // ADR-082
   });
+}
+
+/** Módulo 18: contador de atrasadas da navegação (reconta ao focar e a cada 5 min). */
+export async function lateCountsAction() {
+  const actor = await requireActor();
+  return run(() => countLate(actor));
 }
 
 /** ADR-082: Desfazer do toast; o service confere autor e se a tarefa mudou desde então. */

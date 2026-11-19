@@ -1,4 +1,4 @@
-import { CalendarDays, Columns3, Inbox, List, ListChecks, Lock, Sun } from "lucide-react";
+import { CalendarDays, Columns3, Inbox, List, ListChecks, Lock, Sun, X } from "lucide-react";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Suspense } from "react";
@@ -52,11 +52,12 @@ const VIEWS = [
 type Visao = (typeof VIEWS)[number]["visao"];
 
 /** `/?aba=…&visao=…&q=…`, sem os valores padrão; a busca (Módulo 18) segue entre abas e visões. */
-const hrefOf = (aba: string, visao: string, search = "") => {
+const hrefOf = (aba: string, visao: string, search = "", late = false) => {
   const q = new URLSearchParams();
   if (aba) q.set("aba", aba);
   if (visao) q.set("visao", visao);
   if (search) q.set("q", search);
+  if (late) q.set("atrasadas", "1");
   const s = q.toString();
   return s ? `/?${s}` : "/";
 };
@@ -71,11 +72,16 @@ async function Mine({ searchParams }: PageProps<"/">) {
   // Lista: só o que falta resolver (ou só as concluídas, com ?concluidas=1); Kanban: abertas e
   // concluídas dos últimos 14 dias (Módulo 18); Calendário: tudo
   const doneOnly = visao === "lista" && params.concluidas === "1";
-  const { tasks: listed } = await listTasks(actor, search ? { q: [search] } : {}, {
-    ...scopeOf(aba, actor.userId),
-    openOnly: visao === "lista" && !doneOnly,
-    recentDone: visao === "",
-  });
+  const late = params.atrasadas === "1"; // Módulo 18: filtro Atrasadas (atalho no contador)
+  const { tasks: listed } = await listTasks(
+    actor,
+    { q: search ? [search] : [], overdue: late ? ["1"] : [] },
+    {
+      ...scopeOf(aba, actor.userId),
+      openOnly: visao === "lista" && !doneOnly,
+      recentDone: visao === "",
+    },
+  );
   const scoped = doneOnly ? listed.filter((t) => t.category === "done") : listed;
   // Módulo 16, aba Hoje: com prazo até hoje (atrasadas e de hoje) e as subtarefas abertas idem
   const hoje = aba === "";
@@ -101,7 +107,7 @@ async function Mine({ searchParams }: PageProps<"/">) {
         {TABS.map((t) => (
           <Link
             key={t.label}
-            href={hrefOf(t.aba, visao, search)}
+            href={hrefOf(t.aba, visao, search, late)}
             aria-current={t.aba === aba ? "page" : undefined}
             className={cn(
               "-mb-px border-b-2 px-3 py-2 text-sm",
@@ -115,6 +121,16 @@ async function Mine({ searchParams }: PageProps<"/">) {
         ))}
       </nav>
       <span className="flex-1" />
+      {late && (
+        <Link
+          href={hrefOf(aba, visao, search)}
+          aria-label="Tirar o filtro Atrasadas"
+          className="mb-1.5 inline-flex h-7 items-center gap-1 rounded-sm border px-2 text-sm"
+        >
+          Atrasadas
+          <X className="size-3.5" strokeWidth={1.75} aria-hidden="true" />
+        </Link>
+      )}
       <div className="mb-1.5">
         <SearchField />
       </div>
@@ -122,7 +138,7 @@ async function Mine({ searchParams }: PageProps<"/">) {
         {VIEWS.map((v) => (
           <Link
             key={v.label}
-            href={hrefOf(aba, v.visao, search)}
+            href={hrefOf(aba, v.visao, search, late)}
             aria-current={v.visao === visao ? "page" : undefined}
             className={cn(
               "inline-flex h-7 items-center gap-1.5 rounded-sm px-2 text-sm",
@@ -156,14 +172,16 @@ async function Mine({ searchParams }: PageProps<"/">) {
           subtasks={subtasks}
           today={today}
           path="/"
-          query={hrefOf(aba, visao, search).slice(2)}
+          query={hrefOf(aba, visao, search, late).slice(2)}
         />
       </main>
     );
   }
 
   const empty = search ? (
-    <NoResults href={hrefOf(aba, visao)} query={search} />
+    <NoResults href={hrefOf(aba, visao, "", late)} query={search} />
+  ) : late ? (
+    <NoResults href={hrefOf(aba, visao)} />
   ) : hoje ? (
     <EmptyState icon={Sun} title="Nada para hoje" action={<CreateTaskButton />}>
       Nenhuma tarefa ou subtarefa sua vence hoje ou está atrasada.
@@ -213,7 +231,7 @@ async function Mine({ searchParams }: PageProps<"/">) {
           statuses={statuses}
           tasks={tasks}
           today={today}
-          olderDoneHref={`${hrefOf(aba || "minhas", "lista", search)}&concluidas=1`}
+          olderDoneHref={`${hrefOf(aba || "minhas", "lista", search, late)}&concluidas=1`}
         />
       ) : (
         !(hoje && todaySubtasks.length) && <div className="p-4 md:p-6">{empty}</div>

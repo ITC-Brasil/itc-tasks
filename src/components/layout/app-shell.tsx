@@ -20,6 +20,7 @@ import { setSidebarCollapsedAction } from "@/server/actions/preferences";
 import { NAV, type NavItem, isActive } from "./nav";
 import { savePreference } from "./save-preference";
 import { CommandPalette } from "./command-palette";
+import { LATE_KEY, LateBadge, type LateCounts, useLateCounts } from "./late-badge";
 import { LiveRefresh } from "./live-refresh";
 import { RememberOrigin } from "./back-link";
 import { OfflineBanner, Pwa, useOnline } from "./pwa";
@@ -45,14 +46,22 @@ const subscribeWide = (cb: () => void) => {
 export function AppShell({
   profile,
   unread,
+  late: lateFromServer,
   children,
 }: {
   profile: ShellProfile;
   /** não lidas da central (ADR-050) */
   unread: number;
+  /** Módulo 18: atrasadas de Minhas Tarefas e da Equipe */
+  late: LateCounts;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const late = useLateCounts(lateFromServer);
+  const lateOf = (href: string) => {
+    const key = LATE_KEY.get(href);
+    return key ? late[key] : 0;
+  };
   const router = useRouter();
   const { resolvedTheme, setTheme } = useTheme();
   const [collapsed, setCollapsed] = useState(profile.sidebarCollapsed);
@@ -178,7 +187,8 @@ export function AppShell({
               ))}
             {g.items.map((item) => {
               const active = isActive(pathname, item);
-              return (
+              const lateCount = lateOf(item.href);
+              const link = (
                 <Link
                   key={item.href}
                   href={item.href}
@@ -209,6 +219,22 @@ export function AppShell({
                     </span>
                   )}
                 </Link>
+              );
+              if (!lateCount) return link;
+              // o selo é link próprio (filtro Atrasadas), irmão do item
+              return (
+                <div key={item.href} className="relative">
+                  {link}
+                  <LateBadge
+                    href={item.href}
+                    count={lateCount}
+                    dot={!expanded}
+                    className={cn(
+                      "absolute",
+                      expanded ? "top-1/2 right-2 -translate-y-1/2" : "top-1.5 right-1.5",
+                    )}
+                  />
+                </div>
               );
             })}
           </div>
@@ -286,7 +312,12 @@ export function AppShell({
         className="fixed inset-x-0 bottom-0 z-30 flex h-[calc(4rem+env(safe-area-inset-bottom))] items-start justify-around border-t bg-surface pb-[env(safe-area-inset-bottom)] md:hidden"
       >
         {BAR_ITEMS.slice(0, 2).map((item) => (
-          <BarLink key={item.href} item={item} active={isActive(pathname, item)} />
+          <BarLink
+            key={item.href}
+            item={item}
+            active={isActive(pathname, item)}
+            late={lateOf(item.href)}
+          />
         ))}
         <button
           type="button"
@@ -337,16 +368,19 @@ const BAR_ITEMS: NavItem[] = [
 const VIEWS = new Set(["/tarefas", "/tarefas/lista", "/tarefas/calendario"]);
 const BAR = new Set(BAR_ITEMS.map((i) => i.href));
 
-function BarLink({ item, active }: { item: NavItem; active: boolean }) {
+function BarLink({ item, active, late = 0 }: { item: NavItem; active: boolean; late?: number }) {
   return (
-    <Link
-      href={item.href}
-      aria-current={active ? "page" : undefined}
-      className={cn(BAR_CLASS, active && "font-semibold text-accent-text")}
-    >
-      <item.icon className="size-[22px]" aria-hidden="true" />
-      {item.label}
-    </Link>
+    <div className="relative">
+      <Link
+        href={item.href}
+        aria-current={active ? "page" : undefined}
+        className={cn(BAR_CLASS, active && "font-semibold text-accent-text")}
+      >
+        <item.icon className="size-[22px]" aria-hidden="true" />
+        {item.label}
+      </Link>
+      <LateBadge href={item.href} count={late} className="absolute top-1 right-0" />
+    </div>
   );
 }
 
