@@ -64,7 +64,7 @@ import {
   WAITING_ONLY,
   WAITING_PAST,
 } from "@/lib/validation/tasks";
-import { todayISO } from "@/lib/dates";
+import { addDays, todayISO } from "@/lib/dates";
 import { type Actor, ForbiddenError, canDeleteTask } from "@/server/permissions";
 import { type EvaluateJob, triggerOf } from "@/lib/validation/automations";
 import { type FanoutJob, QUEUES, enqueue } from "@/server/jobs";
@@ -1384,7 +1384,8 @@ export async function listTaskTemplates() {
 // ── Visões (ADR-046) ────────────────────────────────────────────────
 
 export const LIST_LIMIT = 1000;
-const RECENT_DONE_DAYS = 14;
+/** Módulo 18: dias de concluídas no Kanban (data de conclusão em Brasília; hoje conta). */
+export const RECENT_DONE_DAYS = 14;
 
 /**
  * Kanban, Lista, Calendário e Minhas tarefas: tarefas não arquivadas que passam nos filtros.
@@ -1528,10 +1529,11 @@ export async function listTasks(
     scope.openOnly
       ? []
       : query(
-          scope.recentDone
+          // Módulo 18: com busca, as antigas que casam também aparecem (nada fica escondido)
+          scope.recentDone && !f.q.length
             ? and(
                 done,
-                gt(tasks.completedAt, sql`now() - make_interval(days => ${RECENT_DONE_DAYS})`),
+                sql`(${tasks.completedAt} AT TIME ZONE 'America/Sao_Paulo')::date > ${addDays(todayISO(), -RECENT_DONE_DAYS)}`,
               )
             : done,
         )

@@ -4,6 +4,7 @@ import { DragDropProvider, useDroppable } from "@dnd-kit/react";
 import { move } from "@dnd-kit/helpers";
 import { useSortable } from "@dnd-kit/react/sortable";
 import { ChevronDown, ChevronUp, GripVertical, Plus } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
@@ -80,7 +81,17 @@ function Card({
   );
 }
 
-function Column({ status, tasks, today }: { status: Status; tasks: TaskRow[]; today: string }) {
+function Column({
+  status,
+  tasks,
+  today,
+  olderDoneHref,
+}: {
+  status: Status;
+  tasks: TaskRow[];
+  today: string;
+  olderDoneHref?: string;
+}) {
   const { ref, isDropTarget } = useDroppable({
     id: status.id,
     type: "column",
@@ -107,6 +118,12 @@ function Column({ status, tasks, today }: { status: Status; tasks: TaskRow[]; to
           <Card key={t.id} task={t} index={i} column={status.id} today={today} />
         ))}
       </ul>
+      {/* Módulo 18: o Kanban só traz as concluídas dos últimos 14 dias */}
+      {status.category === "done" && olderDoneHref && (
+        <Link href={olderDoneHref} className="mx-3 mb-3 text-sm text-accent-text hover:underline">
+          Ver concluídas anteriores
+        </Link>
+      )}
       {/* ADR-078: no Aguardando a tarefa entra arrastando (com motivo e previsão) */}
       {status.category !== "waiting" && (
         <Button
@@ -127,10 +144,12 @@ export function Board({
   statuses,
   tasks,
   today,
+  olderDoneHref,
 }: {
   statuses: Status[];
   tasks: TaskRow[];
   today: string;
+  olderDoneHref?: string; // pé da coluna Concluído: Lista com as concluídas
 }) {
   const router = useRouter();
   const [columns, setColumns] = useState(() => group(statuses, tasks));
@@ -199,7 +218,13 @@ export function Board({
       {/* < 768 px: uma coluna por vez, com snap (UI.md §6) */}
       <div className="flex flex-1 snap-x snap-mandatory gap-3 overflow-x-auto p-4 md:snap-none md:p-6">
         {statuses.map((s) => (
-          <Column key={s.id} status={s} tasks={Reflect.get(columns, s.id) ?? []} today={today} />
+          <Column
+            key={s.id}
+            status={s}
+            tasks={Reflect.get(columns, s.id) ?? []}
+            today={today}
+            olderDoneHref={olderDoneHref}
+          />
         ))}
       </div>
     </DragDropProvider>

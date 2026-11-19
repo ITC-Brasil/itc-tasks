@@ -68,11 +68,15 @@ async function Mine({ searchParams }: PageProps<"/">) {
   const visao: Visao = VIEWS.find((v) => v.visao === params.visao)?.visao ?? "";
   const today = todayISO();
   const search = typeof params.q === "string" ? params.q.trim().slice(0, 100) : "";
-  // Kanban e Lista: só o que falta resolver; o Calendário mostra também o que já foi concluído
-  const { tasks: scoped } = await listTasks(actor, search ? { q: [search] } : {}, {
+  // Lista: só o que falta resolver (ou só as concluídas, com ?concluidas=1); Kanban: abertas e
+  // concluídas dos últimos 14 dias (Módulo 18); Calendário: tudo
+  const doneOnly = visao === "lista" && params.concluidas === "1";
+  const { tasks: listed } = await listTasks(actor, search ? { q: [search] } : {}, {
     ...scopeOf(aba, actor.userId),
-    openOnly: visao !== "calendario",
+    openOnly: visao === "lista" && !doneOnly,
+    recentDone: visao === "",
   });
+  const scoped = doneOnly ? listed.filter((t) => t.category === "done") : listed;
   // Módulo 16, aba Hoje: com prazo até hoje (atrasadas e de hoje) e as subtarefas abertas idem
   const hoje = aba === "";
   const tasks = hoje
@@ -205,7 +209,12 @@ async function Mine({ searchParams }: PageProps<"/">) {
         </div>
       )}
       {tasks.length ? (
-        <Board statuses={statuses} tasks={tasks} today={today} />
+        <Board
+          statuses={statuses}
+          tasks={tasks}
+          today={today}
+          olderDoneHref={`${hrefOf(aba || "minhas", "lista", search)}&concluidas=1`}
+        />
       ) : (
         !(hoje && todaySubtasks.length) && <div className="p-4 md:p-6">{empty}</div>
       )}

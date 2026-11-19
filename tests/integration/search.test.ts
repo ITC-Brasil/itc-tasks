@@ -67,7 +67,7 @@ it("?q= nas visões: TI-n, ti n, número e texto, sem pessoal de outra pessoa (M
   const project = await createProject(system, { code: `Q${tag}`, name: "Busca Q", kind: "client" });
   const word = `Impressorax${tag}`;
   const t = await createTask(me, { title: `Ligar ${word}`, projectIds: [project.id] });
-  await createTask(other, { title: `${word} pessoal`, visibility: "personal" });
+  await createTask(other, { title: `${word} pessoal`, projectIds: [], visibility: "personal" });
   const found = async (q: string) =>
     (await listTasks(me, { q: [q], projectIds: [project.id] })).tasks.map((r) => r.id);
   for (const q of [`TI-${t.number}`, `ti${t.number}`, String(t.number), word.toLowerCase()])

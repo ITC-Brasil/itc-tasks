@@ -164,3 +164,17 @@ it("concluída traz quem concluiu; aberta não (Módulo 18, card compacto)", asy
   expect(rows.find((r) => r.id === t.id)?.completedBy?.name).toBe("outra");
   expect(rows.find((r) => r.id !== t.id)?.completedBy).toBeNull();
 });
+
+it("Kanban com busca traz também as concluídas antigas que casam (Módulo 18)", async () => {
+  const p = (await createProject(system, { code: code(), name: "Visões E", kind: "client" })).id;
+  const old = await createTask(me, { title: `antigaz${run}`, projectIds: [p] });
+  await completeTask(me, old.id);
+  await db
+    .update(tasks)
+    .set({ completedAt: new Date(Date.now() - 20 * 86_400_000) })
+    .where(eq(tasks.id, old.id));
+  expect(await titles(me, { projectIds: [p] }, { recentDone: true })).toEqual([]);
+  expect(await titles(me, { projectIds: [p], q: [`antigaz${run}`] }, { recentDone: true })).toEqual(
+    [`antigaz${run}`],
+  );
+});

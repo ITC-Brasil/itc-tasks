@@ -20,7 +20,15 @@ async function View({ searchParams }: PageProps<"/tarefas">) {
       {filters.q.length && !tasks.length ? (
         <NoResults href={clearSearch("/tarefas", filters)} query={filters.q[0]} />
       ) : (
-        <Board statuses={options.statuses} tasks={tasks} today={today} />
+        <Board
+          statuses={options.statuses}
+          tasks={tasks}
+          today={today}
+          olderDoneHref={`/tarefas/lista?${options.statuses
+            .filter((s) => s.category === "done")
+            .map((s) => `status=${s.id}`)
+            .join("&")}`}
+        />
       )}
     </main>
   );
