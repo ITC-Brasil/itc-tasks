@@ -2690,10 +2690,10 @@ no meio da coluna.
   3. depois `created_at` mais recente; por fim `number` (ordem estável);
   4. sem prazo no fim, por prioridade e `created_at` mais recente;
   5. coluna da categoria `done`: `completed_at` mais recente primeiro.
-- Uma só função, `compareKanban` em `src/lib/kanban-order.ts`, usada pelo `listTasks` e pelo
-  quadro (que reordena na hora depois do arraste), com teste unitário. Fica em TypeScript, não
-  em SQL: o `listTasks` já junta duas consultas (abertas e concluídas) em memória, e o quadro
-  precisa da mesma regra no cliente.
+- Uma só função, `compareKanban` em `src/lib/kanban-order.ts`, aplicada pelo `Board` (o único
+  componente de Kanban, nas duas telas) ao montar as colunas e depois de cada arraste, com teste
+  unitário. Fica em TypeScript, não em SQL: o quadro precisa da regra no cliente para reordenar
+  na hora, e o `listTasks` serve também a Lista, que não muda.
 - Arrastar entre colunas muda o status; arrastar dentro da mesma coluna não faz nada (o card
   volta à posição calculada).
 - `position` deixa de ser gravado ao mudar de status (`moveTask` e `applyUpdate`). A coluna

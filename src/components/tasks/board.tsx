@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { compareKanban } from "@/lib/kanban-order";
 import { cn } from "@/lib/utils";
 import { moveTaskAction } from "@/server/actions/tasks";
 import type { TaskRow } from "@/server/services/tasks";
@@ -19,8 +20,14 @@ import { useWaitingPrompt } from "./waiting";
 type Status = { id: string; name: string; category: Category };
 type Columns = Record<string, TaskRow[]>; // formato do `move` do @dnd-kit/helpers
 
+// ADR-081: a ordem da coluna é calculada (compareKanban), nunca a do arraste
 const group = (statuses: Status[], tasks: TaskRow[]): Columns =>
-  Object.fromEntries(statuses.map((s) => [s.id, tasks.filter((t) => t.statusId === s.id)]));
+  Object.fromEntries(
+    statuses.map((s) => [
+      s.id,
+      tasks.filter((t) => t.statusId === s.id).sort(compareKanban),
+    ]),
+  );
 
 function Card({
   task,
@@ -145,16 +152,25 @@ export function Board({
           throw new Error("card fora do quadro");
         };
         const [from, to] = [where(before), where(after)];
-        if (from.statusId === to.statusId && from.index === to.index) return;
-        setColumns(after);
-        const afterTaskId = to.index > 0 ? to.list[to.index - 1].id : null;
+        // ADR-081: dentro da mesma coluna não reordena; o card volta à posição calculada
+        if (from.statusId === to.statusId) return setColumns(before);
+        const target = statuses.find((s) => s.id === to.statusId)!;
+        const moved = {
+          ...to.list[to.index],
+          statusId: target.id,
+          category: target.category,
+          completedAt: target.category === "done" ? new Date() : null,
+        };
+        setColumns(
+          group(statuses, [...Object.values(before).flat().filter((t) => t.id !== id), moved]),
+        );
         void (async () => {
           // ADR-078: entrar no Aguardando pede motivo e previsão; cancelar devolve o card
           const entering =
             categoryOf(to.statusId) === "waiting" && categoryOf(from.statusId) !== "waiting";
           const waiting = entering ? await askWaiting() : {};
           if (!waiting) return setColumns(before);
-          const r = await moveTaskAction(id, { statusId: to.statusId, afterTaskId, ...waiting });
+          const r = await moveTaskAction(id, { statusId: to.statusId, ...waiting });
           if (r.ok) return router.refresh();
           setColumns(before);
           toast.error(r.error);

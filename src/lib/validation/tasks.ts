@@ -187,7 +187,6 @@ export const deleteTasksSchema = z.object({ taskIds: z.array(uuid).min(1).max(20
 
 export const moveTaskSchema = z.object({
   statusId: uuid,
-  afterTaskId: uuid.nullable(), // null = topo da coluna
   waitingReason: fields.waitingReason,
   waitingNote: fields.waitingNote,
   waitingUntil: fields.waitingUntil,

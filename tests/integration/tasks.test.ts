@@ -154,34 +154,11 @@ it("update grava um evento por campo alterado e ignora o que não mudou", async 
   ]);
 });
 
-it("move ordena pela posição fracionária dentro do status", async () => {
-  const a = await createTask(actor, {
-    title: "A",
-    projectIds: [projectId],
-    statusId: status.backlog,
-  });
-  const b = await createTask(actor, {
-    title: "B",
-    projectIds: [projectId],
-    statusId: status.backlog,
-  });
+it("move muda o status sem gravar posição (ADR-081)", async () => {
   const c = await createTask(actor, { title: "C", projectIds: [projectId], statusId: status.todo });
-  await moveTask(actor, c.id, { statusId: status.backlog, afterTaskId: a.id });
-  const order = await db
-    .select({ id: tasks.id })
-    .from(tasks)
-    .where(eq(tasks.statusId, status.backlog))
-    .orderBy(asc(tasks.position));
-  const ids = order.map((r) => r.id).filter((id) => [a.id, b.id, c.id].includes(id));
-  expect(ids).toEqual([a.id, c.id, b.id]);
-  await moveTask(actor, b.id, { statusId: status.backlog, afterTaskId: null });
-  const [first] = await db
-    .select({ id: tasks.id })
-    .from(tasks)
-    .where(eq(tasks.statusId, status.backlog))
-    .orderBy(asc(tasks.position))
-    .limit(1);
-  expect(first.id).toBe(b.id);
+  const moved = await moveTask(actor, c.id, { statusId: status.backlog });
+  expect(moved.statusId).toBe(status.backlog);
+  expect(moved.position).toBe(c.position);
 });
 
 it("bulk é tudo ou nada", async () => {
@@ -380,17 +357,6 @@ it("descrição igual não grava nem mexe no updatedAt", async () => {
   });
   expect(same.updatedAt).toEqual(t.updatedAt);
   expect((await events(t.id)).map((e) => e.type)).toEqual(["created"]);
-});
-
-it("reordenar no mesmo status atualiza o updatedAt", async () => {
-  await createTask(actor, { title: "Ord A", projectIds: [projectId], statusId: status.backlog });
-  const b = await createTask(actor, {
-    title: "Ord B",
-    projectIds: [projectId],
-    statusId: status.backlog,
-  });
-  const moved = await moveTask(actor, b.id, { statusId: status.backlog, afterTaskId: null });
-  expect(moved.updatedAt.getTime()).toBeGreaterThan(b.updatedAt.getTime());
 });
 
 it("update sem projectIds/mobileUnitIds mantém o principal (M-029)", async () => {

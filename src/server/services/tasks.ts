@@ -809,8 +809,7 @@ async function applyUpdate(
   if (statusChanged && toStatus.category === "done" && fromStatus?.category !== "done")
     await releaseBlocked(tx, actor, current);
   if (statusChanged) {
-    set.statusId = toStatus.id;
-    set.position = await lastPosition(tx, toStatus.id, current.id);
+    set.statusId = toStatus.id; // ADR-081: sem position, o Kanban ordena sozinho
     Object.assign(set, completion(fromStatus?.category, toStatus.category, current.completedAt));
     events.push({
       type: "status_changed",
@@ -882,41 +881,16 @@ export async function updateTask(actor: Actor, taskId: string, input: UpdateTask
   );
 }
 
-/** Kanban: muda status e posição (depois de `afterTaskId`, ou no topo). */
+/** Kanban: muda o status (ADR-081: a ordem da coluna é calculada, sem posição manual). */
 export async function moveTask(
   actor: Actor,
   taskId: string,
   input: z.input<typeof moveTaskSchema>,
 ) {
-  const { statusId, afterTaskId, ...waiting } = moveTaskSchema.parse(input);
-  return db.transaction(async (tx) => {
-    const current = await lockTask(tx, taskId, actor);
-    let task = await applyUpdate(tx, actor, current, { statusId, ...waiting });
-    const [prev] = afterTaskId
-      ? await tx
-          .select({ p: tasks.position })
-          .from(tasks)
-          .where(and(eq(tasks.id, afterTaskId), eq(tasks.statusId, statusId)))
-      : [{ p: null }];
-    if (!prev) throw new TaskError("NOT_FOUND", "Tarefa de referência não está nesse status");
-    const [next] = await tx
-      .select({ p: min(tasks.position) })
-      .from(tasks)
-      .where(
-        and(
-          eq(tasks.statusId, statusId),
-          ne(tasks.id, taskId),
-          prev.p ? gt(tasks.position, prev.p) : undefined,
-        ),
-      );
-    const position = generateKeyBetween(prev.p, next?.p ?? null);
-    [task] = await tx
-      .update(tasks)
-      .set({ position, updatedAt: new Date() })
-      .where(eq(tasks.id, taskId))
-      .returning();
-    return task;
-  });
+  const data = moveTaskSchema.parse(input);
+  return db.transaction(async (tx) =>
+    applyUpdate(tx, actor, await lockTask(tx, taskId, actor), data),
+  );
 }
 
 /** Move para o primeiro status `done`; idempotente (API.md › complete_task). */
@@ -1451,6 +1425,8 @@ export async function listTasks(
         position: tasks.position,
         dueDate: tasks.dueDate,
         dueTime: tasks.dueTime,
+        createdAt: tasks.createdAt, // ADR-081: ordem do Kanban
+        completedAt: tasks.completedAt,
         recurrenceId: tasks.recurrenceId, // ADR-077: selo no card
         blocked: sql<boolean>`${openBlocker(sql`${tasks.id}`)}`, // ADR-079
         waitingReason: tasks.waitingReason, // ADR-078

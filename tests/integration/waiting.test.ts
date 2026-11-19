@@ -53,7 +53,7 @@ it("exige motivo e previsão em todas as entradas: detalhe, Kanban, massa e cria
   const need = { code: "VALIDATION" };
   await expect(updateTask(ana, t.id, { statusId: waitingId })).rejects.toMatchObject(need);
   await expect(
-    moveTask(ana, t.id, { statusId: waitingId, afterTaskId: null }),
+    moveTask(ana, t.id, { statusId: waitingId }),
   ).rejects.toMatchObject(need);
   await expect(
     bulkUpdateTasks(ana, { taskIds: [t.id], patch: { statusId: waitingId } }),
@@ -70,7 +70,7 @@ it("exige motivo e previsão em todas as entradas: detalhe, Kanban, massa e cria
   ).rejects.toMatchObject(need);
   await expect(updateTask(ana, t.id, ok)).rejects.toMatchObject(need);
 
-  const moved = await moveTask(ana, t.id, { statusId: waitingId, afterTaskId: null, ...ok });
+  const moved = await moveTask(ana, t.id, { statusId: waitingId, ...ok });
   expect(moved).toMatchObject({ waitingReason: "purchase", waitingUntil: ok.waitingUntil });
   const other = await fresh();
   const [bulk] = await bulkUpdateTasks(ana, {

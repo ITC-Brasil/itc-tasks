@@ -184,7 +184,6 @@ async function Mine({ searchParams }: PageProps<"/">) {
 
   // Kanban com colunas por status, como em Tarefas (também na aba Hoje); arrastar muda o status
   const statuses = tasks.length ? await listStatuses(actor) : [];
-  tasks.sort((a, b) => (a.position < b.position ? -1 : a.position > b.position ? 1 : 0));
   return (
     <main className="flex min-w-0 flex-1 flex-col">
       <div className="px-4 pt-4 md:px-6 md:pt-6 [&>div]:mb-0">{nav}</div>
