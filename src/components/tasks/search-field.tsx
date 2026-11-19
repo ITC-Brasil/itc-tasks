@@ -50,6 +50,7 @@ export function SearchField() {
         aria-label="Buscar tarefas"
         placeholder="Buscar por título ou TI-123"
         maxLength={100}
+        tone="page"
         className="pl-8"
         value={value}
         onChange={(e) => setValue(e.target.value)}

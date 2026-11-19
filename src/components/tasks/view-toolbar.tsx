@@ -30,8 +30,8 @@ export function ViewToolbar({
   children: React.ReactNode;
 }) {
   return (
-    // campos da barra no fundo da página (M-165); os menus que abrem seguem em superfície elevada
-    <div className="flex flex-col gap-3 px-4 pt-4 md:px-6 md:pt-6 [&_[data-slot=select-trigger]]:bg-base [&_input]:bg-base">
+    // campos da barra no fundo da página (M-165): `tone="page"` em cada campo (M-171)
+    <div className="flex flex-col gap-3 px-4 pt-4 md:px-6 md:pt-6">
       <div className="flex items-end gap-x-4 border-b">
         {tabs}
         <span className="flex-1" />

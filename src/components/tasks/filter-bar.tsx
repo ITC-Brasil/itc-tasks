@@ -85,6 +85,7 @@ export function FilterBar({
     <div className="w-44">
       <PickMany
         label={label}
+        tone="page"
         items={list as never}
         value={Reflect.get(filters, field) as string[]}
         onChange={(v) => apply({ [field]: v })}
