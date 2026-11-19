@@ -109,9 +109,7 @@ export async function updateTaskAction(taskId: string, number: number, input: Up
   // ADR-082: mudança de status devolve o evento, para o Desfazer do toast
   return run(
     () =>
-      updateTask(actor, id, input).then((t) =>
-        actor.kind === "user" ? t.statusEventId : null,
-      ),
+      updateTask(actor, id, input).then((t) => (actor.kind === "user" ? t.statusEventId : null)),
     detail(number),
   );
 }

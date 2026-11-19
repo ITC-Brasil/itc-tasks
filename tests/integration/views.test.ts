@@ -170,7 +170,9 @@ it("concluída por automação fica sem avatar, mesmo com mudança anterior de p
   const p = (await createProject(system, { code: code(), name: "Visões F", kind: "client" })).id;
   const t = await createTask(me, { title: `auto ${run}`, projectIds: [p] });
   await completeTask(other, t.id);
-  await updateTask(other, t.id, { statusId: (await createTask(me, { title: `x ${run}`, projectIds: [p] })).statusId });
+  await updateTask(other, t.id, {
+    statusId: (await createTask(me, { title: `x ${run}`, projectIds: [p] })).statusId,
+  });
   await completeTask({ kind: "automation", automationId: crypto.randomUUID(), depth: 1 }, t.id);
   const { tasks: rows } = await listTasks(me, { projectIds: [p] });
   expect(rows.find((r) => r.id === t.id)?.completedBy).toBeNull();
