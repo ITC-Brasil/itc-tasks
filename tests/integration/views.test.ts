@@ -17,6 +17,7 @@ import {
   createTask,
   listTasks,
   updateChecklistItem,
+  updateTask,
 } from "@/server/services/tasks";
 
 const system: Actor = { kind: "system" };
@@ -163,6 +164,16 @@ it("concluída traz quem concluiu; aberta não (Módulo 18, card compacto)", asy
   const { tasks: rows } = await listTasks(me, { projectIds: [p] });
   expect(rows.find((r) => r.id === t.id)?.completedBy?.name).toBe("outra");
   expect(rows.find((r) => r.id !== t.id)?.completedBy).toBeNull();
+});
+
+it("concluída por automação fica sem avatar, mesmo com mudança anterior de pessoa (M-171)", async () => {
+  const p = (await createProject(system, { code: code(), name: "Visões F", kind: "client" })).id;
+  const t = await createTask(me, { title: `auto ${run}`, projectIds: [p] });
+  await completeTask(other, t.id);
+  await updateTask(other, t.id, { statusId: (await createTask(me, { title: `x ${run}`, projectIds: [p] })).statusId });
+  await completeTask({ kind: "automation", automationId: crypto.randomUUID(), depth: 1 }, t.id);
+  const { tasks: rows } = await listTasks(me, { projectIds: [p] });
+  expect(rows.find((r) => r.id === t.id)?.completedBy).toBeNull();
 });
 
 it("Kanban com busca traz também as concluídas antigas que casam (Módulo 18)", async () => {
