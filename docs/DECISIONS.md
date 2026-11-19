@@ -2768,3 +2768,28 @@ dependências); passar `?de=` em todos espalha a regra e cria um parâmetro de r
 
 **Consequences**
 - Sem parâmetro na URL, não há redirecionamento aberto.
+
+---
+
+## ADR-084 — Next.js 16.4.6 e nodemailer 10.6.0 por segurança
+
+**Status:** Accepted
+**Date:** 2026-11-19
+**Module:** 18 — ajuste 7 da M-171
+
+**Context**
+O `npm audit` aponta advisories moderados no Next.js 16.4.2 e no nodemailer 10.1.2, e o
+`next build` local para com um alerta de vulnerabilidade conhecida. As versões são fixadas
+(sem `^`) no `package.json` e na tabela de stack do CLAUDE.md.
+
+**Decision**
+- `next` e `eslint-config-next` 16.4.2 → 16.4.6; `nodemailer` 10.1.2 → 10.6.0, fixadas.
+- `drizzle-kit` fica em 0.31.11: a correção só existe em versão maior e ele só roda em dev.
+
+**Alternatives considered**
+- Esperar o próximo módulo de manutenção: o build local continua travado. Recusada.
+- Subir o `drizzle-kit` junto: mudança maior, sem exposição em produção. Recusada.
+
+**Consequences**
+- Patch e minor sem mudança de API usada no app; conferido o envio de e-mail no Mailpit.
+- CLAUDE.md atualizado.

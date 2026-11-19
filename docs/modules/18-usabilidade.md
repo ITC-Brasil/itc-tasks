@@ -2,7 +2,9 @@
 
 Onze ajustes aprovados pelo Matheus em 18/11/2026 (`PROMPT_MODULO_18.md`), mais os itens 12 a 21
 acrescentados no mesmo dia pelas mensagens M-163 a M-169. Branch `feat/18-usabilidade` a partir da
-`develop` atualizada com a `main` (PR #44 mergeado). ADR-081 a ADR-083. **Sem migração.**
+`develop` atualizada com a `main` (PR #44 mergeado). ADR-081 a ADR-084. **Sem migração.**
+Aprovado com ajustes em 19/11/2026 (M-171): decisões aceitas, com a 10 substituída e a antiga 11
+retirada; ajustes na seção "Ajustes da revisão (M-171)".
 
 ## Decisões a confirmar
 
@@ -34,23 +36,22 @@ Escolhas feitas sem o Matheus, sempre a mais conservadora. Cada uma diz onde mud
 9. **Item 12 (pessoal concluída sumia):** a causa era o escopo de Minhas Tarefas, não a consulta:
    Kanban e Lista pediam `openOnly`. Agora Kanban traz as concluídas dos 14 dias e a **Lista traz
    todas** (abertas e concluídas, ADR-047). Antes a Lista de Minhas Tarefas era só de abertas.
-10. **Barra de ferramentas (itens 13 e M-165):** escolhida a estrutura em três linhas nas duas
-    telas: [abas] … [seletor de visão] / [busca 280 px] [Filtros · n] / filtros (recolhida). Em
-    Equipe, sem abas, a linha 1 tem só o seletor à direita. Em Minhas Tarefas a linha de filtros
+10. **Barra de ferramentas (itens 13, M-165 e M-171 ajuste 5):** no desktop, uma linha nas duas
+    telas: [abas] [busca] [Filtros · n] … [seletor de visão]; filtros recolhíveis abaixo. Escolhida
+    a regra mais simples: **em Minhas Tarefas (com abas) a busca é sempre ícone**, que abre o campo
+    (`/` também); em Equipe o campo fica aberto. No celular a linha quebra e as abas vão para a
+    segunda linha, sobre o traço. Em Minhas Tarefas a linha de filtros
     tem só "Atrasadas" (o chip removível da primeira versão saiu). Estado aberto/fechado em
     `localStorage`, atalho `F`.
-11. **Texto da aba "Minhas tarefas"** (não estava na M-164): "Tudo o que você tem a resolver: as
-    pessoais e as da equipe atribuídas a você." Os outros textos batem com a regra. Equipe não tem
-    abas: nada a aplicar lá.
-12. **Evento da edição de subtarefa** (item 19): reaproveita `checklist_changed` com
+11. **Evento da edição de subtarefa** (item 19): reaproveita `checklist_changed` com
     `action: "edited"` e `from`, em vez do tipo novo `checklist_item_updated` (sem mexer nos tipos
     nem nas preferências). Criar com subtarefas grava só o evento `created` (itens na mesma
     transação).
-13. **Lixeira vermelha** (item 20): variante `ghost-destructive` do Button em ciclos/marcos,
+12. **Lixeira vermelha** (item 20): variante `ghost-destructive` do Button em ciclos/marcos,
     recorrências, subtarefas, vínculos e dependências. Ficaram de fora "Remover ação" do formulário
     de automação (não apaga dado salvo) e os botões com texto "Excluir" (secundários, com diálogo
     destrutivo).
-14. **Itens 5 e 6, e 8 e 9 da interface,** saíram em um commit cada par: mexem no mesmo `TaskCard` /
+13. **Itens 5 e 6, e 8 e 9 da interface,** saíram em um commit cada par: mexem no mesmo `TaskCard` /
     no mesmo toast.
 
 ### Para o Cowork atualizar o Design System
@@ -69,6 +70,10 @@ Escolhas feitas sem o Matheus, sempre a mais conservadora. Cada uma diz onde mud
 - **Abas com explicação:** tooltip (mouse e foco); no celular `Info` 16 px em alvo de 44 px com
   popover; abas numa linha com rolagem e fade na borda.
 - **Button `ghost-destructive`:** `text-muted` em repouso, ícone `err` no hover/foco, fundo `bg-muted`.
+- **Input e Select `tone`** (M-171): `surface` (padrão) ou `page` (`bg-base`, campos sobre o fundo da
+  página, como na barra das visões); também em `PickMany`.
+- **Barra das visões em uma linha** (M-171): busca recolhida em botão de ícone `Search` 16 px
+  (`aria-label="Buscar"`, 44 px no celular) quando a barra tem abas.
 
 ## Itens
 
@@ -94,6 +99,17 @@ Escolhas feitas sem o Matheus, sempre a mais conservadora. Cada uma diz onde mud
 | 20 | Lixeira em `err` no hover (M-169) | `9c90837` |
 | 21 | Número de atrasadas no trilho (M-169) | `4f6111e` |
 
+### Ajustes da revisão (M-171)
+
+| # | Ajuste | Commit |
+|---|---|---|
+| 1 | Avatar de quem concluiu: último `status_changed` primeiro, depois a pessoa | `26ce6d7` |
+| 2 | Desfazer só do evento gravado nesta chamada (`statusEventId`) | `69f754a` |
+| 3, 4 | `aria-hidden` em "Remover ação"; `tone="page"` no Input/Select | `6cfc78e` |
+| 5 | Barra em uma linha no desktop, busca em ícone com abas | `ec23a2d` |
+| 6 | Textos das abas da M-164; decisão 11 retirada | `862828f` |
+| 7 | Next.js 16.4.6 e nodemailer 10.6.0 (ADR-084) | `7fdcbd0`, `a7f7da4` |
+
 Também: `a725798` (teste de automações não avalia jobs antigos do banco de teste) e `4c3887f`
 (E2E `usability.spec.ts`).
 
@@ -102,7 +118,8 @@ Também: `a725798` (teste de automações não avalia jobs antigos do banco de t
 - `src/lib/kanban-order.ts` (+ teste) — `compareKanban`.
 - `src/lib/dates.ts` — `isLate`; SQL equivalente `lateSql` e `countLate` em `src/server/services/tasks.ts`.
 - `src/server/services/tasks.ts` — `searchCriteria` (⌘K e `?q=`), `?atrasadas`, corte de 14 dias,
-  `completedBy`, `lastStatusEventId`, `undoStatusChange`, `moveTask` sem posição.
+  `completedBy`, `statusEventId` (devolvido pelo `applyUpdate`), `undoStatusChange`, `moveTask`
+  sem posição.
 - `src/server/views.ts` — `mineScope` (escopo das abas de Minhas Tarefas).
 - `src/components/tasks/view-toolbar.tsx`, `view-tabs.tsx`, `search-field.tsx`, `status-toast.tsx`,
   `checklist-draft.tsx`; `src/components/layout/back-link.tsx`, `late-badge.tsx`.
@@ -124,7 +141,7 @@ Sem achado aberto.
 
 ## Testes
 
-- Vitest: 233 (42 arquivos). Novos: `kanban-order.test.ts`, `back-link.test.ts`, `isLate`,
+- Vitest: 235 (42 arquivos). Novos: `kanban-order.test.ts`, `back-link.test.ts`, `isLate`,
   `undo.test.ts`, `late.test.ts`, casos em `views`, `search`, `tasks`.
 - E2E: `usability.spec.ts` (ordem, borda, compacto, Voltar com filtros, busca por ID e texto,
   toast único com ações, Desfazer e recusa, convite a comentar, contador e Atrasadas, trilho sem

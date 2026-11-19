@@ -29,7 +29,6 @@ import {
   moveTask,
   removeChecklistItem,
   removeLink,
-  lastStatusEventId,
   searchTasks,
   undoStatusChange,
   updateChecklistItem,
@@ -110,8 +109,8 @@ export async function updateTaskAction(taskId: string, number: number, input: Up
   // ADR-082: mudança de status devolve o evento, para o Desfazer do toast
   return run(
     () =>
-      updateTask(actor, id, input).then(() =>
-        input.statusId ? lastStatusEventId(actor, id) : null,
+      updateTask(actor, id, input).then((t) =>
+        actor.kind === "user" ? t.statusEventId : null,
       ),
     detail(number),
   );
@@ -159,8 +158,7 @@ export async function moveTaskAction(taskId: string, input: Parameters<typeof mo
   const actor = await requireActor();
   return run(async () => {
     const id = taskIdSchema.parse(taskId);
-    await moveTask(actor, id, input);
-    return lastStatusEventId(actor, id); // ADR-082
+    return (await moveTask(actor, id, input)).statusEventId; // ADR-082: só a desta chamada
   });
 }
 

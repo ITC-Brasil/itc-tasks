@@ -228,7 +228,7 @@ flowchart LR
 
 ## 13. Módulo 18
 
-- **Mudar status pela tela (arraste, seletor):** `moveTask`/`updateTask` → a action devolve o id do evento `status_changed` (`lastStatusEventId`) → toast com "Desfazer" (6 s; concluir traz também "Adicionar comentário").
+- **Mudar status pela tela (arraste, seletor):** `moveTask`/`updateTask` → a action devolve o id do evento `status_changed` gravado nesta chamada (`statusEventId`, `null` se o status não mudou) → toast com "Desfazer" (6 s; concluir traz também "Adicionar comentário").
 - **Desfazer (ADR-082):** `undoStatusChange(actor, taskId, eventId)` → `lockTask` → confere autor (`user`, mesmo `userId`), tipo e que é o último evento da tarefa → `applyUpdate` para o status de antes (restaura o Aguardando do `waitingCleared`) → evento novo. Senão "A tarefa mudou desde então".
 - **Voltar (ADR-083):** o layout grava a última lista em `sessionStorage`; o detalhe lê, valida contra quatro caminhos e volta com a busca; sem origem, `/`.
 - **Contador de atrasadas:** layout → `countLate(actor)` (uma contagem) → selo; recontagem pelo SSE (`router.refresh`), ao focar e a cada 5 min (`lateCountsAction`).

@@ -148,7 +148,7 @@ export async function record(
   // ADR-056: importação não avisa ninguém nem dispara automações; o SSE continua
   { silent = false }: { silent?: boolean } = {},
 ) {
-  if (events.length === 0) return;
+  if (events.length === 0) return [];
   const [task] = await tx
     .select({ visibility: tasks.visibility })
     .from(tasks)
@@ -181,6 +181,7 @@ export async function record(
   await tx.execute(
     sql`SELECT pg_notify('task_changed', json_build_object('id', id, 'number', number, 'fields', ${fields}::json, 'by', ${actor.kind === "user" ? actor.userId : null}::text, 'owner', CASE WHEN visibility = 'personal' THEN creator_id END)::text) FROM tasks WHERE id = ${taskId}`,
   );
+  return eventIds;
 }
 
 /** JSON com chaves ordenadas: o jsonb do Postgres não preserva a ordem enviada. */
@@ -859,14 +860,16 @@ async function applyUpdate(
     }
   }
 
-  await record(tx, actor, current.id, events);
-  if (Object.keys(set).length === 0 && events.length === 0) return current;
+  const ids = await record(tx, actor, current.id, events);
+  // ADR-082: o Desfazer aponta só para a mudança de status gravada nesta chamada
+  const statusEventId = ids[events.findIndex((e) => e.type === "status_changed")] ?? null;
+  if (Object.keys(set).length === 0 && events.length === 0) return { ...current, statusEventId };
   const [row] = await tx
     .update(tasks)
     .set({ ...set, updatedAt: new Date() })
     .where(eq(tasks.id, current.id))
     .returning();
-  return row;
+  return { ...row, statusEventId };
 }
 
 /** ADR-022: entrar em `done` grava completedAt; sair limpa. */
@@ -893,25 +896,6 @@ export async function moveTask(
   return db.transaction(async (tx) =>
     applyUpdate(tx, actor, await lockTask(tx, taskId, actor), data),
   );
-}
-
-/** ADR-082: id da última mudança de status da tarefa feita por esta pessoa (para o Desfazer). */
-export async function lastStatusEventId(actor: Actor, taskId: string) {
-  if (actor.kind !== "user") return null;
-  const [row] = await db
-    .select({ id: taskEvents.id })
-    .from(taskEvents)
-    .where(
-      and(
-        eq(taskEvents.taskId, taskId),
-        eq(taskEvents.type, "status_changed"),
-        eq(taskEvents.actorKind, "user"),
-        eq(taskEvents.actorUserId, actor.userId),
-      ),
-    )
-    .orderBy(desc(taskEvents.createdAt))
-    .limit(1);
-  return row?.id ?? null;
 }
 
 export const UNDO_STALE = "A tarefa mudou desde então";
@@ -964,7 +948,7 @@ export async function undoStatusChange(actor: Actor, taskId: string, eventId: st
 export async function completeTask(actor: Actor, taskId: string) {
   return db.transaction(async (tx) => {
     const current = await lockTask(tx, taskId, actor);
-    if (current.completedAt) return current;
+    if (current.completedAt) return { ...current, statusEventId: null };
     const done = await firstStatus(tx, "done");
     return applyUpdate(tx, actor, current, { statusId: done.id });
   });
@@ -1529,9 +1513,10 @@ export async function listTasks(
           initials: string;
         } | null>`CASE WHEN ${workflowStatuses.category} = 'done' THEN (
           SELECT json_build_object('name', u.name, 'initials', u.initials)
-          FROM ${taskEvents} e JOIN ${user} u ON u.id = e.actor_user_id
-          WHERE e.task_id = ${tasks.id} AND e.type = 'status_changed'
-          ORDER BY e.created_at DESC LIMIT 1) END`,
+          FROM ${user} u WHERE u.id = (
+            SELECT e.actor_user_id FROM ${taskEvents} e
+            WHERE e.task_id = ${tasks.id} AND e.type = 'status_changed'
+            ORDER BY e.created_at DESC LIMIT 1)) END`, // automação (sem pessoa) = sem avatar
         recurrenceId: tasks.recurrenceId, // ADR-077: selo no card
         blocked: sql<boolean>`${openBlocker(sql`${tasks.id}`)}`, // ADR-079
         waitingReason: tasks.waitingReason, // ADR-078

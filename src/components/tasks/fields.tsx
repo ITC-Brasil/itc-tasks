@@ -63,12 +63,14 @@ export function PickMany({
   value,
   onChange,
   invalid,
+  tone,
 }: {
   label: string;
   items: PickItem[];
   value: string[];
   onChange: (value: string[]) => void;
   invalid?: boolean;
+  tone?: "surface" | "page";
 }) {
   const chosen = items.filter((i) => value.includes(i.value));
   return (
@@ -78,7 +80,12 @@ export function PickMany({
       value={value}
       onValueChange={(v) => onChange((v as string[]) ?? [])}
     >
-      <SelectTrigger aria-label={label} aria-invalid={invalid || undefined} className="w-full">
+      <SelectTrigger
+        aria-label={label}
+        aria-invalid={invalid || undefined}
+        tone={tone}
+        className="w-full"
+      >
         <SelectValue>
           {chosen.length ? (
             chosen.map((c) => (

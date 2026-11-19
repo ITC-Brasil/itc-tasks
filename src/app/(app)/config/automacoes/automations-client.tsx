@@ -268,7 +268,7 @@ function ActionsEditor({ initial, refs }: { initial: AutomationAction[]; refs: R
             disabled={actions.length === 1}
             onClick={() => setActions((list) => list.filter((_, j) => j !== i))}
           >
-            <Trash2 strokeWidth={1.75} />
+            <Trash2 strokeWidth={1.75} aria-hidden="true" />
           </Button>
         </div>
       ))}
