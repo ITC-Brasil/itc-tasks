@@ -1,7 +1,7 @@
 import { Calendar, ListChecks, Repeat } from "lucide-react";
 import Link from "next/link";
 import { Avatar } from "@/components/ui/avatar";
-import { isOverdue, shortDate } from "@/lib/dates";
+import { isLate, isOverdue, shortDate } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import type { TaskRow } from "@/server/services/tasks";
 import { LabelChip, PersonalMark, PriorityIcon, ProjectChip, UnitChip } from "./badges";
@@ -66,23 +66,55 @@ export function RecurringMark({ className }: { className?: string }) {
   );
 }
 
-/** TaskCard do Design System: ID, título, chips e rodapé com prazo, prioridade e responsável. */
+/**
+ * TaskCard do Design System: ID, título, chips e rodapé com prazo, prioridade e responsável.
+ * Módulo 18: atrasada ganha borda em `err` (mais o texto para leitor de tela); `compact` (coluna
+ * Concluído) mostra só ID, título e quem concluiu.
+ */
 export function TaskCard({
   task,
+  compact = false,
   className,
 }: {
   task: TaskRow;
+  compact?: boolean;
   /** ponytail: não usado desde o ADR-072 (o atraso vem do isOverdue); quem chama ainda passa */
   today?: string;
   className?: string;
 }) {
   const overdue = task.category !== "done" && isOverdue(task.dueDate, task.dueTime);
+  const late = isLate(task);
+  const title = (
+    <Link href={`/tarefas/${task.number}`} className="text-sm font-medium hover:underline">
+      <span className="mr-1.5 text-xs text-muted tabular-nums">TI-{task.number}</span>
+      {task.title}
+      {late && <span className="sr-only"> (atrasada)</span>}
+    </Link>
+  );
+  const doneBy = task.completedBy ?? null;
+  if (compact)
+    return (
+      <article
+        className={cn("flex items-start gap-2 rounded-md border bg-surface px-3 py-2", className)}
+      >
+        <span className="min-w-0 flex-1">{title}</span>
+        {doneBy && (
+          <span title={`Concluída por ${doneBy.name}`}>
+            <Avatar initials={doneBy.initials} />
+            <span className="sr-only">Concluída por {doneBy.name}</span>
+          </span>
+        )}
+      </article>
+    );
   return (
-    <article className={cn("rounded-md border bg-surface p-3 shadow-1", className)}>
-      <Link href={`/tarefas/${task.number}`} className="text-sm font-medium hover:underline">
-        <span className="mr-1.5 text-xs text-muted tabular-nums">TI-{task.number}</span>
-        {task.title}
-      </Link>
+    <article
+      className={cn(
+        "rounded-md border bg-surface p-3 shadow-1",
+        late && "border-err",
+        className,
+      )}
+    >
+      {title}
       {task.visibility === "personal" && <PersonalMark className="ml-1.5 align-middle" />}
       {(task.projects.length > 0 || task.units.length > 0 || task.labels.length > 0) && (
         <div className="mt-2 flex flex-wrap gap-1">

@@ -1427,6 +1427,12 @@ export async function listTasks(
         dueTime: tasks.dueTime,
         createdAt: tasks.createdAt, // ADR-081: ordem do Kanban
         completedAt: tasks.completedAt,
+        // Módulo 18: card compacto do Concluído mostra quem concluiu (último status_changed)
+        completedBy: sql<{ name: string; initials: string } | null>`CASE WHEN ${workflowStatuses.category} = 'done' THEN (
+          SELECT json_build_object('name', u.name, 'initials', u.initials)
+          FROM ${taskEvents} e JOIN ${user} u ON u.id = e.actor_user_id
+          WHERE e.task_id = ${tasks.id} AND e.type = 'status_changed'
+          ORDER BY e.created_at DESC LIMIT 1) END`,
         recurrenceId: tasks.recurrenceId, // ADR-077: selo no card
         blocked: sql<boolean>`${openBlocker(sql`${tasks.id}`)}`, // ADR-079
         waitingReason: tasks.waitingReason, // ADR-078

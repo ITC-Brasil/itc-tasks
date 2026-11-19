@@ -38,6 +38,15 @@ export function isOverdue(date: string | null, time: string | null, now = new Da
   return date < today || (date === today && !!time && time <= nowHM(now));
 }
 
+/**
+ * Módulo 18: "atrasada" para a borda do card e o contador da navegação. Concluída e Aguardando
+ * (esperando terceiro) não contam. A versão SQL é a `lateSql` do service de tarefas.
+ */
+export const isLate = (
+  t: { category: string; dueDate: string | null; dueTime: string | null },
+  now = new Date(),
+) => t.category !== "done" && t.category !== "waiting" && isOverdue(t.dueDate, t.dueTime, now);
+
 /** Chave de ordenação por prazo: data, depois hora; sem hora = fim do dia; sem prazo por último. */
 export const dueKey = (date: string | null, time?: string | null) =>
   date ? `${date}T${time ?? "99:99"}` : "9999";

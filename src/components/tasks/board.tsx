@@ -3,7 +3,7 @@
 import { DragDropProvider, useDroppable } from "@dnd-kit/react";
 import { move } from "@dnd-kit/helpers";
 import { useSortable } from "@dnd-kit/react/sortable";
-import { GripVertical, Plus } from "lucide-react";
+import { ChevronDown, ChevronUp, GripVertical, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
@@ -47,14 +47,30 @@ function Card({
     type: "task",
     accept: "task",
   });
+  // Módulo 18: no Concluído o card é compacto; o chevron expande (estado só local)
+  const [expanded, setExpanded] = useState(false);
+  const done = task.category === "done";
+  const Chevron = expanded ? ChevronUp : ChevronDown;
   // alça própria: o card tem link e não pode ser ele mesmo um botão (axe nested-interactive)
   return (
     <li ref={ref} className="relative">
       <TaskCard
         task={task}
         today={today}
-        className={cn("pr-8", isDragging && "rotate-[1.5deg] shadow-2")}
+        compact={done && !expanded}
+        className={cn(done ? "pr-14" : "pr-8", isDragging && "rotate-[1.5deg] shadow-2")}
       />
+      {done && (
+        <button
+          type="button"
+          aria-expanded={expanded}
+          aria-label={`${expanded ? "Recolher" : "Expandir"} TI-${task.number}`}
+          onClick={() => setExpanded(!expanded)}
+          className="absolute top-2 right-8 rounded-sm p-1 text-muted hover:bg-muted"
+        >
+          <Chevron className="size-4" strokeWidth={1.75} aria-hidden="true" />
+        </button>
+      )}
       <button
         ref={handleRef}
         type="button"

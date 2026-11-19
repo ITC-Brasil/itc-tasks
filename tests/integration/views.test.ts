@@ -154,3 +154,13 @@ it("Módulo 16: progresso das subtarefas vem na consulta das visões", async () 
   expect([row(t.id).checklistDone, row(t.id).checklistTotal]).toEqual([1, 2]);
   expect([row(plain.id).checklistDone, row(plain.id).checklistTotal]).toEqual([0, 0]);
 });
+
+it("concluída traz quem concluiu; aberta não (Módulo 18, card compacto)", async () => {
+  const p = (await createProject(system, { code: code(), name: "Visões D", kind: "client" })).id;
+  const t = await createTask(me, { title: `quem ${run}`, projectIds: [p] });
+  await createTask(me, { title: `aberta ${run}`, projectIds: [p] });
+  await completeTask(other, t.id);
+  const { tasks: rows } = await listTasks(me, { projectIds: [p] });
+  expect(rows.find((r) => r.id === t.id)?.completedBy?.name).toBe("outra");
+  expect(rows.find((r) => r.id !== t.id)?.completedBy).toBeNull();
+});
