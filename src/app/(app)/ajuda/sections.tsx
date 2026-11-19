@@ -283,12 +283,27 @@ function Visoes() {
       <p>
         As três mostram as mesmas tarefas com os mesmos filtros. Troque pelas abas no topo ou com{" "}
         <Kbd>V</Kbd> <Kbd>K</Kbd>, <Kbd>V</Kbd> <Kbd>L</Kbd> e <Kbd>V</Kbd> <Kbd>C</Kbd>; os filtros
-        continuam. Tarefas pessoais não aparecem aqui: elas ficam em Minhas tarefas.
+        continuam. Tarefas pessoais não aparecem aqui (Equipe): elas ficam em Minhas Tarefas.
+      </p>
+      <h3 className="text-h3">Busca e filtros</h3>
+      <p>
+        O campo <b>Buscar por título ou TI-123</b> filtra a tela (aceita <code>TI-123</code>,{" "}
+        <code>ti123</code> ou <code>123</code>); <Kbd>/</Kbd> foca e <Kbd>Esc</Kbd> limpa. O botão{" "}
+        <b>Filtros</b> (ou <Kbd>F</Kbd>) mostra a linha com os filtros, Bloqueadas, Atrasadas e os
+        filtros salvos; recolhida, ele mostra quantos estão ativos. O número vermelho ao lado de
+        Minhas Tarefas e de Equipe, no menu, conta as atrasadas e abre a tela já com o filtro.
       </p>
       <h3 className="text-h3">Kanban</h3>
       <p>
-        Uma coluna por status. Arraste o card para mudar o status ou a ordem. A coluna Concluído
-        mostra as dos últimos 14 dias.
+        Uma coluna por status, em ordem automática: prazo mais próximo primeiro (atrasadas no topo),
+        depois a prioridade; sem prazo no fim. Arraste o card para outra coluna para mudar o status;
+        dentro da coluna a ordem não muda. Card atrasado tem borda vermelha. A coluna Concluído
+        mostra as dos últimos 14 dias, em cards compactos (a seta expande); “Ver concluídas
+        anteriores” leva à Lista, e a busca acha também as antigas.
+      </p>
+      <p>
+        Ao mudar o status ou concluir, o aviso traz <b>Desfazer</b> por alguns segundos (só se nada
+        mudou na tarefa depois); ao concluir, também <b>Adicionar comentário</b>.
       </p>
       <h3 className="text-h3">Lista</h3>
       <p>
