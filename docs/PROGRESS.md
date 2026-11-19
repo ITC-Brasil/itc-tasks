@@ -4,7 +4,7 @@
 
 > Sobrescrito a cada passagem de sessão. Não é registro permanente.
 
-- **Módulo 18 (usabilidade do Kanban e da navegação, `PROMPT_MODULO_18.md`):** os 11 itens do prompt e os itens 12 a 21 acrescentados em 18/11/2026 (M-163: 12 e 13; M-164: 14; M-165: complemento do 13; M-166: 15; M-167: 16; M-168: 17 a 19; M-169: 20 e 21) prontos na `feat/18-usabilidade`, com merge na `develop` (ADR-081 a ADR-084, sem migração). Aprovado com ajustes (M-171, 19/11/2026): decisões aceitas (a 10 substituída pela barra em uma linha, a 11 retirada); ajustes 1 a 7 feitos; M-173: SDK do MCP declarado e advisories altos resolvidos (ADR-085). À espera do "Módulo 18 aprovado" final para o PR.
+- **Módulo 18 (usabilidade do Kanban e da navegação, `PROMPT_MODULO_18.md`):** os 11 itens do prompt e os itens 12 a 21 acrescentados em 18/11/2026 (M-163: 12 e 13; M-164: 14; M-165: complemento do 13; M-166: 15; M-167: 16; M-168: 17 a 19; M-169: 20 e 21) prontos na `feat/18-usabilidade`, com merge na `develop` (ADR-081 a ADR-084, sem migração). Aprovado com ajustes (M-171, 19/11/2026): decisões aceitas (a 10 substituída pela barra em uma linha, a 11 retirada); ajustes 1 a 7 feitos; M-173: SDK do MCP declarado e advisories altos resolvidos (ADR-085). Aprovado (M-175, 19/11/2026); PR `develop → main` aberto, o merge publica em produção.
 - **Depois do pull (Módulo 18):** `npm ci` (Next.js 16.4.6 e nodemailer 10.6.0, ADR-084); sem migração nem seed.
 - **`npm audit` restante:** 19 moderados, todos transitivos de dev ou do SDK (`drizzle-kit`, `eslint`, `shadcn`, `hono`); nenhum alto ou crítico depois do ADR-085.
 

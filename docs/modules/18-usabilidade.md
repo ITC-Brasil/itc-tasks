@@ -4,7 +4,9 @@ Onze ajustes aprovados pelo Matheus em 18/11/2026 (`PROMPT_MODULO_18.md`), mais 
 acrescentados no mesmo dia pelas mensagens M-163 a M-169. Branch `feat/18-usabilidade` a partir da
 `develop` atualizada com a `main` (PR #44 mergeado). ADR-081 a ADR-085. **Sem migração.**
 Aprovado com ajustes em 19/11/2026 (M-171): decisões aceitas, com a 10 substituída e a antiga 11
-retirada; ajustes na seção "Ajustes da revisão (M-171)".
+retirada; ajustes na seção "Ajustes da revisão (M-171)". Itens de dependências (M-173, ADR-085)
+feitos. **Módulo aprovado na M-175 (19/11/2026)**; os 19 advisories moderados restantes ficam para um
+módulo de manutenção.
 
 ## Decisões a confirmar
 
