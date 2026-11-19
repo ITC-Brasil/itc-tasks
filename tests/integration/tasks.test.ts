@@ -1,7 +1,7 @@
-import { asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { beforeAll, expect, it } from "vitest";
 import { db } from "@/db";
-import { taskEvents, tasks, user, workflowStatuses } from "@/db/schema";
+import { checklistItems, taskEvents, tasks, user, workflowStatuses } from "@/db/schema";
 import { PROJECT_REQUIRED } from "@/lib/validation/tasks";
 import type { Actor } from "@/server/actor";
 import {
@@ -374,4 +374,32 @@ it("update sem projectIds/mobileUnitIds mantém o principal (M-029)", async () =
   const units = await updateTask(actor, t.id, { mobileUnitIds: [u1.id, u2.id] });
   expect(units.projectId).toBe(other.id);
   expect(units.mobileUnitId).toBe(u1.id); // a lista enviada define a UM principal
+});
+
+it("subtarefas na criação na mesma transação; editar o texto grava de → para (itens 18 e 19)", async () => {
+  const t = await createTask(actor, {
+    title: "Com subtarefas",
+    projectIds: [projectId],
+    checklist: ["Primeira", "Segunda"],
+  });
+  const items = await db
+    .select()
+    .from(checklistItems)
+    .where(eq(checklistItems.taskId, t.id))
+    .orderBy(asc(checklistItems.position));
+  expect(items.map((i) => i.text)).toEqual(["Primeira", "Segunda"]);
+  await expect(
+    createTask(actor, { title: "x", projectIds: [projectId], checklist: ["a".repeat(201)] }),
+  ).rejects.toThrow();
+  await updateChecklistItem(actor, items[0].id, { text: "Primeira editada" });
+  const [ev] = await db
+    .select({ payload: taskEvents.payload })
+    .from(taskEvents)
+    .where(and(eq(taskEvents.taskId, t.id), eq(taskEvents.type, "checklist_changed")));
+  expect(ev.payload).toMatchObject({
+    action: "edited",
+    from: "Primeira",
+    text: "Primeira editada",
+  });
+  await expect(updateChecklistItem(actor, items[0].id, { text: "  " })).rejects.toThrow();
 });

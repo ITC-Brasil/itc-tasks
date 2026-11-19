@@ -55,6 +55,7 @@ import {
   UnitChip,
   glpiUrl,
 } from "./badges";
+import { ChecklistText } from "./checklist-draft";
 import { CommentBody, CommentEditor } from "./comment-editor";
 import { statusToast } from "./status-toast";
 import { DeleteTasksDialog } from "./delete-tasks-dialog";
@@ -246,9 +247,13 @@ export function TaskDetail({
                     )
                   }
                 />
-                <span className={cn("min-w-0 flex-1", c.done && "text-muted line-through")}>
-                  {c.text}
-                </span>
+                <ChecklistText
+                  text={c.text}
+                  done={c.done}
+                  onSave={(text) =>
+                    act({}, () => updateChecklistItemAction(c.id, task.number, { text }))
+                  }
+                />
                 {/* mesmo padrão do prazo da tarefa: ícone em err, texto normal; concluída não atrasa */}
                 {!c.done && isOverdue(c.dueDate, c.dueTime) && (
                   <>

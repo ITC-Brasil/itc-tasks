@@ -1140,6 +1140,8 @@ export async function updateChecklistItem(
         payload: {
           action,
           text: row.text,
+          // Módulo 18, item 19: edição do texto guarda o de → para no histórico
+          ...(action === "edited" && row.text !== item.text && { from: item.text }),
           ...(action === "due_set" && { dueDate: row.dueDate, dueTime: row.dueTime }),
         },
       },

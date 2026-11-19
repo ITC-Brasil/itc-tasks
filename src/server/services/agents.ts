@@ -310,7 +310,13 @@ export async function toUpdateInput(
   actor: AgentActor,
   input: Omit<
     McpUpdateTask,
-    "id" | "checklist" | "checklistToggle" | "checklistDue" | "blockedByAdd" | "blockedByRemove"
+    | "id"
+    | "checklist"
+    | "checklistToggle"
+    | "checklistEdit"
+    | "checklistDue"
+    | "blockedByAdd"
+    | "blockedByRemove"
   >,
 ) {
   const { title, visibility, ...rest } = input;

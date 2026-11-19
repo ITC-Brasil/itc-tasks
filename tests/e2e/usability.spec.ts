@@ -226,3 +226,48 @@ test("Calendário: título “de” minúsculo e bordas iguais nas duas telas (i
   expect(mine).toBe(team);
   expect(mine).toBeGreaterThan(30);
 });
+
+test("subtarefas na criação e edição do texto no detalhe (itens 18 e 19)", async ({ page }) => {
+  const run = Date.now();
+  await login(page);
+  const dialog = page.getByRole("dialog", { name: "Criar tarefa" });
+  await expect(async () => {
+    await page.keyboard.press("c");
+    await expect(dialog).toBeVisible({ timeout: 1000 });
+  }).toPass();
+  await dialog.getByLabel("Título").fill(`E2E subtarefas ${run}`);
+  await dialog.getByLabel("Projeto/Cliente").click();
+  await page.getByRole("option", { name: PROJECT }).click();
+  await page.keyboard.press("Escape");
+  await dialog.getByRole("button", { name: "+ Adicionar subtarefas" }).click();
+  const input = dialog.getByLabel("Nova subtarefa");
+  for (const t of ["Uma", "Duas"]) {
+    await input.fill(t);
+    await input.press("Enter");
+  }
+  await expect(input).toBeFocused();
+  await dialog.getByRole("button", { name: "Tirar Duas" }).click();
+  await dialog.getByLabel("Título").press("Control+Enter");
+  await expect(dialog).toBeHidden();
+  const number = (await page
+    .getByText(/^TI-\d+ criada$/)
+    .last()
+    .textContent())!.match(/\d+/)![0];
+
+  await page.goto(`/tarefas/${number}`);
+  await expect(page.getByRole("checkbox", { name: "Uma" })).not.toBeChecked();
+  await expect(async () => {
+    const edit = page.getByRole("button", { name: "Editar Uma" });
+    if (await edit.count()) await edit.click(); // antes da hidratação o clique se perde
+    await expect(page.getByLabel("Texto de Uma")).toBeVisible({ timeout: 1000 });
+  }).toPass();
+  await page.getByLabel("Texto de Uma").fill("Uma editada");
+  await page.getByLabel("Texto de Uma").press("Enter");
+  await expect(page.getByRole("button", { name: "Editar Uma editada" })).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: "Uma editada" })).not.toBeChecked();
+  // Esc cancela
+  await page.getByRole("button", { name: "Editar Uma editada" }).click();
+  await page.getByLabel("Texto de Uma editada").fill("descartar");
+  await page.getByLabel("Texto de Uma editada").press("Escape");
+  await expect(page.getByRole("button", { name: "Editar Uma editada" })).toBeVisible();
+});
