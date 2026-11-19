@@ -189,13 +189,14 @@ export function createMcpServer(actor: AgentActor, access: Access[]) {
   tool(
     "update_task",
     "write",
-    "Altera só os campos enviados. checklist acrescenta itens; checklistToggle.index e checklistDue.index contam sobre o checklist de antes desta chamada. Status 'waiting' exige waitingReason e waitingUntil. blockedByAdd/blockedByRemove mudam as dependências.",
+    "Altera só os campos enviados. checklist acrescenta itens; checklistToggle.index, checklistEdit.index e checklistDue.index contam sobre o checklist de antes desta chamada. Status 'waiting' exige waitingReason e waitingUntil. blockedByAdd/blockedByRemove mudam as dependências.",
     mcpUpdateTask,
     async ({
       id,
       checklist = [],
       checklistToggle: toggles = [],
       checklistDue: dues = [],
+      checklistEdit: edits = [],
       blockedByAdd = [],
       blockedByRemove = [],
       ...rest
@@ -213,12 +214,20 @@ export function createMcpServer(actor: AgentActor, access: Access[]) {
         id,
         dues.map((d) => d.index),
       );
+      const editIds = await checklistIdsAt(
+        actor,
+        id,
+        edits.map((e) => e.index),
+      );
       // ponytail: campos, checklist e toggles em transações separadas; o histórico registra cada uma
       await updateTask(actor, taskId, patch);
       for (const text of checklist) await addChecklistItem(actor, taskId, text);
       for (const [n, itemId] of itemIds.entries())
         // eslint-disable-next-line security/detect-object-injection -- n é o índice do próprio array
         await updateChecklistItem(actor, itemId, { done: toggles[n].done });
+      for (const [n, itemId] of editIds.entries())
+        // eslint-disable-next-line security/detect-object-injection -- n é o índice do próprio array
+        await updateChecklistItem(actor, itemId, { text: edits[n].text });
       for (const [n, itemId] of dueIds.entries()) {
         // eslint-disable-next-line security/detect-object-injection -- n é o índice do próprio array
         const { dueDate, dueTime } = dues[n];

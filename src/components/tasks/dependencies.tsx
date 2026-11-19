@@ -145,7 +145,7 @@ export function Dependencies({ task }: { task: { id: string; number: number; lin
                     {l.completedAt && <span className="sr-only">(concluída)</span>}
                   </Link>
                   <Button
-                    variant="ghost"
+                    variant="ghost-destructive"
                     size="icon-sm"
                     className="ml-auto"
                     disabled={pending}

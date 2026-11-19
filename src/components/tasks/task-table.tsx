@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PRIORITIES, type UpdateTaskInput } from "@/lib/validation/tasks";
 import { type TaskFormOptions, bulkUpdateTasksAction } from "@/server/actions/tasks";
+import { statusToast } from "./status-toast";
 import { type Actor, canDeleteTask } from "@/server/permissions";
 import type { TaskRow } from "@/server/services/tasks";
 import { DeleteTasksDialog } from "./delete-tasks-dialog";
@@ -157,7 +158,18 @@ export function TaskTable({
     start(async () => {
       const r = await bulkUpdateTasksAction({ taskIds: selected, patch });
       if (!r.ok) return void toast.error(r.error);
-      toast.success(r.data === 1 ? "1 tarefa atualizada" : `${r.data} tarefas atualizadas`);
+      // Módulo 18: concluir uma só tarefa em massa convida a comentar (sem Desfazer em massa)
+      const only = selectedRows.length === 1 ? selectedRows[0] : null;
+      const to = options.statuses.find((s) => s.id === patch.statusId);
+      if (only && to && to.category === "done" && only.category !== "done")
+        statusToast(router, {
+          ...only,
+          taskId: only.id,
+          statusName: to.name,
+          done: true,
+          eventId: null,
+        });
+      else toast.success(r.data === 1 ? "1 tarefa atualizada" : `${r.data} tarefas atualizadas`);
       table.resetRowSelection();
       router.refresh();
     });

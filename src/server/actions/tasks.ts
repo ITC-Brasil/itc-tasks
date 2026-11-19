@@ -21,6 +21,7 @@ import {
   addChecklistItem,
   addLink,
   bulkUpdateTasks,
+  countLate,
   createTask,
   deleteTasks,
   listAssignees,
@@ -29,6 +30,7 @@ import {
   removeChecklistItem,
   removeLink,
   searchTasks,
+  undoStatusChange,
   updateChecklistItem,
   updateTask,
 } from "@/server/services/tasks";
@@ -103,8 +105,11 @@ export async function createTaskAction(input: CreateTaskInput) {
 
 export async function updateTaskAction(taskId: string, number: number, input: UpdateTaskInput) {
   const actor = await requireActor();
+  const id = taskIdSchema.parse(taskId);
+  // ADR-082: mudança de status devolve o evento, para o Desfazer do toast
   return run(
-    () => updateTask(actor, taskIdSchema.parse(taskId), input).then(() => undefined),
+    () =>
+      updateTask(actor, id, input).then((t) => (actor.kind === "user" ? t.statusEventId : null)),
     detail(number),
   );
 }
@@ -149,7 +154,26 @@ export async function setLinkAction(
 
 export async function moveTaskAction(taskId: string, input: Parameters<typeof moveTask>[2]) {
   const actor = await requireActor();
-  return run(() => moveTask(actor, taskIdSchema.parse(taskId), input).then(() => undefined));
+  return run(async () => {
+    const id = taskIdSchema.parse(taskId);
+    return (await moveTask(actor, id, input)).statusEventId; // ADR-082: só a desta chamada
+  });
+}
+
+/** Módulo 18: contador de atrasadas da navegação (reconta ao focar e a cada 5 min). */
+export async function lateCountsAction() {
+  const actor = await requireActor();
+  return run(() => countLate(actor));
+}
+
+/** ADR-082: Desfazer do toast; o service confere autor e se a tarefa mudou desde então. */
+export async function undoStatusAction(taskId: string, eventId: string) {
+  const actor = await requireActor();
+  return run(() =>
+    undoStatusChange(actor, taskIdSchema.parse(taskId), taskIdSchema.parse(eventId)).then(
+      () => undefined,
+    ),
+  );
 }
 
 export async function bulkUpdateTasksAction(input: { taskIds: string[]; patch: UpdateTaskInput }) {

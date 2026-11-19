@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { axeBothThemes, axe, createTask, login } from "./session";
+import { axeBothThemes, axe, createTask, login, openFilters } from "./session";
 
 const email = process.env.SEED_ADMIN_EMAIL;
 const password = process.env.SEED_ADMIN_PASSWORD;
@@ -116,6 +116,7 @@ test("cor por Projeto/Cliente: três cores, chip só com a sigla e UM no tom sua
   const title = `E2E cor ${Date.now()}`;
   await createTask(page, title, "QMPR · QMPR");
   await page.goto("/tarefas");
+  await openFilters(page); // Módulo 18: linha recolhida
   await page.getByLabel("Projeto/Cliente").click();
   await page.getByRole("option", { name: "QMPR · QMPR" }).click();
   await page.keyboard.press("Escape");
@@ -156,6 +157,7 @@ test("Envolvidos: cadastro, campo no detalhe e filtro nas visões (ADR-073)", as
   await expect(page.getByRole("combobox", { name: "Envolvidos" })).toContainText(name);
 
   await page.goto("/tarefas/lista");
+  await openFilters(page); // Módulo 18: linha recolhida
   await page.getByRole("combobox", { name: "Envolvido" }).click();
   await page.getByRole("option", { name }).click();
   await page.keyboard.press("Escape");

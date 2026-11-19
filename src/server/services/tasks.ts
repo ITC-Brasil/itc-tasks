@@ -64,7 +64,7 @@ import {
   WAITING_ONLY,
   WAITING_PAST,
 } from "@/lib/validation/tasks";
-import { todayISO } from "@/lib/dates";
+import { addDays, nowHM, todayISO } from "@/lib/dates";
 import { type Actor, ForbiddenError, canDeleteTask } from "@/server/permissions";
 import { type EvaluateJob, triggerOf } from "@/lib/validation/automations";
 import { type FanoutJob, QUEUES, enqueue } from "@/server/jobs";
@@ -148,7 +148,7 @@ export async function record(
   // ADR-056: importação não avisa ninguém nem dispara automações; o SSE continua
   { silent = false }: { silent?: boolean } = {},
 ) {
-  if (events.length === 0) return;
+  if (events.length === 0) return [];
   const [task] = await tx
     .select({ visibility: tasks.visibility })
     .from(tasks)
@@ -181,6 +181,7 @@ export async function record(
   await tx.execute(
     sql`SELECT pg_notify('task_changed', json_build_object('id', id, 'number', number, 'fields', ${fields}::json, 'by', ${actor.kind === "user" ? actor.userId : null}::text, 'owner', CASE WHEN visibility = 'personal' THEN creator_id END)::text) FROM tasks WHERE id = ${taskId}`,
   );
+  return eventIds;
 }
 
 /** JSON com chaves ordenadas: o jsonb do Postgres não preserva a ordem enviada. */
@@ -635,6 +636,8 @@ async function applyUpdate(
   actor: Actor,
   current: Task,
   data: ReturnType<typeof updateTaskSchema.parse>,
+  // ADR-082: o Desfazer devolve a previsão antiga do Aguardando, mesmo que já tenha passado
+  { restoring = false }: { restoring?: boolean } = {},
 ) {
   data = patchDueTime(data, current);
   // ADR-045: confere a combinação resultante de projetos e UMs
@@ -789,7 +792,7 @@ async function applyUpdate(
           waitingNote: "waitingNote" in data ? (data.waitingNote ?? null) : before.waitingNote,
           waitingUntil: "waitingUntil" in data ? (data.waitingUntil ?? null) : before.waitingUntil,
         },
-        wasWaiting ? before : null,
+        wasWaiting ? before : restoring ? (data as Waiting) : null,
       );
       Object.assign(set, after);
       if (!wasWaiting) statusExtra.waiting = after;
@@ -809,8 +812,7 @@ async function applyUpdate(
   if (statusChanged && toStatus.category === "done" && fromStatus?.category !== "done")
     await releaseBlocked(tx, actor, current);
   if (statusChanged) {
-    set.statusId = toStatus.id;
-    set.position = await lastPosition(tx, toStatus.id, current.id);
+    set.statusId = toStatus.id; // ADR-081: sem position, o Kanban ordena sozinho
     Object.assign(set, completion(fromStatus?.category, toStatus.category, current.completedAt));
     events.push({
       type: "status_changed",
@@ -858,14 +860,16 @@ async function applyUpdate(
     }
   }
 
-  await record(tx, actor, current.id, events);
-  if (Object.keys(set).length === 0 && events.length === 0) return current;
+  const ids = await record(tx, actor, current.id, events);
+  // ADR-082: o Desfazer aponta só para a mudança de status gravada nesta chamada
+  const statusEventId = ids[events.findIndex((e) => e.type === "status_changed")] ?? null;
+  if (Object.keys(set).length === 0 && events.length === 0) return { ...current, statusEventId };
   const [row] = await tx
     .update(tasks)
     .set({ ...set, updatedAt: new Date() })
     .where(eq(tasks.id, current.id))
     .returning();
-  return row;
+  return { ...row, statusEventId };
 }
 
 /** ADR-022: entrar em `done` grava completedAt; sair limpa. */
@@ -882,40 +886,61 @@ export async function updateTask(actor: Actor, taskId: string, input: UpdateTask
   );
 }
 
-/** Kanban: muda status e posição (depois de `afterTaskId`, ou no topo). */
+/** Kanban: muda o status (ADR-081: a ordem da coluna é calculada, sem posição manual). */
 export async function moveTask(
   actor: Actor,
   taskId: string,
   input: z.input<typeof moveTaskSchema>,
 ) {
-  const { statusId, afterTaskId, ...waiting } = moveTaskSchema.parse(input);
+  const data = moveTaskSchema.parse(input);
+  return db.transaction(async (tx) =>
+    applyUpdate(tx, actor, await lockTask(tx, taskId, actor), data),
+  );
+}
+
+export const UNDO_STALE = "A tarefa mudou desde então";
+
+/**
+ * ADR-082: volta o status de uma mudança feita pela própria pessoa, se nada aconteceu na tarefa
+ * depois dela. Evento novo (task_events é só-inserção); restaura o Aguardando do evento.
+ */
+export async function undoStatusChange(actor: Actor, taskId: string, eventId: string) {
+  if (actor.kind !== "user") throw new ForbiddenError();
   return db.transaction(async (tx) => {
     const current = await lockTask(tx, taskId, actor);
-    let task = await applyUpdate(tx, actor, current, { statusId, ...waiting });
-    const [prev] = afterTaskId
-      ? await tx
-          .select({ p: tasks.position })
-          .from(tasks)
-          .where(and(eq(tasks.id, afterTaskId), eq(tasks.statusId, statusId)))
-      : [{ p: null }];
-    if (!prev) throw new TaskError("NOT_FOUND", "Tarefa de referência não está nesse status");
-    const [next] = await tx
-      .select({ p: min(tasks.position) })
-      .from(tasks)
+    const [ev] = await tx
+      .select()
+      .from(taskEvents)
+      .where(and(eq(taskEvents.id, eventId), eq(taskEvents.taskId, current.id)));
+    if (
+      !ev ||
+      ev.type !== "status_changed" ||
+      ev.actorKind !== "user" ||
+      ev.actorUserId !== actor.userId
+    )
+      throw new TaskError("NOT_FOUND", "Nada a desfazer");
+    const [later] = await tx
+      .select({ id: taskEvents.id })
+      .from(taskEvents)
+      // no SQL: o Date do JS corta os microssegundos e o próprio evento pareceria "depois"
       .where(
         and(
-          eq(tasks.statusId, statusId),
-          ne(tasks.id, taskId),
-          prev.p ? gt(tasks.position, prev.p) : undefined,
+          eq(taskEvents.taskId, current.id),
+          sql`${taskEvents.createdAt} > (SELECT e.created_at FROM ${taskEvents} e WHERE e.id = ${ev.id})`,
         ),
-      );
-    const position = generateKeyBetween(prev.p, next?.p ?? null);
-    [task] = await tx
-      .update(tasks)
-      .set({ position, updatedAt: new Date() })
-      .where(eq(tasks.id, taskId))
-      .returning();
-    return task;
+      )
+      .limit(1);
+    const payload = ev.payload as { from?: string; to?: string; waitingCleared?: Waiting };
+    if (later || current.statusId !== payload.to || !payload.from)
+      throw new TaskError("VALIDATION", UNDO_STALE);
+    const waiting = payload.waitingCleared;
+    return applyUpdate(
+      tx,
+      actor,
+      current,
+      updateTaskSchema.parse({ statusId: payload.from, ...waiting }),
+      { restoring: !!waiting },
+    );
   });
 }
 
@@ -923,7 +948,7 @@ export async function moveTask(
 export async function completeTask(actor: Actor, taskId: string) {
   return db.transaction(async (tx) => {
     const current = await lockTask(tx, taskId, actor);
-    if (current.completedAt) return current;
+    if (current.completedAt) return { ...current, statusEventId: null };
     const done = await firstStatus(tx, "done");
     return applyUpdate(tx, actor, current, { statusId: done.id });
   });
@@ -1099,6 +1124,8 @@ export async function updateChecklistItem(
         payload: {
           action,
           text: row.text,
+          // Módulo 18, item 19: edição do texto guarda o de → para no histórico
+          ...(action === "edited" && row.text !== item.text && { from: item.text }),
           ...(action === "due_set" && { dueDate: row.dueDate, dueTime: row.dueTime }),
         },
       },
@@ -1407,10 +1434,37 @@ export async function listTaskTemplates() {
   });
 }
 
+// ── Atrasadas (Módulo 18) ───────────────────────────────────────────
+
+/** A regra do `isLate` (src/lib/dates.ts) em SQL: prazo vencido, fora de Concluído e Aguardando. */
+function lateSql(now = new Date()) {
+  const today = todayISO(now);
+  return sql`(${workflowStatuses.category} NOT IN ('done', 'waiting') AND (${tasks.dueDate} < ${today}
+    OR (${tasks.dueDate} = ${today} AND ${tasks.dueTime} <= ${nowHM(now)})))`;
+}
+
+/**
+ * Contador da navegação: minhas atrasadas (responsável sou eu, pessoais incluídas) e as da
+ * equipe (teamOnly). Uma contagem agregada; vale o visibleTo(actor).
+ */
+export async function countLate(actor: Actor) {
+  const mine = actor.kind === "user" || actor.kind === "agent" ? actor.userId : null;
+  const [row] = await db
+    .select({
+      mine: sql<number>`count(*) FILTER (WHERE ${tasks.assigneeId} = ${mine})::int`,
+      team: sql<number>`count(*) FILTER (WHERE ${teamOnly})::int`,
+    })
+    .from(tasks)
+    .innerJoin(workflowStatuses, eq(workflowStatuses.id, tasks.statusId))
+    .where(and(isNull(tasks.archivedAt), visibleTo(actor), lateSql()));
+  return { mine: row?.mine ?? 0, team: row?.team ?? 0 };
+}
+
 // ── Visões (ADR-046) ────────────────────────────────────────────────
 
 export const LIST_LIMIT = 1000;
-const RECENT_DONE_DAYS = 14;
+/** Módulo 18: dias de concluídas no Kanban (data de conclusão em Brasília; hoje conta). */
+export const RECENT_DONE_DAYS = 14;
 
 /**
  * Kanban, Lista, Calendário e Minhas tarefas: tarefas não arquivadas que passam nos filtros.
@@ -1451,6 +1505,18 @@ export async function listTasks(
         position: tasks.position,
         dueDate: tasks.dueDate,
         dueTime: tasks.dueTime,
+        createdAt: tasks.createdAt, // ADR-081: ordem do Kanban
+        completedAt: tasks.completedAt,
+        // Módulo 18: card compacto do Concluído mostra quem concluiu (último status_changed)
+        completedBy: sql<{
+          name: string;
+          initials: string;
+        } | null>`CASE WHEN ${workflowStatuses.category} = 'done' THEN (
+          SELECT json_build_object('name', u.name, 'initials', u.initials)
+          FROM ${user} u WHERE u.id = (
+            SELECT e.actor_user_id FROM ${taskEvents} e
+            WHERE e.task_id = ${tasks.id} AND e.type = 'status_changed'
+            ORDER BY e.created_at DESC LIMIT 1)) END`, // automação (sem pessoa) = sem avatar
         recurrenceId: tasks.recurrenceId, // ADR-077: selo no card
         blocked: sql<boolean>`${openBlocker(sql`${tasks.id}`)}`, // ADR-079
         waitingReason: tasks.waitingReason, // ADR-078
@@ -1483,6 +1549,9 @@ export async function listTasks(
           any(f.cycleIds, (ids) => inArray(tasks.cycleId, ids)),
           any(f.waitingReasons, (ids) => inArray(tasks.waitingReason, ids)),
           f.blocked.length ? openBlocker(sql`${tasks.id}`) : undefined,
+          f.overdue.length ? lateSql() : undefined, // Módulo 18
+          // Módulo 18: a busca do ⌘K como filtro; texto sem critério não acha nada
+          f.q.length ? (searchCriteria(f.q[0])?.where ?? sql`false`) : undefined,
           // ADR-045: qualquer vínculo, não só o principal
           any(f.projectIds, (ids) =>
             inArray(
@@ -1541,10 +1610,11 @@ export async function listTasks(
     scope.openOnly
       ? []
       : query(
-          scope.recentDone
+          // Módulo 18: com busca, as antigas que casam também aparecem (nada fica escondido)
+          scope.recentDone && !f.q.length
             ? and(
                 done,
-                gt(tasks.completedAt, sql`now() - make_interval(days => ${RECENT_DONE_DAYS})`),
+                sql`(${tasks.completedAt} AT TIME ZONE 'America/Sao_Paulo')::date > ${addDays(todayISO(), -RECENT_DONE_DAYS)}`,
               )
             : done,
         )
@@ -1635,17 +1705,43 @@ export function prefixQuery(q: string) {
   return words.map((w) => `${w}:*`).join(" & ");
 }
 
-/** Título/descrição, `TI-142`, `#48213` (GLPI) e código de UM; abertas primeiro, até 20. */
-export async function searchTasks(actor: Actor, input: string) {
+/**
+ * Critério da busca: título/descrição, `TI-142` (ou `ti142`, `142`), `#48213` (GLPI) e código de
+ * UM. Usado pelo ⌘K e pelo `?q=` das visões (Módulo 18). `undefined` = sem critério.
+ */
+function searchCriteria(input: string) {
   const q = input.trim().slice(0, 100);
-  if (!q) return [];
+  if (!q) return undefined;
   const bare = q.replace(/^TI-?/i, "");
   const number = /^\d{1,9}$/.test(bare) ? bare : undefined;
   const glpi = /^#(\d{1,7})$/.exec(q)?.[1];
   const unit = q.replace(/^UM-/i, "").replace(/[\\%_]/g, "\\$&");
   const words = prefixQuery(q);
   const tsq = words ? sql`to_tsquery('portuguese', unaccent_immutable(${words}))` : null;
-  if (!number && !glpi && !tsq && unit.length < 2) return []; // sem critério, sem resultado
+  if (!number && !glpi && !tsq && unit.length < 2) return undefined;
+  const where = or(
+    number ? eq(tasks.number, Number(number)) : undefined,
+    glpi ? eq(tasks.glpiTicket, Number(glpi)) : undefined,
+    tsq ? sql`${tasks.search} @@ ${tsq}` : undefined,
+    unit.length >= 2
+      ? inArray(
+          tasks.id,
+          db
+            .select({ id: taskMobileUnits.taskId })
+            .from(taskMobileUnits)
+            .innerJoin(mobileUnits, eq(mobileUnits.id, taskMobileUnits.mobileUnitId))
+            .where(sql`${mobileUnits.code} ILIKE ${unit + "%"}`),
+        )
+      : undefined,
+  );
+  return { tsq, where };
+}
+
+/** ⌘K: o critério acima; abertas primeiro, até 20. */
+export async function searchTasks(actor: Actor, input: string) {
+  const c = searchCriteria(input);
+  if (!c) return []; // sem critério, sem resultado
+  const { tsq } = c;
   return db
     .select({
       id: tasks.id,
@@ -1661,21 +1757,7 @@ export async function searchTasks(actor: Actor, input: string) {
       and(
         isNull(tasks.archivedAt),
         visibleTo(actor), // ADR-069: a busca acha as pessoais só de quem busca
-        or(
-          number ? eq(tasks.number, Number(number)) : undefined,
-          glpi ? eq(tasks.glpiTicket, Number(glpi)) : undefined,
-          tsq ? sql`${tasks.search} @@ ${tsq}` : undefined,
-          unit.length >= 2
-            ? inArray(
-                tasks.id,
-                db
-                  .select({ id: taskMobileUnits.taskId })
-                  .from(taskMobileUnits)
-                  .innerJoin(mobileUnits, eq(mobileUnits.id, taskMobileUnits.mobileUnitId))
-                  .where(sql`${mobileUnits.code} ILIKE ${unit + "%"}`),
-              )
-            : undefined,
-        ),
+        c.where,
       ),
     )
     .orderBy(

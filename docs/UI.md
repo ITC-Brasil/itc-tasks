@@ -98,11 +98,13 @@ Empty states com texto definido:
 | `⌘K` / `Ctrl K` | Busca e comandos |
 | `C` | Criar tarefa |
 | `[` | Recolher/expandir sidebar |
-| `G` `I` / `G` `M` | Ir para o Início (antiga Minhas tarefas; Módulo 16) |
-| `G` `T` | Ir para Tarefas |
+| `G` `I` / `G` `M` | Ir para Minhas Tarefas (Módulo 18; antes "Início") |
+| `G` `T` | Ir para Equipe (Módulo 18; antes "Tarefas") |
 | `G` `C` | Ir para o ciclo atual |
 | `G` `N` | Ir para Notificações |
-| `V` `K` / `V` `L` / `V` `C` | Visão Kanban / Lista / Calendário em Tarefas (mantém os filtros da URL); no Início, Kanban / Lista / Calendário (mantém a aba) |
+| `V` `K` / `V` `L` / `V` `C` | Visão Kanban / Lista / Calendário em Equipe (mantém os filtros da URL); em Minhas Tarefas, Kanban / Lista / Calendário (mantém a aba) |
+| `/` | Foca a busca de Minhas Tarefas e Equipe (Módulo 18) |
+| `F` | Mostra/oculta a linha de filtros (Módulo 18) |
 | `⌘↵` | Enviar (criar, comentar) |
 | `Esc` | Fechar modal/painel |
 | `?` | Mostrar atalhos |
@@ -180,3 +182,17 @@ Tela **Recorrências** (`/recorrencias`, ícone `Repeat` no menu) com um card po
 Kanban, massa); `WaitingInfo` (`CalendarClock`, `warn` só no ícone quando a previsão venceu). Seção
 **Dependências** no detalhe e `BlockedMark` (`Link2Off` em `warn`) no card; checkbox "Bloqueadas" e
 filtro "Motivo do Aguardando" na barra. Detalhes e tokens: `docs/modules/17-recorrencia-dependencias.md`.
+
+## 13. Módulo 18 (usabilidade do Kanban e da navegação)
+
+- **Nomes:** "Minhas Tarefas" (`/`) e "Equipe" (`/tarefas`) na sidebar, trilho, barra inferior, títulos e atalhos.
+- **Barra das visões** (`ViewToolbar`), igual nas duas telas e sobre `bg-base`: no desktop uma linha [abas] [busca] [Filtros · n] … [seletor de visão]; abaixo, os filtros, recolhida (localStorage, `F`). Com abas (Minhas Tarefas) a busca é um botão de ícone (`Buscar`) que abre o campo; `/` abre e foca; Esc ou sair vazio fecha; com `?q=` fica aberto. No celular a linha quebra e as abas vão para baixo. Campos com `tone="page"` (Input, Select, `PickMany`).
+- **Abas de Minhas Tarefas:** tooltip com a explicação (mouse e foco); no celular, uma linha com rolagem, fade na borda e `Info` com popover.
+- **Kanban:** ordem automática (ADR-081); card atrasado com borda `err`; Concluído com cards compactos (chevron), 14 dias e "Ver concluídas anteriores".
+- **Toast:** opaco, `--radius-lg`, um por vez; mudar status traz "Desfazer" (6 s), concluir traz também "Adicionar comentário" (`/tarefas/<n>#comentar`).
+- **Detalhe:** "← <origem>" no Topbar (ADR-083); texto da subtarefa editável no clique.
+- **Criação rápida:** "+ Adicionar subtarefas" (Enter acrescenta).
+- **Navegação:** selo de atrasadas `err`/`on-err` em Minhas Tarefas e Equipe (também no trilho), leva a `?atrasadas=1`.
+- **Excluir:** `Button` `ghost-destructive` (ícone `err` no hover/foco).
+- Detalhes e decisões: `docs/modules/18-usabilidade.md`.
+

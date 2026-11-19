@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { BackLink } from "@/components/layout/back-link";
 import { Topbar } from "@/components/layout/topbar";
 import { TaskDetail } from "@/components/tasks/task-detail";
 import { todayISO } from "@/lib/dates";
@@ -35,7 +36,7 @@ async function Detail({ params }: { params: PageProps<"/tarefas/[number]">["para
   ]);
   return (
     <>
-      <Topbar title={`TI-${task.number}`} />
+      <Topbar title={`TI-${task.number}`} before={<BackLink />} />
       <TaskDetail
         task={task}
         comments={comments}

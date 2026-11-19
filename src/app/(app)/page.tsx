@@ -1,4 +1,4 @@
-import { CalendarDays, Columns3, Inbox, List, ListChecks, Lock, Sun } from "lucide-react";
+import { Inbox, ListChecks, Lock, Sun } from "lucide-react";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Suspense } from "react";
@@ -6,6 +6,9 @@ import { Topbar } from "@/components/layout/topbar";
 import { CreateTaskButton } from "@/components/tasks/quick-create";
 import { MonthCalendar } from "@/components/tasks/calendar";
 import { Board } from "@/components/tasks/board";
+import { NoResults } from "@/components/tasks/no-results";
+import { ViewTabs } from "@/components/tasks/view-tabs";
+import { OverdueToggle, ViewToolbar } from "@/components/tasks/view-toolbar";
 import { TaskTable } from "@/components/tasks/task-table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { dueKey, isOverdue, shortDate, todayISO } from "@/lib/dates";
@@ -14,45 +17,48 @@ import { requireUser } from "@/server/actor";
 import { getTaskFormOptionsAction } from "@/server/actions/tasks";
 import { listStatuses } from "@/server/services/catalog";
 import { listChecklistDue, listTasks } from "@/server/services/tasks";
+import { mineScope } from "@/server/views";
 
 // ADR-069: a aba vai na URL (?aba=); Módulo 16: sem o parâmetro, "Hoje"
+// Módulo 18, item 14: `about` explica a aba (tooltip no desktop, "i" no celular)
 const TABS = [
-  { aba: "", label: "Hoje" },
-  { aba: "minhas", label: "Minhas tarefas" },
-  { aba: "pessoais", label: "Pessoais" },
-  { aba: "atribuidas", label: "Atribuídas" },
-  { aba: "criadas", label: "Criadas" },
-  { aba: "mencoes", label: "Menções" },
+  { aba: "", label: "Hoje", about: "Tarefas com prazo para hoje e atrasadas." },
+  {
+    aba: "minhas",
+    label: "Minhas tarefas",
+    about: "Suas tarefas pessoais e as da equipe atribuídas a você.",
+  },
+  { aba: "pessoais", label: "Pessoais", about: "Tarefas só suas. Ninguém mais vê, nem o admin." },
+  {
+    aba: "atribuidas",
+    label: "Atribuídas",
+    about: "Tarefas da equipe em que você é o responsável.",
+  },
+  { aba: "criadas", label: "Criadas", about: "Tarefas da equipe que você criou." },
+  {
+    aba: "mencoes",
+    label: "Menções",
+    about: "Tarefas em que alguém mencionou você nos comentários.",
+  },
 ];
-type Scope = NonNullable<Parameters<typeof listTasks>[2]>;
-/** O que cada aba lista; o service ainda aplica o visibleTo(actor) em todas. */
-function scopeOf(aba: unknown, userId: string): Scope {
-  switch (aba) {
-    case "pessoais": // criadas pela pessoa e visíveis só para ela
-      return { visibility: "personal" };
-    case "atribuidas": // da equipe, atribuídas à pessoa
-      return { assigneeId: userId };
-    case "criadas": // da equipe, criadas pela pessoa (as pessoais ficam na aba própria)
-      return { creatorId: userId };
-    case "mencoes":
-      return { mentionedUserId: userId };
-    default: // Hoje e Minhas tarefas: as pessoais (sempre dela) e as da equipe com ela
-      return { visibility: "all", assigneeId: userId };
-  }
-}
 
 // Módulo 16: o modo vai na URL (?visao=); sem o parâmetro, Kanban (substitui os Cards por prazo)
 const VIEWS = [
-  { visao: "", label: "Kanban", icon: Columns3 },
-  { visao: "lista", label: "Lista", icon: List },
-  { visao: "calendario", label: "Calendário", icon: CalendarDays },
+  { visao: "", label: "Kanban", icon: "kanban" },
+  { visao: "lista", label: "Lista", icon: "list" },
+  { visao: "calendario", label: "Calendário", icon: "calendar" },
 ] as const;
 type Visao = (typeof VIEWS)[number]["visao"];
 
-/** `/?aba=…&visao=…`, sem os valores padrão. */
-const hrefOf = (aba: string, visao: string) => {
-  const q = [aba && `aba=${aba}`, visao && `visao=${visao}`].filter(Boolean).join("&");
-  return q ? `/?${q}` : "/";
+/** `/?aba=…&visao=…&q=…`, sem os valores padrão; a busca (Módulo 18) segue entre abas e visões. */
+const hrefOf = (aba: string, visao: string, search = "", late = false) => {
+  const q = new URLSearchParams();
+  if (aba) q.set("aba", aba);
+  if (visao) q.set("visao", visao);
+  if (search) q.set("q", search);
+  if (late) q.set("atrasadas", "1");
+  const s = q.toString();
+  return s ? `/?${s}` : "/";
 };
 
 async function Mine({ searchParams }: PageProps<"/">) {
@@ -61,66 +67,55 @@ async function Mine({ searchParams }: PageProps<"/">) {
   const aba = TABS.find((t) => t.aba === params.aba)?.aba ?? "";
   const visao: Visao = VIEWS.find((v) => v.visao === params.visao)?.visao ?? "";
   const today = todayISO();
-  // Kanban e Lista: só o que falta resolver; o Calendário mostra também o que já foi concluído
-  const { tasks: scoped } = await listTasks(
+  const search = typeof params.q === "string" ? params.q.trim().slice(0, 100) : "";
+  const doneOnly = visao === "lista" && params.concluidas === "1";
+  const late = params.atrasadas === "1"; // Módulo 18: filtro Atrasadas (atalho no contador)
+  const { tasks: listed } = await listTasks(
     actor,
-    {},
-    { ...scopeOf(aba, actor.userId), openOnly: visao !== "calendario" },
+    { q: search ? [search] : [], overdue: late ? ["1"] : [] },
+    mineScope(aba, visao, actor.userId),
   );
+  const scoped = doneOnly ? listed.filter((t) => t.category === "done") : listed;
   // Módulo 16, aba Hoje: com prazo até hoje (atrasadas e de hoje) e as subtarefas abertas idem
   const hoje = aba === "";
   const tasks = hoje
     ? scoped.filter((t) => t.category !== "done" && t.dueDate && t.dueDate <= today)
     : scoped;
-  const todaySubtasks = hoje
-    ? (
-        await listChecklistDue(
-          actor,
-          scoped.filter((t) => t.category !== "done").map((t) => t.id),
+  const todaySubtasks =
+    hoje && !search
+      ? (
+          await listChecklistDue(
+            actor,
+            scoped.filter((t) => t.category !== "done").map((t) => t.id),
+          )
         )
-      )
-        .filter((s) => s.dueDate <= today)
-        .sort((a, b) => dueKey(a.dueDate, a.dueTime).localeCompare(dueKey(b.dueDate, b.dueTime)))
-    : [];
+          .filter((s) => s.dueDate <= today)
+          .sort((a, b) => dueKey(a.dueDate, a.dueTime).localeCompare(dueKey(b.dueDate, b.dueTime)))
+      : [];
   tasks.sort((a, b) => dueKey(a.dueDate, a.dueTime).localeCompare(dueKey(b.dueDate, b.dueTime)));
 
   const nav = (
-    <div className="mb-4 flex flex-wrap items-end gap-x-4 gap-y-2 border-b">
-      <nav aria-label="Abas" className="flex flex-wrap gap-1">
-        {TABS.map((t) => (
-          <Link
-            key={t.label}
-            href={hrefOf(t.aba, visao)}
-            aria-current={t.aba === aba ? "page" : undefined}
-            className={cn(
-              "-mb-px border-b-2 px-3 py-2 text-sm",
-              t.aba === aba
-                ? "border-accent font-medium text-accent-text"
-                : "border-transparent text-muted",
-            )}
-          >
-            {t.label}
-          </Link>
-        ))}
-      </nav>
-      <span className="flex-1" />
-      <nav aria-label="Visões" className="mb-1.5 flex gap-1">
-        {VIEWS.map((v) => (
-          <Link
-            key={v.label}
-            href={hrefOf(aba, v.visao)}
-            aria-current={v.visao === visao ? "page" : undefined}
-            className={cn(
-              "inline-flex h-7 items-center gap-1.5 rounded-sm px-2 text-sm",
-              v.visao === visao ? "bg-accent-light font-medium text-accent-text" : "text-muted",
-            )}
-          >
-            <v.icon className="size-4" strokeWidth={1.75} aria-hidden="true" />
-            {v.label}
-          </Link>
-        ))}
-      </nav>
-    </div>
+    <ViewToolbar
+      tabs={
+        <ViewTabs
+          tabs={TABS.map((t) => ({
+            label: t.label,
+            about: t.about,
+            href: hrefOf(t.aba, visao, search, late),
+            active: t.aba === aba,
+          }))}
+        />
+      }
+      views={VIEWS.map((v) => ({
+        label: v.label,
+        icon: v.icon,
+        href: hrefOf(aba, v.visao, search, late),
+        active: v.visao === visao,
+      }))}
+      filterCount={late ? 1 : 0}
+    >
+      <OverdueToggle />
+    </ViewToolbar>
   );
 
   if (visao === "calendario") {
@@ -134,7 +129,7 @@ async function Mine({ searchParams }: PageProps<"/">) {
     return (
       <main className="flex min-w-0 flex-1 flex-col">
         {/* o calendário e a tabela trazem o próprio respiro: a barra fica sem margem de baixo */}
-        <div className="px-4 pt-4 md:px-6 md:pt-6 [&>div]:mb-0">{nav}</div>
+        {nav}
         <MonthCalendar
           month={month}
           tasks={tasks}
@@ -142,13 +137,17 @@ async function Mine({ searchParams }: PageProps<"/">) {
           subtasks={subtasks}
           today={today}
           path="/"
-          query={hrefOf(aba, visao).slice(2)}
+          query={hrefOf(aba, visao, search, late).slice(2)}
         />
       </main>
     );
   }
 
-  const empty = hoje ? (
+  const empty = search ? (
+    <NoResults href={hrefOf(aba, visao, "", late)} query={search} />
+  ) : late ? (
+    <NoResults href={hrefOf(aba, visao)} />
+  ) : hoje ? (
     <EmptyState icon={Sun} title="Nada para hoje" action={<CreateTaskButton />}>
       Nenhuma tarefa ou subtarefa sua vence hoje ou está atrasada.
     </EmptyState>
@@ -166,7 +165,7 @@ async function Mine({ searchParams }: PageProps<"/">) {
     const options = tasks.length ? await getTaskFormOptionsAction() : null;
     return (
       <main className="flex min-w-0 flex-1 flex-col">
-        <div className="px-4 pt-4 md:px-6 md:pt-6 [&>div]:mb-0">{nav}</div>
+        {nav}
         {hoje && todaySubtasks.length > 0 && (
           <div className="px-4 pt-4 md:px-6">
             <TodaySubtasks subtasks={todaySubtasks} />
@@ -184,17 +183,21 @@ async function Mine({ searchParams }: PageProps<"/">) {
 
   // Kanban com colunas por status, como em Tarefas (também na aba Hoje); arrastar muda o status
   const statuses = tasks.length ? await listStatuses(actor) : [];
-  tasks.sort((a, b) => (a.position < b.position ? -1 : a.position > b.position ? 1 : 0));
   return (
     <main className="flex min-w-0 flex-1 flex-col">
-      <div className="px-4 pt-4 md:px-6 md:pt-6 [&>div]:mb-0">{nav}</div>
+      {nav}
       {hoje && todaySubtasks.length > 0 && (
         <div className="px-4 pt-4 md:px-6">
           <TodaySubtasks subtasks={todaySubtasks} />
         </div>
       )}
       {tasks.length ? (
-        <Board statuses={statuses} tasks={tasks} today={today} />
+        <Board
+          statuses={statuses}
+          tasks={tasks}
+          today={today}
+          olderDoneHref={`${hrefOf(aba || "minhas", "lista", search, late)}&concluidas=1`}
+        />
       ) : (
         !(hoje && todaySubtasks.length) && <div className="p-4 md:p-6">{empty}</div>
       )}
@@ -258,13 +261,13 @@ function TodaySubtasks({ subtasks }: { subtasks: DueSubtask[] }) {
   );
 }
 
-// Módulo 16: "Minhas tarefas" virou "Início"; a URL continua "/" (sem redirect a manter)
-export const metadata: Metadata = { title: "Início · ITC Tasks" };
+// Módulo 18: "Início" virou "Minhas Tarefas"; a URL continua "/" (sem redirect a manter)
+export const metadata: Metadata = { title: "Minhas Tarefas · ITC Tasks" };
 
 export default function Home(props: PageProps<"/">) {
   return (
     <>
-      <Topbar title="Início">
+      <Topbar title="Minhas Tarefas">
         <CreateTaskButton />
       </Topbar>
       <Suspense>

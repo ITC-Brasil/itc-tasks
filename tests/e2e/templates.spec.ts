@@ -40,7 +40,8 @@ test("template de tarefa: criar e usar pela criação rápida", async ({ page })
   await detail.getByRole("button", { name: "Usar template" }).click();
   const create = page.getByRole("dialog", { name: "Criar tarefa" });
   await expect(create.getByLabel("Título")).toHaveValue(`Preparar {UM} ${name}`);
-  await expect(create).toContainText("2 subtarefas do template");
+  // Módulo 18: as subtarefas do template aparecem na lista editável da criação
+  await expect(create.getByRole("button", { name: /^Tirar / })).toHaveCount(2);
   await expect(create.getByLabel("Prazo")).not.toHaveValue("");
   await pickFirst(page, create, "Projeto/Cliente");
   await create.getByRole("button", { name: "Criar tarefa" }).click();

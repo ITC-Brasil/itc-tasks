@@ -3,24 +3,30 @@
 import { DragDropProvider, useDroppable } from "@dnd-kit/react";
 import { move } from "@dnd-kit/helpers";
 import { useSortable } from "@dnd-kit/react/sortable";
-import { GripVertical, Plus } from "lucide-react";
+import { ChevronDown, ChevronUp, GripVertical, Plus } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { compareKanban } from "@/lib/kanban-order";
 import { cn } from "@/lib/utils";
 import { moveTaskAction } from "@/server/actions/tasks";
 import type { TaskRow } from "@/server/services/tasks";
 import { type Category, StatusIcon } from "./badges";
 import { openQuickCreate } from "./quick-create";
+import { statusToast } from "./status-toast";
 import { TaskCard } from "./task-card";
 import { useWaitingPrompt } from "./waiting";
 
 type Status = { id: string; name: string; category: Category };
 type Columns = Record<string, TaskRow[]>; // formato do `move` do @dnd-kit/helpers
 
+// ADR-081: a ordem da coluna é calculada (compareKanban), nunca a do arraste
 const group = (statuses: Status[], tasks: TaskRow[]): Columns =>
-  Object.fromEntries(statuses.map((s) => [s.id, tasks.filter((t) => t.statusId === s.id)]));
+  Object.fromEntries(
+    statuses.map((s) => [s.id, tasks.filter((t) => t.statusId === s.id).sort(compareKanban)]),
+  );
 
 function Card({
   task,
@@ -40,14 +46,30 @@ function Card({
     type: "task",
     accept: "task",
   });
+  // Módulo 18: no Concluído o card é compacto; o chevron expande (estado só local)
+  const [expanded, setExpanded] = useState(false);
+  const done = task.category === "done";
+  const Chevron = expanded ? ChevronUp : ChevronDown;
   // alça própria: o card tem link e não pode ser ele mesmo um botão (axe nested-interactive)
   return (
     <li ref={ref} className="relative">
       <TaskCard
         task={task}
         today={today}
-        className={cn("pr-8", isDragging && "rotate-[1.5deg] shadow-2")}
+        compact={done && !expanded}
+        className={cn(done ? "pr-14" : "pr-8", isDragging && "rotate-[1.5deg] shadow-2")}
       />
+      {done && (
+        <button
+          type="button"
+          aria-expanded={expanded}
+          aria-label={`${expanded ? "Recolher" : "Expandir"} TI-${task.number}`}
+          onClick={() => setExpanded(!expanded)}
+          className="absolute top-2 right-8 rounded-sm p-1 text-muted hover:bg-muted"
+        >
+          <Chevron className="size-4" strokeWidth={1.75} aria-hidden="true" />
+        </button>
+      )}
       <button
         ref={handleRef}
         type="button"
@@ -60,7 +82,17 @@ function Card({
   );
 }
 
-function Column({ status, tasks, today }: { status: Status; tasks: TaskRow[]; today: string }) {
+function Column({
+  status,
+  tasks,
+  today,
+  olderDoneHref,
+}: {
+  status: Status;
+  tasks: TaskRow[];
+  today: string;
+  olderDoneHref?: string;
+}) {
   const { ref, isDropTarget } = useDroppable({
     id: status.id,
     type: "column",
@@ -87,6 +119,12 @@ function Column({ status, tasks, today }: { status: Status; tasks: TaskRow[]; to
           <Card key={t.id} task={t} index={i} column={status.id} today={today} />
         ))}
       </ul>
+      {/* Módulo 18: o Kanban só traz as concluídas dos últimos 14 dias */}
+      {status.category === "done" && olderDoneHref && (
+        <Link href={olderDoneHref} className="mx-3 mb-3 text-sm text-accent-text hover:underline">
+          Ver concluídas anteriores
+        </Link>
+      )}
       {/* ADR-078: no Aguardando a tarefa entra arrastando (com motivo e previsão) */}
       {status.category !== "waiting" && (
         <Button
@@ -107,10 +145,12 @@ export function Board({
   statuses,
   tasks,
   today,
+  olderDoneHref,
 }: {
   statuses: Status[];
   tasks: TaskRow[];
   today: string;
+  olderDoneHref?: string; // pé da coluna Concluído: Lista com as concluídas
 }) {
   const router = useRouter();
   const [columns, setColumns] = useState(() => group(statuses, tasks));
@@ -145,17 +185,40 @@ export function Board({
           throw new Error("card fora do quadro");
         };
         const [from, to] = [where(before), where(after)];
-        if (from.statusId === to.statusId && from.index === to.index) return;
-        setColumns(after);
-        const afterTaskId = to.index > 0 ? to.list[to.index - 1].id : null;
+        // ADR-081: dentro da mesma coluna não reordena; o card volta à posição calculada
+        if (from.statusId === to.statusId) return setColumns(before);
+        const target = statuses.find((s) => s.id === to.statusId)!;
+        const moved = {
+          ...to.list[to.index],
+          statusId: target.id,
+          category: target.category,
+          completedAt: target.category === "done" ? new Date() : null,
+        };
+        setColumns(
+          group(statuses, [
+            ...Object.values(before)
+              .flat()
+              .filter((t) => t.id !== id),
+            moved,
+          ]),
+        );
         void (async () => {
           // ADR-078: entrar no Aguardando pede motivo e previsão; cancelar devolve o card
           const entering =
             categoryOf(to.statusId) === "waiting" && categoryOf(from.statusId) !== "waiting";
           const waiting = entering ? await askWaiting() : {};
           if (!waiting) return setColumns(before);
-          const r = await moveTaskAction(id, { statusId: to.statusId, afterTaskId, ...waiting });
-          if (r.ok) return router.refresh();
+          const r = await moveTaskAction(id, { statusId: to.statusId, ...waiting });
+          if (r.ok) {
+            statusToast(router, {
+              taskId: id,
+              number: moved.number,
+              statusName: target.name,
+              done: target.category === "done" && categoryOf(from.statusId) !== "done",
+              eventId: r.data,
+            });
+            return router.refresh();
+          }
           setColumns(before);
           toast.error(r.error);
         })();
@@ -165,7 +228,13 @@ export function Board({
       {/* < 768 px: uma coluna por vez, com snap (UI.md §6) */}
       <div className="flex flex-1 snap-x snap-mandatory gap-3 overflow-x-auto p-4 md:snap-none md:p-6">
         {statuses.map((s) => (
-          <Column key={s.id} status={s} tasks={Reflect.get(columns, s.id) ?? []} today={today} />
+          <Column
+            key={s.id}
+            status={s}
+            tasks={Reflect.get(columns, s.id) ?? []}
+            today={today}
+            olderDoneHref={olderDoneHref}
+          />
         ))}
       </div>
     </DragDropProvider>

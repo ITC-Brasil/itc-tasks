@@ -11,7 +11,7 @@ export default function NotFound() {
         title="Página não encontrada"
         action={
           <Link href="/" className={buttonVariants({ variant: "secondary" })}>
-            Ir para o Início
+            Ir para Minhas Tarefas
           </Link>
         }
       >

@@ -50,3 +50,12 @@ export async function createTask(page: Page, title: string, project: string) {
   await dialog.getByLabel("Título").press("Control+Enter");
   await expect(dialog).toBeHidden();
 }
+
+/** Módulo 18: a linha de filtros nasce recolhida e o estado fica no navegador; abre se fechada. */
+export async function openFilters(page: Page) {
+  const button = page.getByRole("button", { name: /^Filtros( · \d+)?$/ });
+  await expect(async () => {
+    if ((await button.getAttribute("aria-expanded")) !== "true") await button.click();
+    await expect(button).toHaveAttribute("aria-expanded", "true", { timeout: 1000 });
+  }).toPass();
+}

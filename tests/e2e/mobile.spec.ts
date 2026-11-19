@@ -47,7 +47,7 @@ test("mobile: barra inferior, Mais e criação em painel inferior", async ({ pag
   test.skip(!isMobile, "só no mobile");
   await login(page);
   const bar = page.getByRole("navigation", { name: "Navegação", exact: true });
-  for (const name of ["Início", "Tarefas", "Criar", "Ciclo", "Mais"])
+  for (const name of ["Minhas Tarefas", "Equipe", "Criar", "Ciclo", "Mais"])
     await expect(bar.getByText(name, { exact: true })).toBeVisible();
 
   await bar.getByRole("button", { name: "Mais" }).click();

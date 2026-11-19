@@ -17,6 +17,7 @@ import {
   createTask,
   listTasks,
   updateChecklistItem,
+  updateTask,
 } from "@/server/services/tasks";
 
 const system: Actor = { kind: "system" };
@@ -153,4 +154,60 @@ it("Módulo 16: progresso das subtarefas vem na consulta das visões", async () 
   const row = (id: string) => rows.find((r) => r.id === id)!;
   expect([row(t.id).checklistDone, row(t.id).checklistTotal]).toEqual([1, 2]);
   expect([row(plain.id).checklistDone, row(plain.id).checklistTotal]).toEqual([0, 0]);
+});
+
+it("concluída traz quem concluiu; aberta não (Módulo 18, card compacto)", async () => {
+  const p = (await createProject(system, { code: code(), name: "Visões D", kind: "client" })).id;
+  const t = await createTask(me, { title: `quem ${run}`, projectIds: [p] });
+  await createTask(me, { title: `aberta ${run}`, projectIds: [p] });
+  await completeTask(other, t.id);
+  const { tasks: rows } = await listTasks(me, { projectIds: [p] });
+  expect(rows.find((r) => r.id === t.id)?.completedBy?.name).toBe("outra");
+  expect(rows.find((r) => r.id !== t.id)?.completedBy).toBeNull();
+});
+
+it("concluída por automação fica sem avatar, mesmo com mudança anterior de pessoa (M-171)", async () => {
+  const p = (await createProject(system, { code: code(), name: "Visões F", kind: "client" })).id;
+  const t = await createTask(me, { title: `auto ${run}`, projectIds: [p] });
+  await completeTask(other, t.id);
+  await updateTask(other, t.id, {
+    statusId: (await createTask(me, { title: `x ${run}`, projectIds: [p] })).statusId,
+  });
+  await completeTask({ kind: "automation", automationId: crypto.randomUUID(), depth: 1 }, t.id);
+  const { tasks: rows } = await listTasks(me, { projectIds: [p] });
+  expect(rows.find((r) => r.id === t.id)?.completedBy).toBeNull();
+});
+
+it("Kanban com busca traz também as concluídas antigas que casam (Módulo 18)", async () => {
+  const p = (await createProject(system, { code: code(), name: "Visões E", kind: "client" })).id;
+  const old = await createTask(me, { title: `antigaz${run}`, projectIds: [p] });
+  await completeTask(me, old.id);
+  await db
+    .update(tasks)
+    .set({ completedAt: new Date(Date.now() - 20 * 86_400_000) })
+    .where(eq(tasks.id, old.id));
+  expect(await titles(me, { projectIds: [p] }, { recentDone: true })).toEqual([]);
+  expect(await titles(me, { projectIds: [p], q: [`antigaz${run}`] }, { recentDone: true })).toEqual(
+    [`antigaz${run}`],
+  );
+});
+
+it("pessoal concluída continua em Minhas Tarefas (Kanban e Lista), fora da Equipe (item 12)", async () => {
+  const { mineScope } = await import("@/server/views");
+  const t = await createTask(me, {
+    title: `pessoal feita ${run}`,
+    projectIds: [],
+    visibility: "personal",
+  });
+  await completeTask(me, t.id);
+  for (const aba of ["minhas", "pessoais"])
+    for (const visao of ["", "lista", "calendario"]) {
+      const { tasks: rows } = await listTasks(me, {}, mineScope(aba, visao, me.userId));
+      expect(
+        rows.map((r) => r.id),
+        `${aba}/${visao}`,
+      ).toContain(t.id);
+    }
+  const team = await listTasks(me, {}, { recentDone: true });
+  expect(team.tasks.map((r) => r.id)).not.toContain(t.id);
 });

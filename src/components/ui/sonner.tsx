@@ -24,17 +24,22 @@ const Toaster = ({ ...props }: ToasterProps) => {
         error: <OctagonXIcon className="size-4" />,
         loading: <Loader2Icon className="size-4 animate-spin" />,
       }}
+      // Módulo 18: tokens do Design System (os --popover do shadcn não existem: fundo transparente)
       style={
         {
-          "--normal-bg": "var(--popover)",
-          "--normal-text": "var(--popover-foreground)",
+          "--normal-bg": "var(--bg-surface)",
+          "--normal-text": "var(--text-base)",
           "--normal-border": "var(--border)",
-          "--border-radius": "var(--radius)",
+          "--border-radius": "var(--radius-lg)", // o mesmo dos menus (Módulo 18, item 17)
         } as React.CSSProperties
       }
+      // um toast por vez: o novo substitui o anterior (e encerra o Desfazer dele)
+      visibleToasts={1}
       toastOptions={{
         classNames: {
-          toast: "cn-toast",
+          toast: "cn-toast shadow-2",
+          actionButton: "!bg-accent-solid !text-on-accent",
+          cancelButton: "!border !bg-surface !text-base",
         },
       }}
       {...props}

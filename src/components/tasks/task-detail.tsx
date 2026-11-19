@@ -55,7 +55,9 @@ import {
   UnitChip,
   glpiUrl,
 } from "./badges";
+import { ChecklistText } from "./checklist-draft";
 import { CommentBody, CommentEditor } from "./comment-editor";
+import { statusToast } from "./status-toast";
 import { DeleteTasksDialog } from "./delete-tasks-dialog";
 import { RecurringMark } from "./task-card";
 import { Dependencies, openBlockers } from "./dependencies";
@@ -131,7 +133,17 @@ export function TaskDetail({
     startTransition(async () => {
       apply(patch);
       const result = await fn();
-      if (!result.ok) toast.error(result.error);
+      if (!result.ok) return void toast.error(result.error);
+      // Módulo 18: mudou o status → toast com Desfazer (e convite a comentar, se concluiu)
+      const to = patch.statusId && options.statuses.find((s) => s.id === patch.statusId);
+      if (to && patch.statusId !== task.statusId)
+        statusToast(router, {
+          taskId: task.id,
+          number: task.number,
+          statusName: to.name,
+          done: to.category === "done" && task.category !== "done",
+          eventId: typeof result.data === "string" ? result.data : null,
+        });
     });
   }
   const save = (patch: UpdateTaskInput & Patch) =>
@@ -235,9 +247,13 @@ export function TaskDetail({
                     )
                   }
                 />
-                <span className={cn("min-w-0 flex-1", c.done && "text-muted line-through")}>
-                  {c.text}
-                </span>
+                <ChecklistText
+                  text={c.text}
+                  done={c.done}
+                  onSave={(text) =>
+                    act({}, () => updateChecklistItemAction(c.id, task.number, { text }))
+                  }
+                />
                 {/* mesmo padrão do prazo da tarefa: ícone em err, texto normal; concluída não atrasa */}
                 {!c.done && isOverdue(c.dueDate, c.dueTime) && (
                   <>
@@ -275,7 +291,7 @@ export function TaskDetail({
                   }}
                 />
                 <Button
-                  variant="ghost"
+                  variant="ghost-destructive"
                   size="icon-sm"
                   className="group-hover:opacity-100 focus-visible:opacity-100 md:opacity-0"
                   aria-label={`Remover ${c.text}`}
@@ -648,7 +664,7 @@ function Links({ task }: { task: Task }) {
                     </span>
                   </Link>
                   <Button
-                    variant="ghost"
+                    variant="ghost-destructive"
                     size="icon-sm"
                     className="ml-auto"
                     disabled={pending}
@@ -771,6 +787,7 @@ function Activity({
           </ol>
         )}
         <CommentEditor
+          id="comentar"
           people={options.people}
           submitLabel="Comentar"
           onSubmit={async (doc) => done(await addCommentAction(task.id, task.number, doc))}

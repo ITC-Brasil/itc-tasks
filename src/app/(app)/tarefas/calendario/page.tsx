@@ -10,7 +10,7 @@ import { monthGrid } from "@/lib/dates";
 import { milestonesDue } from "@/server/services/planning";
 import { loadView } from "@/server/views";
 
-export const metadata: Metadata = { title: "Calendário · ITC Tasks" };
+export const metadata: Metadata = { title: "Calendário · Equipe · ITC Tasks" };
 
 async function View({ searchParams }: PageProps<"/tarefas/calendario">) {
   const { filters, tasks, truncated, options, saved, today } = await loadView(searchParams);
@@ -39,7 +39,7 @@ async function View({ searchParams }: PageProps<"/tarefas/calendario">) {
 export default function CalendarPage(props: PageProps<"/tarefas/calendario">) {
   return (
     <>
-      <Topbar title="Tarefas">
+      <Topbar title="Equipe">
         <CreateTaskButton />
       </Topbar>
       <Suspense>

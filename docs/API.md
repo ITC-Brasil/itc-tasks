@@ -225,6 +225,7 @@ Não são rotas públicas; listadas para mapear UI → service.
 - **`list_involved`** (`tasks:read`): `{} → { involved: { id: string; name: string }[] }` — envolvidos ativos (ADR-073).
 - **`create_task` / `update_task`:** `dueTime?: "HH:MM" | null` (exige `dueDate`; limpar a data limpa a hora, ADR-072) e `involvedIds?: string[]` (ids do `list_involved`, máx. 20; a lista substitui a atual).
 - **`update_task.checklistDue[]`:** cada item aceita `dueTime?: "HH:MM" | null`.
+- **`update_task.checklistEdit[]`** (Módulo 18): `{ index, text }` muda o texto da subtarefa (1–200); o histórico guarda de → para. `create_task.checklist` já aceitava as subtarefas na criação.
 - **Saídas:** `TaskSummary.dueTime`; `get_task` devolve `involved: { id, name }[]` e `checklist[].dueTime`.
 - **Tokens (ADR-074):** a UI e os services só mostram os tokens do próprio dono, inclusive para o admin; `/api/auth/api-key/*` continua 404 (ADR-058). Server Action `revokeAllApiKeysAction(userId)` (admin).
 - **Planejamento (ADR-071):** Server Actions `deleteCycleAction(cycleId)` e `deleteMilestoneAction(milestoneId)` (admin); `closeCycleAction` aceita encerrar sem próximo ciclo.

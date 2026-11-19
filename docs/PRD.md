@@ -158,3 +158,8 @@ Encerrar ciclo sem criar outro; admin exclui ciclos e marcos (ADR-071); horário
   prevista; lembrete no dia; "previsão vencida" no card; filtro por motivo.
 - **Dependências** (ADR-079): "bloqueada por"/"bloqueia" entre tarefas da equipe (ou pessoais do
   mesmo dono), sem ciclo; avisa, não impede; aviso de desbloqueio; filtro "Bloqueadas".
+
+## Módulo 18 — usabilidade do Kanban e da navegação (18/11/2026)
+
+Kanban em ordem automática por prazo e prioridade (ADR-081), sem reordenar à mão; card atrasado com borda; Concluído compacto e só dos últimos 14 dias; busca por título ou `TI-n` nas duas telas; "Início" vira **Minhas Tarefas** e "Tarefas" vira **Equipe**; Voltar no detalhe para a lista de origem (ADR-083); toast opaco, um por vez, com **Desfazer** e convite a comentar ao concluir (ADR-082); contador de atrasadas no menu e filtro Atrasadas; barra de ferramentas única com filtros recolhíveis; explicação das abas; subtarefas na criação e texto da subtarefa editável; correções (pessoal concluída sumia de Minhas Tarefas, rolagem no trilho, linhas do Calendário, canto do toast). Detalhes: `docs/modules/18-usabilidade.md`.
+

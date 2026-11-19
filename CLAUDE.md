@@ -11,17 +11,17 @@ Chamado GLPI (opcionais), e agentes operam o app por um servidor MCP embutido em
 | Camada | Versão |
 |---|---|
 | Node / npm | 24.22.0 LTS / 11.19.1 (o que vem com o Node; nunca pnpm nem yarn — ADR-031) |
-| Next.js / React / TypeScript | 16.4.2 / 19.3.1 / 7.0.2 (`@typescript/native`; `typescript` = TS 6.0.2 para o typescript-eslint — ADR-032) |
+| Next.js / React / TypeScript | 16.4.6 / 19.3.1 / 7.0.2 (`@typescript/native`; `typescript` = TS 6.0.2 para o typescript-eslint — ADR-032) |
 | Tailwind / shadcn / Base UI | 4.3.3 / 4.22.0 / `@base-ui/react` 1.9.0 |
 | PostgreSQL / Drizzle / drizzle-kit / pg | 18.6 / 0.45.4 / 0.31.11 / 8.23.1 |
 | Zod | 4.6.7 |
 | Better Auth / Argon2 | 1.7.10 / `@node-rs/argon2` 2.2.2 |
-| MCP SDK | `@modelcontextprotocol/sdk` 1.32.1 |
+| MCP SDK | `@modelcontextprotocol/sdk` 1.32.1 (em `dependencies`, ADR-085) |
 | pg-boss | 12.38.0 |
 | TanStack Query / Table | 5.104.3 / 9.3.1 |
 | dnd-kit / cmdk / Tiptap / Recharts | `@dnd-kit/react` 0.5.1 / 1.1.1 / 3.32.0 / 3.10.1 |
 | lucide-react / next-themes / motion / sonner | 1.58.0 / 0.4.6 / 14.3.0 / 2.0.8 |
-| Service worker / web-push / nodemailer | próprio em `public/sw.js` (ADR-054) / 3.6.7 / 10.1.2 |
+| Service worker / web-push / nodemailer | próprio em `public/sw.js` (ADR-054) / 3.6.7 / 10.6.0 |
 | Vitest / Playwright | 5.0.5 / 1.64.1 |
 
 ## Regras invioláveis

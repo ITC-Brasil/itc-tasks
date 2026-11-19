@@ -24,12 +24,15 @@ export function CommentEditor({
   submitLabel,
   onSubmit,
   onCancel,
+  id,
 }: {
   people: Person[];
   content?: object;
   submitLabel: string;
   onSubmit: (doc: Doc) => Promise<boolean>;
   onCancel?: () => void;
+  /** Módulo 18: âncora; chegando com `#<id>` na URL, o editor já abre focado */
+  id?: string;
 }) {
   const [menu, setMenu] = useState<Menu>(null);
   const [pending, setPending] = useState(false);
@@ -124,9 +127,12 @@ export function CommentEditor({
   useEffect(() => {
     submitRef.current = submit;
   });
+  useEffect(() => {
+    if (editor && id && window.location.hash === `#${id}`) editor.commands.focus("end");
+  }, [editor, id]);
 
   return (
-    <div className="flex flex-col gap-2">
+    <div id={id} className="flex scroll-mt-20 flex-col gap-2">
       <EditorContent editor={editor} />
       {menu && (
         <ul

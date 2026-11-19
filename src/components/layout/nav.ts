@@ -20,6 +20,8 @@ export type NavItem = {
   /** prefixo que marca o item como ativo (padrão: o próprio href) */
   match?: string;
   adminOnly?: boolean;
+  /** Módulo 18, item 14: explicação no tooltip (mouse e foco) */
+  about?: string;
   /** só para quem não é admin (o admin chega pela aba de Configurações) */
   memberOnly?: boolean;
 };
@@ -29,8 +31,13 @@ export type NavGroup = { label?: string; items: NavItem[] };
 export const NAV: NavGroup[] = [
   {
     items: [
-      { href: "/", label: "Início", icon: House },
-      { href: "/tarefas", label: "Tarefas", icon: Columns3 },
+      {
+        href: "/",
+        label: "Minhas Tarefas",
+        icon: House,
+        about: "Suas tarefas pessoais e as da equipe atribuídas a você.",
+      },
+      { href: "/tarefas", label: "Equipe", icon: Columns3 },
       { href: "/ciclos", label: "Ciclos", icon: RefreshCw },
       { href: "/marcos", label: "Marcos", icon: Flag },
       { href: "/painel", label: "Painel", icon: ChartColumn },
