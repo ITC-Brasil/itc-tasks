@@ -15,6 +15,7 @@ import { moveTaskAction } from "@/server/actions/tasks";
 import type { TaskRow } from "@/server/services/tasks";
 import { type Category, StatusIcon } from "./badges";
 import { openQuickCreate } from "./quick-create";
+import { statusToast } from "./status-toast";
 import { TaskCard } from "./task-card";
 import { useWaitingPrompt } from "./waiting";
 
@@ -208,7 +209,16 @@ export function Board({
           const waiting = entering ? await askWaiting() : {};
           if (!waiting) return setColumns(before);
           const r = await moveTaskAction(id, { statusId: to.statusId, ...waiting });
-          if (r.ok) return router.refresh();
+          if (r.ok) {
+            statusToast(router, {
+              taskId: id,
+              number: moved.number,
+              statusName: target.name,
+              done: target.category === "done" && categoryOf(from.statusId) !== "done",
+              eventId: r.data,
+            });
+            return router.refresh();
+          }
           setColumns(before);
           toast.error(r.error);
         })();

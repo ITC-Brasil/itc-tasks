@@ -56,6 +56,7 @@ import {
   glpiUrl,
 } from "./badges";
 import { CommentBody, CommentEditor } from "./comment-editor";
+import { statusToast } from "./status-toast";
 import { DeleteTasksDialog } from "./delete-tasks-dialog";
 import { RecurringMark } from "./task-card";
 import { Dependencies, openBlockers } from "./dependencies";
@@ -131,7 +132,17 @@ export function TaskDetail({
     startTransition(async () => {
       apply(patch);
       const result = await fn();
-      if (!result.ok) toast.error(result.error);
+      if (!result.ok) return void toast.error(result.error);
+      // Módulo 18: mudou o status → toast com Desfazer (e convite a comentar, se concluiu)
+      const to = patch.statusId && options.statuses.find((s) => s.id === patch.statusId);
+      if (to && patch.statusId !== task.statusId)
+        statusToast(router, {
+          taskId: task.id,
+          number: task.number,
+          statusName: to.name,
+          done: to.category === "done" && task.category !== "done",
+          eventId: typeof result.data === "string" ? result.data : null,
+        });
     });
   }
   const save = (patch: UpdateTaskInput & Patch) =>
@@ -771,6 +782,7 @@ function Activity({
           </ol>
         )}
         <CommentEditor
+          id="comentar"
           people={options.people}
           submitLabel="Comentar"
           onSubmit={async (doc) => done(await addCommentAction(task.id, task.number, doc))}
