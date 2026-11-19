@@ -43,17 +43,16 @@ export const LATE_KEY = new Map<string, keyof LateCounts>([
 
 /**
  * Selo `err`/`on-err` (ADR-039) que leva à tela com o filtro Atrasadas. Link próprio, irmão do
- * item (link dentro de link não vale). `dot`: trilho recolhido, ponto com o número no tooltip.
+ * item (link dentro de link não vale). No trilho recolhido também com o número (item 21), no
+ * formato do selo de notificações.
  */
 export function LateBadge({
   href,
   count,
-  dot = false,
   className,
 }: {
   href: string;
   count: number;
-  dot?: boolean;
   className?: string;
 }) {
   if (count <= 0) return null;
@@ -65,11 +64,11 @@ export function LateBadge({
       title={label}
       className={cn(
         "rounded-full bg-err font-semibold text-on-err tabular-nums focus-visible:ring-3 focus-visible:ring-accent-light focus-visible:outline-none",
-        dot ? "size-2.5" : "px-1.5 text-[11px] leading-[18px]",
+        "px-1.5 text-[11px] leading-[18px]",
         className,
       )}
     >
-      {!dot && (count > 99 ? "99+" : count)}
+      {count > 99 ? "99+" : count}
     </Link>
   );
 }

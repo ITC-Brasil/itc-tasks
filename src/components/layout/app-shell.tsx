@@ -239,10 +239,9 @@ export function AppShell({
                   <LateBadge
                     href={item.href}
                     count={lateCount}
-                    dot={!expanded}
                     className={cn(
                       "absolute",
-                      expanded ? "top-1/2 right-2 -translate-y-1/2" : "top-1.5 right-1.5",
+                      expanded ? "top-1/2 right-2 -translate-y-1/2" : "top-0 right-0",
                     )}
                   />
                 </div>
