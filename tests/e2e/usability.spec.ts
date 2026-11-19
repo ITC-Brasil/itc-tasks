@@ -192,6 +192,36 @@ test("explicação das abas: tooltip ao focar a aba e o item do menu (item 14)",
   ).toBeVisible();
 });
 
+test("barra em uma linha no desktop; em Minhas Tarefas a busca abre do ícone (M-171)", async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(isMobile, "no celular a barra quebra");
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await login(page);
+  const tabs = page.getByRole("navigation", { name: "Abas" });
+  const views = page.getByRole("navigation", { name: "Visões" });
+  const filters = page.getByRole("button", { name: /^Filtros/ });
+  const top = async (l: typeof tabs) => Math.round((await l.boundingBox())!.y);
+  const mid = async (l: typeof tabs) => {
+    const b = (await l.boundingBox())!;
+    return b.y + b.height / 2;
+  };
+  expect(Math.abs((await mid(filters)) - (await mid(views)))).toBeLessThan(8);
+  expect(await top(tabs)).toBeLessThan(await mid(filters));
+  const search = page.getByRole("searchbox", { name: "Buscar tarefas" });
+  await expect(search).toHaveCount(0);
+  await page.getByRole("button", { name: "Buscar" }).click();
+  await expect(search).toBeFocused();
+  await search.press("Escape");
+  await expect(page.getByRole("button", { name: "Buscar" })).toBeVisible();
+  await expect(async () => {
+    await page.keyboard.press("/");
+    await expect(search).toBeFocused({ timeout: 1000 });
+  }).toPass();
+  await axeBothThemes(page);
+});
+
 test("menu sem rolagem horizontal em 1366×768, recolhido e expandido (item 15)", async ({
   page,
 }) => {
