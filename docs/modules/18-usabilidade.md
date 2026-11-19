@@ -39,18 +39,15 @@ Escolhas feitas sem o Matheus, sempre a mais conservadora. Cada uma diz onde mud
     Equipe, sem abas, a linha 1 tem só o seletor à direita. Em Minhas Tarefas a linha de filtros
     tem só "Atrasadas" (o chip removível da primeira versão saiu). Estado aberto/fechado em
     `localStorage`, atalho `F`.
-11. **Texto da aba "Minhas tarefas"** (não estava na M-164): "Tudo o que você tem a resolver: as
-    pessoais e as da equipe atribuídas a você." Os outros textos batem com a regra. Equipe não tem
-    abas: nada a aplicar lá.
-12. **Evento da edição de subtarefa** (item 19): reaproveita `checklist_changed` com
+11. **Evento da edição de subtarefa** (item 19): reaproveita `checklist_changed` com
     `action: "edited"` e `from`, em vez do tipo novo `checklist_item_updated` (sem mexer nos tipos
     nem nas preferências). Criar com subtarefas grava só o evento `created` (itens na mesma
     transação).
-13. **Lixeira vermelha** (item 20): variante `ghost-destructive` do Button em ciclos/marcos,
+12. **Lixeira vermelha** (item 20): variante `ghost-destructive` do Button em ciclos/marcos,
     recorrências, subtarefas, vínculos e dependências. Ficaram de fora "Remover ação" do formulário
     de automação (não apaga dado salvo) e os botões com texto "Excluir" (secundários, com diálogo
     destrutivo).
-14. **Itens 5 e 6, e 8 e 9 da interface,** saíram em um commit cada par: mexem no mesmo `TaskCard` /
+13. **Itens 5 e 6, e 8 e 9 da interface,** saíram em um commit cada par: mexem no mesmo `TaskCard` /
     no mesmo toast.
 
 ### Para o Cowork atualizar o Design System

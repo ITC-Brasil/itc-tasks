@@ -26,7 +26,7 @@ const TABS = [
   {
     aba: "minhas",
     label: "Minhas tarefas",
-    about: "Tudo o que você tem a resolver: as pessoais e as da equipe atribuídas a você.",
+    about: "Suas tarefas pessoais e as da equipe atribuídas a você.",
   },
   { aba: "pessoais", label: "Pessoais", about: "Tarefas só suas. Ninguém mais vê, nem o admin." },
   {
