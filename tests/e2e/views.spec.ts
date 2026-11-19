@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { axeBothThemes, createTask, login } from "./session";
+import { axeBothThemes, createTask, login, openFilters } from "./session";
 
 const email = process.env.SEED_ADMIN_EMAIL;
 const password = process.env.SEED_ADMIN_PASSWORD;
@@ -17,6 +17,7 @@ test("Kanban move o card, filtros vão para a URL e a Lista atualiza em massa", 
 
   // filtro por Projeto/Cliente na URL
   await page.goto("/tarefas/lista");
+  await openFilters(page); // Módulo 18: linha recolhida
   await page.getByLabel("Projeto/Cliente").click();
   await page.getByRole("option", { name: "QMPR · QMPR" }).click();
   await page.keyboard.press("Escape");
@@ -111,6 +112,7 @@ test("Kanban: mover para Aguardando pelo teclado (ADR-067)", async ({ page }) =>
   await createTask(page, title, "QMPR · QMPR");
   // com o filtro do projeto o quadro fica leve, como no teste acima
   await page.goto("/tarefas/lista");
+  await openFilters(page); // Módulo 18: linha recolhida
   await page.getByLabel("Projeto/Cliente").click();
   await page.getByRole("option", { name: "QMPR · QMPR" }).click();
   await page.keyboard.press("Escape");

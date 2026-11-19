@@ -1,10 +1,10 @@
 import { expect, type Page, test } from "@playwright/test";
-import { axeBothThemes, login } from "./session";
+import { axeBothThemes, login, openFilters } from "./session";
 
 // Módulo 18 — usabilidade do Kanban e da navegação
 test.beforeEach(({ isMobile }) => test.skip(isMobile, "Kanban e navegação: desktop"));
 
-const PROJECT = "QMPR · QMPR";
+const PROJECT = "BSBIA · BSBIA"; // fora do QMPR, que o views.spec limpa e arrasta
 
 /** Criação rápida da equipe com prazo; devolve o número (do toast). */
 async function teamTask(page: Page, title: string, due?: string) {
@@ -132,6 +132,7 @@ test("ordem por prazo, borda de atrasada, compacto no Concluído, contador e Atr
     .locator('a[href="/tarefas?atrasadas=1"]')
     .click();
   await page.waitForURL(/\/tarefas\?atrasadas=1/);
+  await openFilters(page); // Módulo 18: linha recolhida
   await expect(page.getByRole("checkbox", { name: "Atrasadas" })).toBeChecked();
   await page.getByRole("searchbox", { name: "Buscar tarefas" }).fill(`ordem ${run}`);
   await page.waitForURL(/q=ordem/);
@@ -158,8 +159,11 @@ test("ordem por prazo, borda de atrasada, compacto no Concluído, contador e Atr
   const expand = doneColumn.getByRole("button", { name: `Expandir TI-${sooner}` });
   await expect(expand).toHaveAttribute("aria-expanded", "false");
   await expect(doneColumn.getByText(/^Concluída por /)).toBeAttached();
-  await expand.click();
-  await expect(doneColumn.getByRole("button", { name: `Recolher TI-${sooner}` })).toBeVisible();
+  const collapse = doneColumn.getByRole("button", { name: `Recolher TI-${sooner}` });
+  await expect(async () => {
+    if (await expand.count()) await expand.click(); // logo depois do reload, antes da hidratação
+    await expect(collapse).toBeVisible({ timeout: 1000 });
+  }).toPass();
   await expect(doneColumn.getByRole("link", { name: "Ver concluídas anteriores" })).toHaveAttribute(
     "href",
     /\/tarefas\/lista\?status=/,

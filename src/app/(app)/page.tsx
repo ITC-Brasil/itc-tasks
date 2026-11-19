@@ -1,4 +1,4 @@
-import { CalendarDays, Columns3, Inbox, List, ListChecks, Lock, Sun, X } from "lucide-react";
+import { Inbox, ListChecks, Lock, Sun } from "lucide-react";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Suspense } from "react";
@@ -7,7 +7,7 @@ import { CreateTaskButton } from "@/components/tasks/quick-create";
 import { MonthCalendar } from "@/components/tasks/calendar";
 import { Board } from "@/components/tasks/board";
 import { NoResults } from "@/components/tasks/no-results";
-import { SearchField } from "@/components/tasks/search-field";
+import { OverdueToggle, ViewToolbar } from "@/components/tasks/view-toolbar";
 import { TaskTable } from "@/components/tasks/task-table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { dueKey, isOverdue, shortDate, todayISO } from "@/lib/dates";
@@ -30,9 +30,9 @@ const TABS = [
 
 // Módulo 16: o modo vai na URL (?visao=); sem o parâmetro, Kanban (substitui os Cards por prazo)
 const VIEWS = [
-  { visao: "", label: "Kanban", icon: Columns3 },
-  { visao: "lista", label: "Lista", icon: List },
-  { visao: "calendario", label: "Calendário", icon: CalendarDays },
+  { visao: "", label: "Kanban", icon: "kanban" },
+  { visao: "lista", label: "Lista", icon: "list" },
+  { visao: "calendario", label: "Calendário", icon: "calendar" },
 ] as const;
 type Visao = (typeof VIEWS)[number]["visao"];
 
@@ -81,55 +81,36 @@ async function Mine({ searchParams }: PageProps<"/">) {
   tasks.sort((a, b) => dueKey(a.dueDate, a.dueTime).localeCompare(dueKey(b.dueDate, b.dueTime)));
 
   const nav = (
-    <div className="mb-4 flex flex-wrap items-end gap-x-4 gap-y-2 border-b">
-      <nav aria-label="Abas" className="flex flex-wrap gap-1">
-        {TABS.map((t) => (
-          <Link
-            key={t.label}
-            href={hrefOf(t.aba, visao, search, late)}
-            aria-current={t.aba === aba ? "page" : undefined}
-            className={cn(
-              "-mb-px border-b-2 px-3 py-2 text-sm",
-              t.aba === aba
-                ? "border-accent font-medium text-accent-text"
-                : "border-transparent text-muted",
-            )}
-          >
-            {t.label}
-          </Link>
-        ))}
-      </nav>
-      <span className="flex-1" />
-      {late && (
-        <Link
-          href={hrefOf(aba, visao, search)}
-          aria-label="Tirar o filtro Atrasadas"
-          className="mb-1.5 inline-flex h-7 items-center gap-1 rounded-sm border px-2 text-sm"
-        >
-          Atrasadas
-          <X className="size-3.5" strokeWidth={1.75} aria-hidden="true" />
-        </Link>
-      )}
-      <div className="mb-1.5">
-        <SearchField />
-      </div>
-      <nav aria-label="Visões" className="mb-1.5 flex gap-1">
-        {VIEWS.map((v) => (
-          <Link
-            key={v.label}
-            href={hrefOf(aba, v.visao, search, late)}
-            aria-current={v.visao === visao ? "page" : undefined}
-            className={cn(
-              "inline-flex h-7 items-center gap-1.5 rounded-sm px-2 text-sm",
-              v.visao === visao ? "bg-accent-light font-medium text-accent-text" : "text-muted",
-            )}
-          >
-            <v.icon className="size-4" strokeWidth={1.75} aria-hidden="true" />
-            {v.label}
-          </Link>
-        ))}
-      </nav>
-    </div>
+    <ViewToolbar
+      tabs={
+        <nav aria-label="Abas" className="flex flex-wrap gap-1">
+          {TABS.map((t) => (
+            <Link
+              key={t.label}
+              href={hrefOf(t.aba, visao, search, late)}
+              aria-current={t.aba === aba ? "page" : undefined}
+              className={cn(
+                "-mb-px border-b-2 px-3 py-2 text-sm",
+                t.aba === aba
+                  ? "border-accent font-medium text-accent-text"
+                  : "border-transparent text-muted",
+              )}
+            >
+              {t.label}
+            </Link>
+          ))}
+        </nav>
+      }
+      views={VIEWS.map((v) => ({
+        label: v.label,
+        icon: v.icon,
+        href: hrefOf(aba, v.visao, search, late),
+        active: v.visao === visao,
+      }))}
+      filterCount={late ? 1 : 0}
+    >
+      <OverdueToggle />
+    </ViewToolbar>
   );
 
   if (visao === "calendario") {
@@ -143,7 +124,7 @@ async function Mine({ searchParams }: PageProps<"/">) {
     return (
       <main className="flex min-w-0 flex-1 flex-col">
         {/* o calendário e a tabela trazem o próprio respiro: a barra fica sem margem de baixo */}
-        <div className="px-4 pt-4 md:px-6 md:pt-6 [&>div]:mb-0">{nav}</div>
+        {nav}
         <MonthCalendar
           month={month}
           tasks={tasks}
@@ -179,7 +160,7 @@ async function Mine({ searchParams }: PageProps<"/">) {
     const options = tasks.length ? await getTaskFormOptionsAction() : null;
     return (
       <main className="flex min-w-0 flex-1 flex-col">
-        <div className="px-4 pt-4 md:px-6 md:pt-6 [&>div]:mb-0">{nav}</div>
+        {nav}
         {hoje && todaySubtasks.length > 0 && (
           <div className="px-4 pt-4 md:px-6">
             <TodaySubtasks subtasks={todaySubtasks} />
@@ -199,7 +180,7 @@ async function Mine({ searchParams }: PageProps<"/">) {
   const statuses = tasks.length ? await listStatuses(actor) : [];
   return (
     <main className="flex min-w-0 flex-1 flex-col">
-      <div className="px-4 pt-4 md:px-6 md:pt-6 [&>div]:mb-0">{nav}</div>
+      {nav}
       {hoje && todaySubtasks.length > 0 && (
         <div className="px-4 pt-4 md:px-6">
           <TodaySubtasks subtasks={todaySubtasks} />

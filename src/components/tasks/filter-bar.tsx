@@ -1,7 +1,6 @@
 "use client";
 
-import { Bookmark, CalendarDays, Columns3, List, X } from "lucide-react";
-import Link from "next/link";
+import { Bookmark, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -22,8 +21,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
-import { SearchField } from "./search-field";
+import { ViewToolbar } from "./view-toolbar";
 import {
   FILTER_PARAMS,
   type TaskFilters,
@@ -45,9 +43,9 @@ export const VIEW_PATH: Record<View, string> = {
   calendar: "/tarefas/calendario",
 };
 const VIEW_TABS = [
-  { view: "kanban", label: "Kanban", icon: Columns3 },
-  { view: "list", label: "Lista", icon: List },
-  { view: "calendar", label: "Calendário", icon: CalendarDays },
+  { view: "kanban", label: "Kanban" },
+  { view: "list", label: "Lista" },
+  { view: "calendar", label: "Calendário" },
 ] as const;
 
 type Saved = { id: string; name: string; view: string; filters: TaskFilters };
@@ -115,24 +113,18 @@ export function FilterBar({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b bg-surface px-4 py-2 md:px-6">
-      <SearchField />
-      <nav aria-label="Visões" className="flex rounded-md border p-0.5">
-        {VIEW_TABS.map((t) => (
-          <Link
-            key={t.view}
-            href={current ? `${VIEW_PATH[t.view]}?${current}` : VIEW_PATH[t.view]}
-            aria-current={t.view === view ? "page" : undefined}
-            className={cn(
-              "inline-flex h-7 items-center gap-1.5 rounded-sm px-2 text-sm",
-              t.view === view ? "bg-accent-light font-medium text-accent-text" : "text-muted",
-            )}
-          >
-            <t.icon className="size-4" strokeWidth={1.75} aria-hidden="true" />
-            {t.label}
-          </Link>
-        ))}
-      </nav>
+    <ViewToolbar
+      views={VIEW_TABS.map((t) => ({
+        label: t.label,
+        icon: t.view,
+        href: current ? `${VIEW_PATH[t.view]}?${current}` : VIEW_PATH[t.view],
+        active: t.view === view,
+      }))}
+      filterCount={
+        Object.values(FILTER_PARAMS).filter((f) => f !== "q" && Reflect.get(filters, f)?.length)
+          .length
+      }
+    >
       {view !== "kanban" && pick("Status", "statusIds", items.statuses)}
       {pick("Responsável", "assigneeIds", items.people.slice(1))}
       {pick("Projeto/Cliente", "projectIds", items.projects)}
@@ -175,7 +167,6 @@ export function FilterBar({
           <X aria-hidden="true" /> Limpar filtros
         </Button>
       )}
-      <span className="flex-1" />
       <DropdownMenu>
         <DropdownMenuTrigger render={<Button variant="outline" size="sm" disabled={pending} />}>
           <Bookmark aria-hidden="true" /> {active ? active.name : "Filtros salvos"}
@@ -232,6 +223,6 @@ export function FilterBar({
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+    </ViewToolbar>
   );
 }

@@ -38,7 +38,7 @@ export function SearchField() {
   }, [value, fromUrl, params, pathname, router]);
 
   return (
-    <div className="relative w-64 max-md:w-full">
+    <div className="relative w-[280px] max-md:w-full">
       <Search
         className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted"
         strokeWidth={1.75}
