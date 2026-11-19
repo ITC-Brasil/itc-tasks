@@ -635,6 +635,8 @@ async function applyUpdate(
   actor: Actor,
   current: Task,
   data: ReturnType<typeof updateTaskSchema.parse>,
+  // ADR-082: o Desfazer devolve a previsão antiga do Aguardando, mesmo que já tenha passado
+  { restoring = false }: { restoring?: boolean } = {},
 ) {
   data = patchDueTime(data, current);
   // ADR-045: confere a combinação resultante de projetos e UMs
@@ -789,7 +791,7 @@ async function applyUpdate(
           waitingNote: "waitingNote" in data ? (data.waitingNote ?? null) : before.waitingNote,
           waitingUntil: "waitingUntil" in data ? (data.waitingUntil ?? null) : before.waitingUntil,
         },
-        wasWaiting ? before : null,
+        wasWaiting ? before : restoring ? (data as Waiting) : null,
       );
       Object.assign(set, after);
       if (!wasWaiting) statusExtra.waiting = after;
@@ -891,6 +893,71 @@ export async function moveTask(
   return db.transaction(async (tx) =>
     applyUpdate(tx, actor, await lockTask(tx, taskId, actor), data),
   );
+}
+
+/** ADR-082: id da última mudança de status da tarefa feita por esta pessoa (para o Desfazer). */
+export async function lastStatusEventId(actor: Actor, taskId: string) {
+  if (actor.kind !== "user") return null;
+  const [row] = await db
+    .select({ id: taskEvents.id })
+    .from(taskEvents)
+    .where(
+      and(
+        eq(taskEvents.taskId, taskId),
+        eq(taskEvents.type, "status_changed"),
+        eq(taskEvents.actorKind, "user"),
+        eq(taskEvents.actorUserId, actor.userId),
+      ),
+    )
+    .orderBy(desc(taskEvents.createdAt))
+    .limit(1);
+  return row?.id ?? null;
+}
+
+export const UNDO_STALE = "A tarefa mudou desde então";
+
+/**
+ * ADR-082: volta o status de uma mudança feita pela própria pessoa, se nada aconteceu na tarefa
+ * depois dela. Evento novo (task_events é só-inserção); restaura o Aguardando do evento.
+ */
+export async function undoStatusChange(actor: Actor, taskId: string, eventId: string) {
+  if (actor.kind !== "user") throw new ForbiddenError();
+  return db.transaction(async (tx) => {
+    const current = await lockTask(tx, taskId, actor);
+    const [ev] = await tx
+      .select()
+      .from(taskEvents)
+      .where(and(eq(taskEvents.id, eventId), eq(taskEvents.taskId, current.id)));
+    if (
+      !ev ||
+      ev.type !== "status_changed" ||
+      ev.actorKind !== "user" ||
+      ev.actorUserId !== actor.userId
+    )
+      throw new TaskError("NOT_FOUND", "Nada a desfazer");
+    const [later] = await tx
+      .select({ id: taskEvents.id })
+      .from(taskEvents)
+      // no SQL: o Date do JS corta os microssegundos e o próprio evento pareceria "depois"
+      .where(
+        and(
+          eq(taskEvents.taskId, current.id),
+          sql`${taskEvents.createdAt} > (SELECT e.created_at FROM ${taskEvents} e WHERE e.id = ${ev.id})`,
+        ),
+      )
+      .limit(1);
+    const payload = ev.payload as { from?: string; to?: string; waitingCleared?: Waiting };
+    if (later || current.statusId !== payload.to || !payload.from)
+      throw new TaskError("VALIDATION", UNDO_STALE);
+    const waiting = payload.waitingCleared;
+    return applyUpdate(
+      tx,
+      actor,
+      current,
+      updateTaskSchema.parse({ statusId: payload.from, ...waiting }),
+      { restoring: !!waiting },
+    );
+  });
 }
 
 /** Move para o primeiro status `done`; idempotente (API.md › complete_task). */
