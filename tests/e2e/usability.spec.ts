@@ -191,3 +191,38 @@ test("explicação das abas: tooltip ao focar a aba e o item do menu (item 14)",
     page.getByText(/Suas tarefas pessoais e as da equipe atribuídas a você\./),
   ).toBeVisible();
 });
+
+test("menu sem rolagem horizontal em 1366×768, recolhido e expandido (item 15)", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await login(page);
+  const nav = page.getByRole("navigation", { name: "Navegação principal" });
+  const fits = () => nav.evaluate((el) => el.scrollWidth <= el.clientWidth);
+  for (let i = 0; i < 2; i++) {
+    expect(await fits()).toBe(true);
+    await page.keyboard.press("["); // o outro estado (recolhido ↔ expandido)
+    await page.waitForTimeout(300);
+  }
+});
+
+test("Calendário: título “de” minúsculo e bordas iguais nas duas telas (item 16)", async ({
+  page,
+}) => {
+  await login(page);
+  const cells = async (url: string) => {
+    await page.goto(url);
+    await expect(
+      page.getByRole("heading", { level: 2, name: /^[A-ZÇ][a-zç]+ de \d{4}$/ }),
+    ).toBeVisible();
+    return page
+      .locator("ol.grid-cols-7 > li")
+      .evaluateAll(
+        (els) => els.filter((e) => getComputedStyle(e).borderBottomWidth === "1px").length,
+      );
+  };
+  const mine = await cells("/?visao=calendario&mes=2026-11");
+  const team = await cells("/tarefas/calendario?mes=2026-11");
+  expect(mine).toBe(team);
+  expect(mine).toBeGreaterThan(30);
+});
