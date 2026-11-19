@@ -178,3 +178,23 @@ it("Kanban com busca traz também as concluídas antigas que casam (Módulo 18)"
     [`antigaz${run}`],
   );
 });
+
+it("pessoal concluída continua em Minhas Tarefas (Kanban e Lista), fora da Equipe (item 12)", async () => {
+  const { mineScope } = await import("@/server/views");
+  const t = await createTask(me, {
+    title: `pessoal feita ${run}`,
+    projectIds: [],
+    visibility: "personal",
+  });
+  await completeTask(me, t.id);
+  for (const aba of ["minhas", "pessoais"])
+    for (const visao of ["", "lista", "calendario"]) {
+      const { tasks: rows } = await listTasks(me, {}, mineScope(aba, visao, me.userId));
+      expect(
+        rows.map((r) => r.id),
+        `${aba}/${visao}`,
+      ).toContain(t.id);
+    }
+  const team = await listTasks(me, {}, { recentDone: true });
+  expect(team.tasks.map((r) => r.id)).not.toContain(t.id);
+});

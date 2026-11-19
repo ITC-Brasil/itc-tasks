@@ -16,6 +16,7 @@ import { requireUser } from "@/server/actor";
 import { getTaskFormOptionsAction } from "@/server/actions/tasks";
 import { listStatuses } from "@/server/services/catalog";
 import { listChecklistDue, listTasks } from "@/server/services/tasks";
+import { mineScope } from "@/server/views";
 
 // ADR-069: a aba vai na URL (?aba=); Módulo 16: sem o parâmetro, "Hoje"
 const TABS = [
@@ -26,22 +27,6 @@ const TABS = [
   { aba: "criadas", label: "Criadas" },
   { aba: "mencoes", label: "Menções" },
 ];
-type Scope = NonNullable<Parameters<typeof listTasks>[2]>;
-/** O que cada aba lista; o service ainda aplica o visibleTo(actor) em todas. */
-function scopeOf(aba: unknown, userId: string): Scope {
-  switch (aba) {
-    case "pessoais": // criadas pela pessoa e visíveis só para ela
-      return { visibility: "personal" };
-    case "atribuidas": // da equipe, atribuídas à pessoa
-      return { assigneeId: userId };
-    case "criadas": // da equipe, criadas pela pessoa (as pessoais ficam na aba própria)
-      return { creatorId: userId };
-    case "mencoes":
-      return { mentionedUserId: userId };
-    default: // Hoje e Minhas tarefas: as pessoais (sempre dela) e as da equipe com ela
-      return { visibility: "all", assigneeId: userId };
-  }
-}
 
 // Módulo 16: o modo vai na URL (?visao=); sem o parâmetro, Kanban (substitui os Cards por prazo)
 const VIEWS = [
@@ -69,18 +54,12 @@ async function Mine({ searchParams }: PageProps<"/">) {
   const visao: Visao = VIEWS.find((v) => v.visao === params.visao)?.visao ?? "";
   const today = todayISO();
   const search = typeof params.q === "string" ? params.q.trim().slice(0, 100) : "";
-  // Lista: só o que falta resolver (ou só as concluídas, com ?concluidas=1); Kanban: abertas e
-  // concluídas dos últimos 14 dias (Módulo 18); Calendário: tudo
   const doneOnly = visao === "lista" && params.concluidas === "1";
   const late = params.atrasadas === "1"; // Módulo 18: filtro Atrasadas (atalho no contador)
   const { tasks: listed } = await listTasks(
     actor,
     { q: search ? [search] : [], overdue: late ? ["1"] : [] },
-    {
-      ...scopeOf(aba, actor.userId),
-      openOnly: visao === "lista" && !doneOnly,
-      recentDone: visao === "",
-    },
+    mineScope(aba, visao, actor.userId),
   );
   const scoped = doneOnly ? listed.filter((t) => t.category === "done") : listed;
   // Módulo 16, aba Hoje: com prazo até hoje (atrasadas e de hoje) e as subtarefas abertas idem
