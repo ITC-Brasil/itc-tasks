@@ -21,6 +21,7 @@ import { NAV, type NavItem, isActive } from "./nav";
 import { savePreference } from "./save-preference";
 import { CommandPalette } from "./command-palette";
 import { LiveRefresh } from "./live-refresh";
+import { RememberOrigin } from "./back-link";
 import { OfflineBanner, Pwa, useOnline } from "./pwa";
 import { ShortcutsDialog, useGoTo, useShortcut } from "./shortcuts";
 import { UserMenu } from "./user-menu";
@@ -320,6 +321,7 @@ export function AppShell({
       <QuickCreate />
       <CommandPalette isAdmin={profile.role === "admin"} />
       <LiveRefresh userId={profile.id} />
+      <RememberOrigin />
       <Pwa />
     </div>
   );
