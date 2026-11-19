@@ -136,6 +136,8 @@ export function describe(type: string, p: Payload, names: Names): string | null 
     case "checklist_changed":
       if (p.action === "due_set" && p.dueDate)
         return `definiu o prazo da subtarefa “${p.text ?? ""}” para ${brDate(p.dueDate)}${p.dueTime ? ` ${p.dueTime}` : ""}`;
+      if (p.action === "edited" && typeof p.from === "string")
+        return `editou a subtarefa “${p.from}” → “${p.text ?? ""}”`;
       return `${CHECK.get(p.action ?? "") ?? "alterou a subtarefa"} “${p.text ?? ""}”`;
     case "link_added":
       return `vinculou: ${LINK.get(p.kind ?? "") ?? p.kind} TI-${p.target}`;

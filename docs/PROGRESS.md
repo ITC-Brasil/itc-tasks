@@ -4,6 +4,10 @@
 
 > Sobrescrito a cada passagem de sessão. Não é registro permanente.
 
+- **Módulo 18 (usabilidade do Kanban e da navegação, `PROMPT_MODULO_18.md`):** os 11 itens do prompt e os itens 12 a 21 acrescentados em 18/11/2026 (M-163: 12 e 13; M-164: 14; M-165: complemento do 13; M-166: 15; M-167: 16; M-168: 17 a 19; M-169: 20 e 21) prontos na `feat/18-usabilidade`, com merge na `develop` (ADR-081 a ADR-083, sem migração). À espera da revisão do Cowork; PR só depois do "Módulo 18 aprovado". Decisões a confirmar no topo de `docs/modules/18-usabilidade.md`.
+- **Depois do pull (Módulo 18):** nada a rodar (sem migração, seed ou dependência nova).
+- **Aviso do build:** o `npm run build` local parou em 18/11/2026 com o alerta do Next.js de vulnerabilidade conhecida na versão instalada; nenhum upgrade feito; decidir com o Matheus.
+
 - **Módulo 17 (recorrência, Aguardando com motivo e dependências, `PROMPT_MODULO_17.md`):** os 3 itens na `develop` em 18/11/2026 (ADR-077 a ADR-080); aprovado com ajustes (M-158): decisões a confirmar aceitas, menos a 8 (substituída pelo ADR-080, automação para Aguardando); ajustes 1 a 4 feitos (A1 e A3 corrigidas); consulta do auto-vínculo em produção deu 0 (a `0023` passa). Aprovado (M-160); PR `develop → main` aberto, o merge publica em produção.
 - **Depois do pull (Módulo 17):** `npm run db:migrate` (`0021_task_recurrences`, `0022_waiting_fields`, `0023_task_links_no_self`) e reiniciar o worker (job `recurrence.daily` às 06:00). Sem seed nem dependência nova.
 
@@ -33,6 +37,7 @@
 
 | Data | Módulo | Resumo |
 |---|---|---|
+| 2026-11-18 | 18 — Usabilidade (itens 1 a 21) | ADR-081 (Kanban em ordem automática, sem gravar `position`), ADR-082 (Desfazer de status pelo service, só o autor e só se for o último evento), ADR-083 (Voltar pela origem em `sessionStorage`); Minhas Tarefas/Equipe; toast opaco, um por vez; borda de atrasada e Concluído compacto de 14 dias; busca `?q=` (critério do ⌘K); contador e `?atrasadas=1`; itens acrescentados (M-163 a M-169): pessoal concluída em Minhas Tarefas, barra única com filtros recolhíveis, explicação das abas, trilho sem rolagem, Calendário com bordas reais, canto do toast, subtarefas na criação, edição do texto da subtarefa (MCP `checklistEdit`), `ghost-destructive`, número de atrasadas no trilho. Vitest 233 (42 arquivos); E2E `usability.spec.ts` e `tabs-mobile.spec.ts`. Detalhes: `docs/modules/18-usabilidade.md`. |
 | 2026-11-18 | 17 — Revisão (M-158) | ADR-080: automação "Mover para o status" com destino Aguardando guarda motivo e previsão "daqui a N dias"; desativar membro pausa as recorrências dele (A1); excluir a última bloqueadora aberta gera `unblocked`; exclusão e CTE de ciclo só seguem vínculos de mesma visibilidade (A3). Vitest 218 (38 arquivos). |
 | 2026-11-18 | 17 — Item 3: dependências | ADR-079: `task_links.blocks` como dependência (`0023_task_links_no_self`), sem ciclo (CTE + advisory lock), equipe × pessoal recusado sem vazar, eventos nos dois lados, `unblocked` → aviso `status_changed`, cascade com evento, seção Dependências com busca, `BlockedMark`, `?bloqueada=1`, MCP `blockedBy`/`blocks`/`blockedByAdd`/`blockedByRemove`. E2E `dependencies.spec.ts`. |
 | 2026-11-18 | 17 — Item 2: Aguardando com motivo | ADR-078: `waiting_reason`/`waiting_note`/`waiting_until` (`0022_waiting_fields`), obrigatórios ao entrar no Aguardando em todas as entradas (detalhe, Kanban, massa, criação, MCP), limpos ao sair com o histórico, lembrete `due_today` com `data.waiting`, previsão vencida em `warn`, `?motivo=`. E2E `waiting.spec.ts` e `views.spec.ts`. |

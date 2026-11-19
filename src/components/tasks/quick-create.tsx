@@ -23,6 +23,7 @@ import {
   createTaskAction,
   getTaskFormOptionsAction,
 } from "@/server/actions/tasks";
+import { ChecklistDraft } from "./checklist-draft";
 import { DescriptionEditor } from "./description-editor";
 import { Pick, PickMany, optionItems } from "./fields";
 
@@ -264,6 +265,7 @@ export function QuickCreate() {
               + Adicionar descrição
             </Button>
           )}
+          <ChecklistDraft value={form.checklist} onChange={(v) => set("checklist", v)} />
           {items ? (
             <>
               <PickMany
@@ -347,9 +349,6 @@ export function QuickCreate() {
                   value={form.involvedIds}
                   onChange={(v) => set("involvedIds", v)}
                 />
-              )}
-              {!!form.checklist.length && (
-                <p className="text-sm text-muted">{form.checklist.length} subtarefas do template</p>
               )}
             </>
           ) : (

@@ -333,7 +333,7 @@ it("escrita por quem não vê: NOT_FOUND em todos os caminhos, até para o admin
       expect(p, who).rejects.toThrow(/não encontrada|não tem acesso|Só pessoas/);
     await refused(updateTask(actor, personal.id, { title: "invadida" }));
     await refused(completeTask(actor, personal.id));
-    await refused(moveTask(actor, personal.id, { statusId: personal.statusId, afterTaskId: null }));
+    await refused(moveTask(actor, personal.id, { statusId: personal.statusId }));
     await refused(bulkUpdateTasks(actor, { taskIds: [personal.id], patch: { priority: "high" } }));
     await refused(addComment(actor, personal.id, doc));
     await refused(addChecklistItem(actor, personal.id, "x"));

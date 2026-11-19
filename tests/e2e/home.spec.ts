@@ -24,8 +24,8 @@ test("Início: nome, aba Hoje com Atrasadas e Hoje, subtarefa e atalhos", async 
   test.slow();
   const run = Date.now();
   await login(page);
-  await expect(page).toHaveTitle("Início · ITC Tasks");
-  await expect(page.getByRole("heading", { name: "Início", level: 1 })).toBeVisible();
+  await expect(page).toHaveTitle("Minhas Tarefas · ITC Tasks");
+  await expect(page.getByRole("heading", { name: "Minhas Tarefas", level: 1 })).toBeVisible();
   const tabs = page.getByRole("navigation", { name: "Abas" }).getByRole("link");
   await expect(tabs).toHaveText([
     "Hoje",

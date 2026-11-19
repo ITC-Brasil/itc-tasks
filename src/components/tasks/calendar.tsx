@@ -41,11 +41,13 @@ export function MonthCalendar({
     ),
     (s) => s.dueDate,
   );
-  const title = new Date(`${month}-01T12:00:00Z`).toLocaleDateString("pt-BR", {
+  const long = new Date(`${month}-01T12:00:00Z`).toLocaleDateString("pt-BR", {
     month: "long",
     year: "numeric",
     timeZone: "UTC",
   });
+  // "Novembro de 2026": maiúscula só na primeira letra (o `capitalize` do CSS fazia "De")
+  const title = long.charAt(0).toUpperCase() + long.slice(1);
   const byDay = Map.groupBy(
     tasks
       .filter((t) => t.dueDate)
@@ -56,7 +58,7 @@ export function MonthCalendar({
   return (
     <div className="p-4 md:p-6">
       <div className="mb-3 flex items-center gap-2">
-        <h2 className="text-h3 capitalize">{title}</h2>
+        <h2 className="text-h3">{title}</h2>
         <span className="flex-1" />
         <Link
           href={href(shiftMonth(month, -1))}
@@ -80,7 +82,8 @@ export function MonthCalendar({
         </Link>
       </div>
       <div className="overflow-x-auto">
-        <ol className="grid min-w-[720px] grid-cols-7 overflow-hidden rounded-md border bg-border gap-px">
+        {/* Módulo 18: bordas reais nas células; o vão de 1 px do gap sumia com posição fracionária */}
+        <ol className="grid min-w-[720px] grid-cols-7 overflow-hidden rounded-md border-t border-l [&>li]:border-r [&>li]:border-b">
           {WEEKDAYS.map((d) => (
             <li
               key={d}

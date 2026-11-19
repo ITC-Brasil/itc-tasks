@@ -187,7 +187,6 @@ export const deleteTasksSchema = z.object({ taskIds: z.array(uuid).min(1).max(20
 
 export const moveTaskSchema = z.object({
   statusId: uuid,
-  afterTaskId: uuid.nullable(), // null = topo da coluna
   waitingReason: fields.waitingReason,
   waitingNote: fields.waitingNote,
   waitingUntil: fields.waitingUntil,
@@ -248,6 +247,8 @@ export const FILTER_PARAMS = {
   envolvido: "involvedIds", // ADR-073
   motivo: "waitingReasons", // ADR-078
   bloqueada: "blocked", // ADR-079: "1" = só as com bloqueadora aberta
+  atrasadas: "overdue", // Módulo 18: "1" = só as atrasadas (fora Concluído e Aguardando)
+  q: "q", // Módulo 18: busca por título/descrição ou TI-123 (a do ⌘K); vale o primeiro valor
 } as const;
 const many = <T extends z.ZodType>(item: T) =>
   z
@@ -264,6 +265,8 @@ export const taskFiltersSchema = z.object({
   involvedIds: many(uuid),
   waitingReasons: many(z.enum(WAITING_REASONS)),
   blocked: many(z.literal("1")),
+  overdue: many(z.literal("1")),
+  q: many(z.string().trim().min(1).max(100)),
 });
 export type TaskFilters = z.output<typeof taskFiltersSchema>;
 

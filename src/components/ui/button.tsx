@@ -12,6 +12,9 @@ const buttonVariants = cva(
         outline: "border-border bg-surface shadow-1 hover:bg-muted aria-expanded:bg-muted",
         secondary: "border-border bg-surface shadow-1 hover:bg-muted aria-expanded:bg-muted",
         ghost: "text-accent-text hover:bg-accent-light aria-expanded:bg-accent-light",
+        // Módulo 18, item 20: excluir de verdade; neutro em repouso, ícone em `err` no hover/foco
+        "ghost-destructive":
+          "text-muted hover:bg-muted hover:text-err focus-visible:text-err aria-expanded:bg-muted aria-expanded:text-err",
         destructive: "bg-err font-semibold text-on-err hover:bg-err/90 focus-visible:ring-err/20",
         link: "text-accent-text underline-offset-4 hover:underline",
       },

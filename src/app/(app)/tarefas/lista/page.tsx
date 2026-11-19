@@ -2,13 +2,13 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Topbar } from "@/components/layout/topbar";
 import { FilterBar } from "@/components/tasks/filter-bar";
-import { LimitNotice, NoResults } from "@/components/tasks/no-results";
+import { LimitNotice, NoResults, clearSearch } from "@/components/tasks/no-results";
 import { CreateTaskButton } from "@/components/tasks/quick-create";
 import { TaskTable } from "@/components/tasks/task-table";
 import { requireActor } from "@/server/actor";
 import { loadView } from "@/server/views";
 
-export const metadata: Metadata = { title: "Lista · ITC Tasks" };
+export const metadata: Metadata = { title: "Lista · Equipe · ITC Tasks" };
 
 async function View({ searchParams }: PageProps<"/tarefas/lista">) {
   const [{ filters, tasks, truncated, options, saved, today }, actor] = await Promise.all([
@@ -22,7 +22,10 @@ async function View({ searchParams }: PageProps<"/tarefas/lista">) {
       {tasks.length ? (
         <TaskTable tasks={tasks} options={options} today={today} viewer={actor} />
       ) : (
-        <NoResults href="/tarefas/lista" />
+        <NoResults
+          href={filters.q.length ? clearSearch("/tarefas/lista", filters) : "/tarefas/lista"}
+          query={filters.q[0]}
+        />
       )}
     </main>
   );
@@ -31,7 +34,7 @@ async function View({ searchParams }: PageProps<"/tarefas/lista">) {
 export default function ListPage(props: PageProps<"/tarefas/lista">) {
   return (
     <>
-      <Topbar title="Tarefas">
+      <Topbar title="Equipe">
         <CreateTaskButton />
       </Topbar>
       <Suspense>

@@ -103,6 +103,12 @@ export const mcpUpdateTask = {
     .array(z.object({ index: z.number().int().min(0), done: z.boolean() }))
     .max(50)
     .optional(),
+  // Módulo 18, item 19: texto da subtarefa pelo índice
+  checklistEdit: z
+    .array(z.object({ index: z.number().int().min(0), text: z.string().trim().min(1).max(200) }))
+    .max(50)
+    .optional()
+    .describe("novo texto da subtarefa pelo índice"),
   checklistDue: z
     .array(
       z.object({

@@ -348,7 +348,9 @@ function DeleteRecurrence({ rule }: { rule: RecurrenceRow }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
-        render={<Button variant="ghost" size="icon-sm" aria-label={`Excluir ${rule.name}`} />}
+        render={
+          <Button variant="ghost-destructive" size="icon-sm" aria-label={`Excluir ${rule.name}`} />
+        }
       >
         <Trash2 strokeWidth={1.75} aria-hidden="true" />
       </DialogTrigger>

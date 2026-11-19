@@ -2670,3 +2670,101 @@ sempre, com registro em `automation_runs`.
 
 **Consequences**
 - `automation_rules.actions` é JSON; o campo novo não pede migração.
+
+## ADR-081 — Ordenação automática do Kanban
+
+**Status:** Accepted
+**Date:** 2026-11-18
+**Module:** 18 — item 1
+
+**Context**
+Desde o Módulo 05 a coluna do Kanban segue `tasks.position` (ordem manual por arraste, fractional
+index) e o que entra vai para o fim. Com 4 pessoas, ninguém mantém essa ordem: o urgente se perde
+no meio da coluna.
+
+**Decision**
+- A ordem da coluna é calculada, igual em todas as visões Kanban (Minhas Tarefas e Equipe):
+  1. com prazo primeiro, por prazo crescente (atrasadas no topo); com hora (ADR-072) a hora
+     desempata dentro do dia, sem hora conta como fim do dia (`dueKey`);
+  2. no mesmo prazo, prioridade da maior para a menor;
+  3. depois `created_at` mais recente; por fim `number` (ordem estável);
+  4. sem prazo no fim, por prioridade e `created_at` mais recente;
+  5. coluna da categoria `done`: `completed_at` mais recente primeiro.
+- Uma só função, `compareKanban` em `src/lib/kanban-order.ts`, aplicada pelo `Board` (o único
+  componente de Kanban, nas duas telas) ao montar as colunas e depois de cada arraste, com teste
+  unitário. Fica em TypeScript, não em SQL: o quadro precisa da regra no cliente para reordenar
+  na hora, e o `listTasks` serve também a Lista, que não muda.
+- Arrastar entre colunas muda o status; arrastar dentro da mesma coluna não faz nada (o card
+  volta à posição calculada).
+- `position` deixa de ser gravado ao mudar de status (`moveTask` e `applyUpdate`). A coluna
+  continua no banco (migrações só aditivas) e na criação, sem efeito na leitura.
+- Lista e Calendário não mudam.
+
+**Alternatives considered**
+- Ordem manual com "fixar no topo": mais um conceito para 4 pessoas. Recusada.
+- `ORDER BY` no SQL: a mesma regra teria de existir também no cliente. Recusada.
+
+**Consequences**
+- `moveTask` não recebe mais `afterTaskId`; o MCP não expunha ordem.
+- A ordem manual antiga some sem migração de dados.
+
+## ADR-082 — Desfazer mudança de status
+
+**Status:** Accepted
+**Date:** 2026-11-18
+**Module:** 18 — item 9
+
+**Context**
+Arrastar para a coluna errada ou concluir por engano exige abrir a tarefa e voltar o status à mão.
+`task_events` é só-inserção (ADR-003), então desfazer não pode apagar o evento.
+
+**Decision**
+- Mudar status pela UI (arraste no Kanban, seletor no detalhe) e concluir pela UI devolvem o id
+  do evento `status_changed`; o toast traz "Desfazer" por 6 s.
+- `undoStatusChange(actor, taskId, eventId)` no service: trava a tarefa com `lockTask` (mesma
+  visibilidade de quem edita), confere que o evento é `status_changed` dessa tarefa, feito pela
+  mesma pessoa (ator `user` com o mesmo `userId`), e que é o **último evento da tarefa**. Se houve
+  qualquer evento depois (outra pessoa, automação, comentário), recusa com "A tarefa mudou desde
+  então".
+- A volta é uma mudança de status comum (`applyUpdate`), com ator `user` e evento novo. Se o
+  status anterior era Aguardando, restaura motivo, texto e previsão (ADR-078) a partir do
+  `waitingCleared` do evento.
+- Efeitos já disparados não são desfeitos: notificação "concluída", automações, `unblocked` de
+  dependentes (ADR-079), e-mail ou push. A volta gera os próprios eventos (e avisos) normais.
+- Ação em massa e MCP: sem Desfazer.
+
+**Alternatives considered**
+- Comparar `updated_at`: o próprio toast não sabe o valor pós-commit sem mais um campo; o "último
+  evento" cobre também mudanças que não tocam `updated_at`. Escolhido o evento.
+- Deixar qualquer pessoa desfazer: o toast só aparece para quem mudou; restringir no service
+  evita que um id de evento alheio desfaça o trabalho de outra pessoa.
+
+**Consequences**
+- O histórico mostra a ida e a volta, como duas mudanças.
+
+## ADR-083 — Origem do botão Voltar guardada na aba
+
+**Status:** Accepted
+**Date:** 2026-11-18
+**Module:** 18 — item 2
+
+**Context**
+O detalhe da tarefa precisa voltar para a lista de onde a pessoa veio, com os filtros da URL. Os
+links para `/tarefas/<n>` estão em muitos lugares (card, tabela, calendário, ⌘K, notificações,
+dependências); passar `?de=` em todos espalha a regra e cria um parâmetro de redirecionamento.
+
+**Decision**
+- Um componente no layout grava em `sessionStorage` (por aba) o caminho e a busca da última visão
+  de lista: `/` (Minhas Tarefas), `/tarefas` (Equipe), `/tarefas/lista`, `/tarefas/calendario`.
+  Qualquer outra tela, fora o detalhe, apaga a origem.
+- O botão Voltar lê a origem e só aceita caminho exato da lista acima (sem `//`, sem esquema); a
+  busca é refeita com `URLSearchParams`. Sem origem válida (link direto, nova aba, notificação,
+  e-mail), vai para Minhas Tarefas (`/`).
+- Rótulo pelo destino: "Minhas Tarefas", "Equipe", "Lista", "Calendário".
+
+**Alternatives considered**
+- `?de=` em cada link: mais pontos de mudança e validação de redirecionamento. Recusada.
+- `history.back()`: perde o destino quando a pessoa chega por link direto. Recusada.
+
+**Consequences**
+- Sem parâmetro na URL, não há redirecionamento aberto.

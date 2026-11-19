@@ -15,12 +15,15 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { QuickCreate, openQuickCreate } from "@/components/tasks/quick-create";
 import { Avatar } from "@/components/ui/avatar";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { setSidebarCollapsedAction } from "@/server/actions/preferences";
 import { NAV, type NavItem, isActive } from "./nav";
 import { savePreference } from "./save-preference";
 import { CommandPalette } from "./command-palette";
+import { LATE_KEY, LateBadge, type LateCounts, useLateCounts } from "./late-badge";
 import { LiveRefresh } from "./live-refresh";
+import { RememberOrigin } from "./back-link";
 import { OfflineBanner, Pwa, useOnline } from "./pwa";
 import { ShortcutsDialog, useGoTo, useShortcut } from "./shortcuts";
 import { UserMenu } from "./user-menu";
@@ -44,14 +47,22 @@ const subscribeWide = (cb: () => void) => {
 export function AppShell({
   profile,
   unread,
+  late: lateFromServer,
   children,
 }: {
   profile: ShellProfile;
   /** não lidas da central (ADR-050) */
   unread: number;
+  /** Módulo 18: atrasadas de Minhas Tarefas e da Equipe */
+  late: LateCounts;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const late = useLateCounts(lateFromServer);
+  const lateOf = (href: string) => {
+    const key = LATE_KEY.get(href);
+    return key ? late[key] : 0;
+  };
   const router = useRouter();
   const { resolvedTheme, setTheme } = useTheme();
   const [collapsed, setCollapsed] = useState(profile.sidebarCollapsed);
@@ -93,7 +104,7 @@ export function AppShell({
   useShortcut("[", toggle);
   useShortcut("?", showShortcuts);
   const go = (href: string) => () => router.push(href);
-  // Módulo 16: "Minhas tarefas" virou "Início"; G M continua e G I também leva para lá
+  // Módulo 16: "Minhas tarefas" virou "Início" e o Módulo 18 voltou a "Minhas Tarefas"; G M e G I levam para lá
   useGoTo("m", go("/"));
   useGoTo("i", go("/"));
   useGoTo("t", go("/tarefas"));
@@ -101,7 +112,7 @@ export function AppShell({
   useGoTo("n", go("/notificacoes"));
   // V + tecla: nas visões de Tarefas, mantendo os filtros da URL (UI.md §5)
   const inTasks = VIEWS.has(pathname);
-  // no Início ("/") os mesmos atalhos trocam ?visao= e mantêm a aba (Módulo 15)
+  // em Minhas Tarefas ("/") os mesmos atalhos trocam ?visao= e mantêm a aba (Módulo 15)
   const mine = (visao: string) => () => {
     const q = new URLSearchParams(window.location.search);
     if (visao) q.set("visao", visao);
@@ -141,7 +152,7 @@ export function AppShell({
       <nav
         aria-label="Navegação principal"
         className={cn(
-          "hidden h-dvh flex-none flex-col gap-0.5 overflow-y-auto border-r bg-surface px-2.5 py-3.5 md:flex",
+          "hidden h-dvh flex-none flex-col gap-0.5 overflow-x-hidden overflow-y-auto [scrollbar-width:thin] border-r bg-surface px-2.5 py-3.5 md:flex",
           "max-lg:fixed max-lg:inset-y-0 max-lg:left-0 max-lg:z-40 lg:sticky lg:top-0",
           overlay ? "w-sidebar-width shadow-2" : "max-lg:w-sidebar-collapsed",
           !overlay && (collapsed ? "lg:w-sidebar-collapsed" : "lg:w-sidebar-width"),
@@ -177,15 +188,16 @@ export function AppShell({
               ))}
             {g.items.map((item) => {
               const active = isActive(pathname, item);
-              return (
+              const lateCount = lateOf(item.href);
+              const link = (
                 <Link
                   key={item.href}
                   href={item.href}
                   aria-current={active ? "page" : undefined}
-                  title={expanded ? undefined : item.label}
+                  title={expanded || item.about ? undefined : item.label}
                   className={cn(
                     "relative flex h-[34px] items-center gap-2.5 rounded-md px-2 text-sm hover:bg-muted",
-                    !expanded && "h-10 w-11 justify-center px-0",
+                    !expanded && "h-10 w-full justify-center px-0",
                     active &&
                       "bg-accent-light font-semibold text-accent-text hover:bg-accent-light",
                   )}
@@ -209,6 +221,31 @@ export function AppShell({
                   )}
                 </Link>
               );
+              const tipped = item.about ? (
+                <Tooltip key={item.href}>
+                  <TooltipTrigger render={link} />
+                  <TooltipContent side="right">
+                    {expanded ? item.about : `${item.label}: ${item.about}`}
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                link
+              );
+              if (!lateCount) return tipped;
+              // o selo é link próprio (filtro Atrasadas), irmão do item
+              return (
+                <div key={item.href} className="relative">
+                  {tipped}
+                  <LateBadge
+                    href={item.href}
+                    count={lateCount}
+                    className={cn(
+                      "absolute",
+                      expanded ? "top-1/2 right-2 -translate-y-1/2" : "top-0 right-0",
+                    )}
+                  />
+                </div>
+              );
             })}
           </div>
         ))}
@@ -221,7 +258,7 @@ export function AppShell({
           aria-keyshortcuts="["
           className={cn(
             "flex h-[34px] items-center gap-2.5 rounded-md px-2 text-left text-sm text-muted hover:bg-muted hover:text-base",
-            !expanded && "h-10 w-11 justify-center px-0",
+            !expanded && "h-10 w-full justify-center px-0",
           )}
         >
           {expanded ? (
@@ -246,7 +283,7 @@ export function AppShell({
               title={expanded ? undefined : profile.name}
               className={cn(
                 "flex h-11 items-center gap-2.5 rounded-md px-2 text-left hover:bg-muted",
-                !expanded && "w-11 justify-center px-0",
+                !expanded && "w-full justify-center px-0",
               )}
             >
               <Avatar initials={profile.initials} size="lg" />
@@ -285,7 +322,12 @@ export function AppShell({
         className="fixed inset-x-0 bottom-0 z-30 flex h-[calc(4rem+env(safe-area-inset-bottom))] items-start justify-around border-t bg-surface pb-[env(safe-area-inset-bottom)] md:hidden"
       >
         {BAR_ITEMS.slice(0, 2).map((item) => (
-          <BarLink key={item.href} item={item} active={isActive(pathname, item)} />
+          <BarLink
+            key={item.href}
+            item={item}
+            active={isActive(pathname, item)}
+            late={lateOf(item.href)}
+          />
         ))}
         <button
           type="button"
@@ -320,6 +362,7 @@ export function AppShell({
       <QuickCreate />
       <CommandPalette isAdmin={profile.role === "admin"} />
       <LiveRefresh userId={profile.id} />
+      <RememberOrigin />
       <Pwa />
     </div>
   );
@@ -328,23 +371,26 @@ export function AppShell({
 const BAR_CLASS =
   "flex h-16 min-w-14 flex-col items-center justify-center gap-0.5 text-[11px] font-medium text-muted";
 const BAR_ITEMS: NavItem[] = [
-  { href: "/", label: "Início", icon: House },
-  { href: "/tarefas", label: "Tarefas", icon: Columns3 },
+  { href: "/", label: "Minhas Tarefas", icon: House },
+  { href: "/tarefas", label: "Equipe", icon: Columns3 },
   { href: "/ciclos", label: "Ciclo", icon: RefreshCw },
 ];
 const VIEWS = new Set(["/tarefas", "/tarefas/lista", "/tarefas/calendario"]);
 const BAR = new Set(BAR_ITEMS.map((i) => i.href));
 
-function BarLink({ item, active }: { item: NavItem; active: boolean }) {
+function BarLink({ item, active, late = 0 }: { item: NavItem; active: boolean; late?: number }) {
   return (
-    <Link
-      href={item.href}
-      aria-current={active ? "page" : undefined}
-      className={cn(BAR_CLASS, active && "font-semibold text-accent-text")}
-    >
-      <item.icon className="size-[22px]" aria-hidden="true" />
-      {item.label}
-    </Link>
+    <div className="relative">
+      <Link
+        href={item.href}
+        aria-current={active ? "page" : undefined}
+        className={cn(BAR_CLASS, active && "font-semibold text-accent-text")}
+      >
+        <item.icon className="size-[22px]" aria-hidden="true" />
+        {item.label}
+      </Link>
+      <LateBadge href={item.href} count={late} className="absolute top-1 right-0" />
+    </div>
   );
 }
 

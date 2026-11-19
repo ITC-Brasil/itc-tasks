@@ -26,7 +26,7 @@ export default function manifest(): MetadataRoute.Manifest {
     ]),
     shortcuts: [
       { name: "Criar tarefa", short_name: "Criar", url: "/?criar=1", icons: [icon(192, "any")] },
-      { name: "Início", short_name: "Início", url: "/", icons: [icon(192, "any")] },
+      { name: "Minhas Tarefas", short_name: "Minhas", url: "/", icons: [icon(192, "any")] },
     ],
   };
 }
