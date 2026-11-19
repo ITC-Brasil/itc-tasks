@@ -79,7 +79,12 @@ beforeAll(async () => {
     status[category] =
       existing.find((x) => x.category === category)?.id ??
       (await createStatus(system, { name: `${category} ${run}`, category })).id;
-  await drain(); // jobs de outros arquivos não contam
+  // jobs de outros arquivos (e de execuções anteriores) não contam: só marca como vistos, sem
+  // avaliar; o banco de teste não é zerado e avaliar centenas estourava o tempo do hook
+  const old = await db.execute<{ id: string }>(
+    sql`SELECT id FROM pgboss.job WHERE name = 'automation.evaluate'`,
+  );
+  for (const j of old.rows) done.add(j.id);
 });
 
 // cada teste liga só as próprias regras
