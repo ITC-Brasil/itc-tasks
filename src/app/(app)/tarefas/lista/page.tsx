@@ -8,7 +8,7 @@ import { TaskTable } from "@/components/tasks/task-table";
 import { requireActor } from "@/server/actor";
 import { loadView } from "@/server/views";
 
-export const metadata: Metadata = { title: "Lista · ITC Tasks" };
+export const metadata: Metadata = { title: "Lista · Equipe · ITC Tasks" };
 
 async function View({ searchParams }: PageProps<"/tarefas/lista">) {
   const [{ filters, tasks, truncated, options, saved, today }, actor] = await Promise.all([
@@ -31,7 +31,7 @@ async function View({ searchParams }: PageProps<"/tarefas/lista">) {
 export default function ListPage(props: PageProps<"/tarefas/lista">) {
   return (
     <>
-      <Topbar title="Tarefas">
+      <Topbar title="Equipe">
         <CreateTaskButton />
       </Topbar>
       <Suspense>

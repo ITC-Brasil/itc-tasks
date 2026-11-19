@@ -7,7 +7,7 @@ import { FilterBar } from "@/components/tasks/filter-bar";
 import { CreateTaskButton } from "@/components/tasks/quick-create";
 import { loadView } from "@/server/views";
 
-export const metadata: Metadata = { title: "Kanban · ITC Tasks" };
+export const metadata: Metadata = { title: "Equipe · ITC Tasks" };
 
 async function View({ searchParams }: PageProps<"/tarefas">) {
   const { filters, tasks, truncated, options, saved, today } = await loadView(searchParams, {
@@ -25,7 +25,7 @@ async function View({ searchParams }: PageProps<"/tarefas">) {
 export default function KanbanPage(props: PageProps<"/tarefas">) {
   return (
     <>
-      <Topbar title="Tarefas">
+      <Topbar title="Equipe">
         <CreateTaskButton />
       </Topbar>
       <Suspense>

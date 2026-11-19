@@ -257,13 +257,13 @@ function TodaySubtasks({ subtasks }: { subtasks: DueSubtask[] }) {
   );
 }
 
-// Módulo 16: "Minhas tarefas" virou "Início"; a URL continua "/" (sem redirect a manter)
-export const metadata: Metadata = { title: "Início · ITC Tasks" };
+// Módulo 18: "Início" virou "Minhas Tarefas"; a URL continua "/" (sem redirect a manter)
+export const metadata: Metadata = { title: "Minhas Tarefas · ITC Tasks" };
 
 export default function Home(props: PageProps<"/">) {
   return (
     <>
-      <Topbar title="Início">
+      <Topbar title="Minhas Tarefas">
         <CreateTaskButton />
       </Topbar>
       <Suspense>

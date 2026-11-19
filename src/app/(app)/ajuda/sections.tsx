@@ -158,13 +158,13 @@ function PrimeiroAcesso() {
 
 function TelaPrincipal() {
   return (
-    <Section id="tela-principal" n="02" kicker="A tela principal" title="Início e o menu lateral">
+    <Section id="tela-principal" n="02" kicker="A tela principal" title="Minhas Tarefas e o menu lateral">
       <p>
-        Ao entrar você cai no <b>Início</b>, na aba <b>Hoje</b>: as suas tarefas e subtarefas que
+        Ao entrar você cai em <b>Minhas Tarefas</b>, na aba <b>Hoje</b>: as suas tarefas e subtarefas que
         vencem hoje e as atrasadas, as atrasadas primeiro. As outras abas e os modos Kanban, Lista e
         Calendário estão em{" "}
         <a href="#pessoais" className="text-accent-text underline">
-          Tarefas pessoais e o Início
+          Tarefas pessoais e Minhas Tarefas
         </a>
         .
       </p>
@@ -173,7 +173,7 @@ function TelaPrincipal() {
           [
             "Menu lateral",
             <>
-              Início, Tarefas, Ciclos, Marcos, Painel, Notificações e Templates; abaixo,
+              Minhas Tarefas, Equipe, Ciclos, Marcos, Painel, Notificações e Templates; abaixo,
               Configurações (administrador) ou Agentes e MCP e Minhas preferências (membro). Recolha
               ou expanda com <Kbd>[</Kbd>.
             </>,
@@ -600,7 +600,7 @@ function Celular() {
   return (
     <Section id="celular" n="11" kicker="No celular" title="O mesmo app, no bolso">
       <p>
-        No celular o menu vira uma barra inferior com <b>Minhas</b>, <b>Tarefas</b>, <b>Criar</b>,{" "}
+        No celular o menu vira uma barra inferior com <b>Minhas</b>, <b>Equipe</b>, <b>Criar</b>,{" "}
         <b>Ciclo</b> e <b>Mais</b>. Em Mais ficam as outras telas, o tema, os atalhos, esta ajuda e
         Sair. O Kanban mostra uma coluna por vez (deslize para o lado) e a criação abre num painel
         de baixo.
@@ -670,7 +670,7 @@ function Pessoais() {
     <Section
       id="pessoais"
       n="14"
-      kicker="Tarefas pessoais e o Início"
+      kicker="Tarefas pessoais e Minhas Tarefas"
       title="O que é só seu e tudo o que está com você"
     >
       <p>
@@ -713,7 +713,7 @@ function Pessoais() {
           ],
         ]}
       />
-      <h3 className="text-h3">Abas do Início</h3>
+      <h3 className="text-h3">Abas de Minhas Tarefas</h3>
       <Table
         head={["Aba", "Mostra"]}
         rows={[
@@ -734,9 +734,9 @@ function Pessoais() {
       <p>
         Em qualquer aba, escolha <b>Kanban</b>, <b>Lista</b> ou <b>Calendário</b> no canto direito,
         ou use <Kbd>V</Kbd> <Kbd>K</Kbd>, <Kbd>V</Kbd> <Kbd>L</Kbd> e <Kbd>V</Kbd> <Kbd>C</Kbd>. No
-        Kanban, arrastar o card entre colunas muda o status, como em Tarefas. A aba e o modo ficam
+        Kanban, arrastar o card entre colunas muda o status, como em Equipe. A aba e o modo ficam
         no endereço da página. No Calendário aparecem também as subtarefas abertas com prazo. Para
-        chegar ao Início de qualquer tela: <Kbd>G</Kbd> <Kbd>I</Kbd> (ou o antigo <Kbd>G</Kbd>{" "}
+        chegar a Minhas Tarefas de qualquer tela: <Kbd>G</Kbd> <Kbd>I</Kbd> (ou o antigo <Kbd>G</Kbd>{" "}
         <Kbd>M</Kbd>).
       </p>
       <h3 className="text-h3">Prazo com horário e envolvidos</h3>
@@ -812,6 +812,6 @@ export const SECTIONS = [
   { id: "celular", title: "No celular", C: Celular },
   { id: "atalhos", title: "Atalhos de teclado", C: Atalhos },
   { id: "papeis", title: "Papéis e cadastros", C: Papeis },
-  { id: "pessoais", title: "Tarefas pessoais e o Início", C: Pessoais },
+  { id: "pessoais", title: "Tarefas pessoais e Minhas Tarefas", C: Pessoais },
   { id: "rotinas", title: "Recorrências, Aguardando e dependências", C: Rotinas },
 ];

@@ -93,7 +93,7 @@ export function AppShell({
   useShortcut("[", toggle);
   useShortcut("?", showShortcuts);
   const go = (href: string) => () => router.push(href);
-  // Módulo 16: "Minhas tarefas" virou "Início"; G M continua e G I também leva para lá
+  // Módulo 16: "Minhas tarefas" virou "Início" e o Módulo 18 voltou a "Minhas Tarefas"; G M e G I levam para lá
   useGoTo("m", go("/"));
   useGoTo("i", go("/"));
   useGoTo("t", go("/tarefas"));
@@ -101,7 +101,7 @@ export function AppShell({
   useGoTo("n", go("/notificacoes"));
   // V + tecla: nas visões de Tarefas, mantendo os filtros da URL (UI.md §5)
   const inTasks = VIEWS.has(pathname);
-  // no Início ("/") os mesmos atalhos trocam ?visao= e mantêm a aba (Módulo 15)
+  // em Minhas Tarefas ("/") os mesmos atalhos trocam ?visao= e mantêm a aba (Módulo 15)
   const mine = (visao: string) => () => {
     const q = new URLSearchParams(window.location.search);
     if (visao) q.set("visao", visao);
@@ -328,8 +328,8 @@ export function AppShell({
 const BAR_CLASS =
   "flex h-16 min-w-14 flex-col items-center justify-center gap-0.5 text-[11px] font-medium text-muted";
 const BAR_ITEMS: NavItem[] = [
-  { href: "/", label: "Início", icon: House },
-  { href: "/tarefas", label: "Tarefas", icon: Columns3 },
+  { href: "/", label: "Minhas Tarefas", icon: House },
+  { href: "/tarefas", label: "Equipe", icon: Columns3 },
   { href: "/ciclos", label: "Ciclo", icon: RefreshCw },
 ];
 const VIEWS = new Set(["/tarefas", "/tarefas/lista", "/tarefas/calendario"]);

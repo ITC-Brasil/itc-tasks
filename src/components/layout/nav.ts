@@ -29,8 +29,8 @@ export type NavGroup = { label?: string; items: NavItem[] };
 export const NAV: NavGroup[] = [
   {
     items: [
-      { href: "/", label: "Início", icon: House },
-      { href: "/tarefas", label: "Tarefas", icon: Columns3 },
+      { href: "/", label: "Minhas Tarefas", icon: House },
+      { href: "/tarefas", label: "Equipe", icon: Columns3 },
       { href: "/ciclos", label: "Ciclos", icon: RefreshCw },
       { href: "/marcos", label: "Marcos", icon: Flag },
       { href: "/painel", label: "Painel", icon: ChartColumn },
