@@ -11,7 +11,6 @@ import {
   completeTask,
   createTask,
   firstStatus,
-  lastStatusEventId,
   moveTask,
   undoStatusChange,
   updateTask,
@@ -54,8 +53,7 @@ const statusEvents = (taskId: string) =>
 
 it("desfaz a conclusão com evento novo, sem apagar o original", async () => {
   const t = await fresh();
-  await completeTask(ana, t.id);
-  const eventId = (await lastStatusEventId(ana, t.id))!;
+  const eventId = (await completeTask(ana, t.id)).statusEventId!;
   const back = await undoStatusChange(ana, t.id, eventId);
   expect(back.statusId).toBe(todoId);
   expect(back.completedAt).toBeNull();
@@ -72,8 +70,7 @@ it("restaura motivo, texto e previsão do Aguardando, mesmo com a previsão venc
   });
   const past = addDays(todayISO(), -3);
   await db.update(tasks).set({ waitingUntil: past }).where(eq(tasks.id, t.id));
-  await completeTask(ana, t.id);
-  const back = await undoStatusChange(ana, t.id, (await lastStatusEventId(ana, t.id))!);
+  const back = await undoStatusChange(ana, t.id, (await completeTask(ana, t.id)).statusEventId!);
   expect(back).toMatchObject({
     statusId: waitingId,
     waitingReason: "other",
@@ -84,8 +81,7 @@ it("restaura motivo, texto e previsão do Aguardando, mesmo com a previsão venc
 
 it("recusa quando a tarefa mudou depois, ou quando o evento é de outra pessoa", async () => {
   const t = await fresh();
-  await completeTask(ana, t.id);
-  const eventId = (await lastStatusEventId(ana, t.id))!;
+  const eventId = (await completeTask(ana, t.id)).statusEventId!;
   await expect(undoStatusChange(bia, t.id, eventId)).rejects.toThrow("Nada a desfazer");
   await updateTask(bia, t.id, { priority: "high" });
   await expect(undoStatusChange(ana, t.id, eventId)).rejects.toThrow(UNDO_STALE);
@@ -94,8 +90,7 @@ it("recusa quando a tarefa mudou depois, ou quando o evento é de outra pessoa",
 
 it("agente não desfaz", async () => {
   const t = await fresh();
-  await completeTask(ana, t.id);
-  const eventId = (await lastStatusEventId(ana, t.id))!;
+  const eventId = (await completeTask(ana, t.id)).statusEventId!;
   const agent: Actor = {
     kind: "agent",
     userId: ana.userId,
@@ -103,4 +98,13 @@ it("agente não desfaz", async () => {
     role: "member",
   } as Actor;
   await expect(undoStatusChange(agent, t.id, eventId)).rejects.toThrow();
+});
+
+it("sem mudança de status, nada a desfazer (não aponta para mudança antiga)", async () => {
+  const t = await fresh();
+  await completeTask(ana, t.id);
+  const done = (await db.select().from(tasks).where(eq(tasks.id, t.id)))[0].statusId;
+  expect((await moveTask(ana, t.id, { statusId: done })).statusEventId).toBeNull();
+  expect((await updateTask(ana, t.id, { statusId: done })).statusEventId).toBeNull();
+  expect((await completeTask(ana, t.id)).statusEventId).toBeNull();
 });
